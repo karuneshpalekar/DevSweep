@@ -61,6 +61,19 @@ Light and dark mode follow your Mac, or pick one in the sidebar.
 | Projects | `node_modules`, virtualenvs and Pods in projects untouched for 30 days |
 | Browsers and AI models | Chrome/Edge/Brave caches, Chrome's on-device model, Whisper, Hugging Face, PyTorch |
 
+## Install
+
+Download the latest `.dmg` from [Releases](https://github.com/karuneshpalekar/DevSweep/releases),
+open it, and drag DevSweep to Applications.
+
+Releases aren't notarized by Apple (that needs a paid developer account), so
+macOS asks you to allow DevSweep the first time:
+
+- **macOS 14:** right-click DevSweep in Applications, choose **Open**, then **Open** again.
+- **macOS 15 and later:** try to open it, then click **Open Anyway** in System
+  Settings, Privacy & Security.
+- **Or:** `xattr -dr com.apple.quarantine /Applications/DevSweep.app`
+
 ## Build and run
 
 Requires macOS 14+, Xcode 15.3+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
@@ -132,6 +145,16 @@ folders), `orphanedAppData`, `orphanedLaunchServices`, `androidSystemImages`,
 
 Good rules are conservative. If you're not sure something is safe, label it
 `holdsData` and say why in `explain`.
+
+## Releasing
+
+Write `docs/release-notes/<version>.md`, commit, then run
+`scripts/release.sh <version>`. It builds a Release, packages a DMG with a
+checksum, tags the commit and publishes a GitHub release.
+
+Builds are ad-hoc signed. If a **Developer ID Application** certificate and
+notary credentials (`xcrun notarytool store-credentials devsweep ...`) are
+in the keychain, the script signs with Developer ID and notarizes instead.
 
 ## Updating the screenshots
 
