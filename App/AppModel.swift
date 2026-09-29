@@ -7,6 +7,7 @@ enum SidebarItem: Hashable {
     case overview
     case all
     case category(DevSweepCore.Category)
+    case runtimes
     case history
     case ignored
 }
@@ -30,6 +31,11 @@ final class AppModel {
     var isCleaning = false
     var cleanStatus = ""
     var outcomes: [ActionOutcome]?
+
+    var versions: VersionsResult?
+    var isCheckingVersions = false
+    var versionsStatus = ""
+    var selectedRuntimeID: String?
 
     var historyEntries: [HistoryEntry] = []
     var ignoredIDs: Set<String> = []
@@ -111,6 +117,45 @@ final class AppModel {
             }
             #endif
         }
+    }
+
+    // MARK: - Runtimes and versions
+
+    func checkVersions() {
+        guard !isCheckingVersions else { return }
+        isCheckingVersions = true
+        versionsStatus = "Starting"
+        let report: @Sendable (String) -> Void = { [self] s in Task { @MainActor in self.versionsStatus = s } }
+        Task {
+            let result = await Task.detached { await RuntimeScanner().scan(progress: report) }.value
+            versions = result
+            if let id = selectedRuntimeID, !allRuntimeIDs.contains(id) { selectedRuntimeID = nil }
+            isCheckingVersions = false
+        }
+    }
+
+    var allRuntimeIDs: [String] {
+        guard let v = versions else { return [] }
+        return v.runtimes.map(\.id) + (v.homebrew != nil ? ["homebrew"] : []) + (v.macOS != nil ? ["macos"] : [])
+    }
+
+    func toggleRuntime(_ id: String) {
+        selectedRuntimeID = selectedRuntimeID == id ? nil : id
+    }
+
+    func runInTerminal(_ step: RuntimeStep) {
+        do { try TerminalRunner.run(step) } catch { errorMessage = error.localizedDescription }
+    }
+
+    /// Critical and warning issues across runtimes, for Overview.
+    var versionAlerts: [(id: String, issue: RuntimeIssue)] {
+        guard let v = versions else { return [] }
+        var out: [(String, RuntimeIssue)] = []
+        for r in v.runtimes + [v.macOS].compactMap({ $0 }) {
+            out += r.issues.filter { $0.level != .info }.map { (r.id, $0) }
+        }
+        if let b = v.homebrew { out += b.issues.filter { $0.level != .info }.map { ("homebrew", $0) } }
+        return out.sorted { ($0.1.level == .critical ? 0 : 1) < ($1.1.level == .critical ? 0 : 1) }
     }
 
     // MARK: - Cleaning

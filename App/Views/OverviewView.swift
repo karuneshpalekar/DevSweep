@@ -19,6 +19,7 @@ struct OverviewView: View {
                         .controlSize(.large)
                         .disabled(model.findings.isEmpty)
                 }
+                attention
                 categories
                 biggest
                 if !model.ruleErrors.isEmpty {
@@ -73,6 +74,38 @@ struct OverviewView: View {
                     Text("\(SizeFormat.string(d.total)) total").foregroundStyle(.secondary)
                 }
                 DiskBar(disk: d, cleanable: model.totalSize, height: 14)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var attention: some View {
+        let alerts = Array(model.versionAlerts.prefix(5))
+        if !alerts.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text("Needs attention").font(.headline).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Runtimes and versions") { model.selection = .runtimes }.buttonStyle(.link)
+                }
+                .padding(.bottom, 8)
+                ForEach(Array(alerts.enumerated()), id: \.offset) { _, alert in
+                    Button {
+                        model.selection = .runtimes
+                        model.selectedRuntimeID = alert.id
+                    } label: {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: alert.issue.level.symbol).foregroundStyle(alert.issue.level.color)
+                            Text(alert.issue.text).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                        }
+                        .padding(.vertical, 8)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    Divider()
+                }
             }
         }
     }

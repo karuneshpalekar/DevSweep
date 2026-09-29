@@ -89,7 +89,7 @@ struct HistoryRow: View {
         } else if entry.actionKind == .delete || entry.actionKind == .command {
             tag("Rebuilds itself", .secondary)
         } else {
-            tag("Trash emptied", .secondary)
+            tag("No longer in the Trash", .secondary)
         }
     }
 

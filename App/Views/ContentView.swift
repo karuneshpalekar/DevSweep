@@ -18,6 +18,7 @@ struct ContentView: View {
                 Group {
                     switch model.selection ?? .overview {
                     case .overview: OverviewView()
+                    case .runtimes: RuntimesView()
                     case .history: HistoryView()
                     case .ignored: IgnoredView()
                     case .all, .category: FindingsView(item: model.selection ?? .all)
@@ -31,9 +32,12 @@ struct ContentView: View {
         // fragile in NavigationSplitView on macOS 14.
         .toolbar {
             ToolbarItem {
-                Button { model.scan() } label: { Label("Scan again", systemImage: "arrow.clockwise") }
-                    .help(model.isScanning ? "Scanning…" : "Scan again")
-                    .disabled(model.isScanning)
+                Button {
+                    model.scan()
+                    model.checkVersions()
+                } label: { Label("Scan again", systemImage: "arrow.clockwise") }
+                    .help(model.isScanning || model.isCheckingVersions ? "Scanning…" : "Scan again")
+                    .disabled(model.isScanning || model.isCheckingVersions)
             }
         }
         .sheet(isPresented: $model.showReview) { ReviewSheet() }
@@ -44,7 +48,10 @@ struct ContentView: View {
         } message: {
             Text(model.errorMessage ?? "")
         }
-        .task { if model.lastScan == nil { model.scan() } }
+        .task {
+            if model.lastScan == nil { model.scan() }
+            if model.versions == nil { model.checkVersions() }
+        }
     }
 }
 
@@ -64,6 +71,7 @@ struct SidebarView: View {
                 ForEach(cleanUp, id: \.self) { c in row(c.title, c.symbol, .category(c), model.count(of: c)) }
             }
             Section("Keep current") {
+                row("Runtimes and versions", "checkmark.shield", .runtimes, model.versions?.attentionCount ?? 0)
                 row(DevSweepCore.Category.backgroundServices.title, DevSweepCore.Category.backgroundServices.symbol,
                     .category(.backgroundServices), model.count(of: .backgroundServices))
             }

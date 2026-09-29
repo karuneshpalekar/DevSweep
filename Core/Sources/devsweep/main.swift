@@ -53,6 +53,34 @@ func scan(json: Bool, explain: Bool) async {
 switch args.first {
 case "scan":
     await scan(json: args.contains("--json"), explain: args.contains("--explain"))
+case "runtimes":
+    let result = await RuntimeScanner().scan()
+    if args.contains("--json") {
+        let e = JSONEncoder()
+        e.outputFormatting = [.prettyPrinted, .sortedKeys]
+        e.dateEncodingStrategy = .iso8601
+        print(String(decoding: try! e.encode(result.runtimes), as: UTF8.self))
+        break
+    }
+    let marks: [SupportStatus: String] = [.endOfLife: "✗", .endingSoon: "!", .supported: "✓", .unknown: "?"]
+    for r in result.runtimes + [result.macOS].compactMap({ $0 }) {
+        print("\n\(r.name.uppercased())\(r.recommended.map { "   recommended: \($0)" } ?? "")")
+        for i in r.installs {
+            var line = "  \(marks[i.support]!) \(i.version.padding(toLength: 12, withPad: " ", startingAt: 0)) \(i.source.title)"
+            if let d = i.sourceDetail { line += " (\(d))" }
+            if i.isDefault { line += "  ← your shell uses this" }
+            if let running = i.isRunning { line += running ? "  [running]" : "  [not running]" }
+            if let ends = i.supportEnds { line += "  support ends \(ends.formatted(date: .abbreviated, time: .omitted))" }
+            print(line)
+        }
+        for issue in r.issues { print("    \(issue.level == .info ? "·" : "▲") \(issue.text)") }
+        for s in r.steps { print("    → \(s.title)"); s.commands.prefix(3).forEach { print("        $ \($0)") } }
+    }
+    if let b = result.homebrew {
+        print("\nHOMEBREW  \(b.outdated.count) outdated, \(b.deprecated.count) deprecated")
+        for issue in b.issues { print("    \(issue.level == .info ? "·" : "▲") \(issue.text)") }
+    }
+    if result.eolOffline { print("\n(Support dates may be out of date: couldn't reach endoflife.date.)") }
 case "rules":
     let (rules, errors) = RuleLoader.loadAll()
     for r in rules { print("\(r.id.padding(toLength: 28, withPad: " ", startingAt: 0)) \(r.category.title) · \(r.risk.title)") }
