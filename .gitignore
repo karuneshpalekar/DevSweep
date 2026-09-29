@@ -1,0 +1,8 @@
+.DS_Store
+/build/
+/DevSweep.xcodeproj/
+/Config/Local.xcconfig
+Core/.build/
+Core/.swiftpm/
+*.xcuserstate
+xcuserdata/

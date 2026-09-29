@@ -1,0 +1,20 @@
+rules:
+  - id: stale-project-artifacts
+    title: Dependencies in an idle project
+    category: projects
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: staleProjectArtifacts
+      roots: ["~/Downloads", "~/Developer", "~/Projects", "~/projects", "~/Code", "~/code", "~/src", "~/dev",
+              "~/Documents/GitHub", "~/Documents/Projects", "~/IdeaProjects", "~/AndroidStudioProjects", "~/StudioProjects"]
+      names: ["node_modules", ".venv", "venv", "Pods"]
+      staleDays: 30
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Installed dependencies for {{project}}. They can be installed again from {{manifest}}."
+      why: "{{size}} in a project nobody has changed for {{days}} days."
+      ifDeleted: "Before you work on {{project}} again, run {{reinstall}}."
+      wontLose: "Your source code, {{manifest}} or git history."

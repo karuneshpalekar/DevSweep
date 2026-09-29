@@ -1,0 +1,54 @@
+rules:
+  - id: kotlin-native-old
+    title: Old Kotlin/Native toolchains
+    category: toolchains
+    risk: oldVersion
+    minSizeMB: 100
+    detector:
+      kind: versionedSiblings
+      parents: ["~/.konan"]
+      pattern: "^kotlin-native-prebuilt-macos-aarch64-(?<version>[0-9][0-9.]*)$"
+      keep: 1
+    actions:
+      - kind: trash
+      - kind: delete
+    explain:
+      what: "Compilers Gradle downloaded for Kotlin Multiplatform iOS and macOS targets."
+      why: "{{size}} for {{versions}}. {{newest}} stays."
+      ifDeleted: "A project on one of these Kotlin versions downloads its compiler again on the next build (about 1 GB)."
+      undo: "Gradle downloads the version a project needs automatically."
+
+  - id: kotlin-native-intel
+    title: Intel Kotlin/Native toolchains
+    category: toolchains
+    risk: oldVersion
+    minSizeMB: 100
+    arch: arm64
+    detector:
+      kind: paths
+      paths: ["~/.konan/kotlin-native-prebuilt-macos-x86_64-*"]
+    actions:
+      - kind: trash
+      - kind: delete
+    explain:
+      what: "Intel builds of the Kotlin/Native compiler."
+      why: "{{size}}. This Mac has Apple silicon, so Gradle only uses these under Rosetta."
+      ifDeleted: "Nothing changes for normal builds on this Mac."
+
+  - id: old-jdks
+    title: Old Java version
+    category: toolchains
+    risk: oldVersion
+    minSizeMB: 50
+    detector:
+      kind: oldJDKs
+      paths: ["~/Library/Java/JavaVirtualMachines/*", "~/jdks/*"]
+      minMajor: 11
+    actions:
+      - kind: trash
+      - kind: delete
+    explain:
+      what: "Java {{major}}, installed as {{name}}."
+      why: "{{size}}. You also have Java {{newer}}, and Java {{major}} no longer gets free updates."
+      ifDeleted: "Apps or projects that need exactly Java {{major}} won't start. That's rare today."
+      undo: "Restore it from History, or download it again from your IDE's JDK settings."

@@ -1,0 +1,120 @@
+# Runs last, so every more specific rule gets first claim on a folder.
+rules:
+  - id: orphaned-app-data
+    title: Leftovers from a removed app
+    category: leftovers
+    risk: leftover
+    minSizeMB: 1
+    detector:
+      kind: orphanedAppData
+      # Shared by many apps from one vendor, or by frameworks inside apps.
+      sharedIDs: ["com.google.keystone", "com.google.googleupdater", "com.google.softwareupdate",
+                  "com.microsoft.autoupdate", "com.microsoft.office", "org.swift.",
+                  "com.github.electron", "io.sentry", "com.crashlytics", "com.firebase", "org.sparkle-project"]
+      knownApps:
+        - name: Adobe Creative Cloud
+          bundleIDs: ["com.adobe.acc.AdobeCreativeCloud", "com.adobe.Photoshop", "com.adobe.illustrator", "com.adobe.xd",
+                      "com.adobe.AfterEffects", "com.adobe.PremierePro", "com.adobe.Reader", "com.adobe.Acrobat.Pro",
+                      "com.adobe.LightroomClassicCC7", "com.adobe.InDesign"]
+          idPrefixes: ["com.adobe.", "adobe."]
+          paths: ["~/Library/Application Support/Adobe", "~/Library/Caches/Adobe", "~/Library/Logs/CreativeCloud",
+                  "~/Library/Logs/Adobe", "~/Library/Preferences/Adobe*", "~/Library/Group Containers/Adobe-*"]
+        - name: JetBrains IDEs
+          bundleIDs: ["com.jetbrains.intellij", "com.jetbrains.intellij.ce", "com.jetbrains.pycharm", "com.jetbrains.pycharm.ce",
+                      "com.jetbrains.WebStorm", "com.jetbrains.goland", "com.jetbrains.CLion", "com.jetbrains.rider",
+                      "com.jetbrains.rubymine", "com.jetbrains.PhpStorm", "com.jetbrains.datagrip", "com.jetbrains.toolbox",
+                      "com.jetbrains.fleet", "com.jetbrains.rustrover"]
+          idPrefixes: ["com.jetbrains.", "jetbrains."]
+          paths: ["~/Library/Application Support/JetBrains", "~/Library/Caches/JetBrains", "~/Library/Logs/JetBrains"]
+        - name: Android Studio
+          bundleIDs: ["com.google.android.studio"]
+          paths: ["~/Library/Application Support/Google/AndroidStudio*", "~/Library/Caches/Google/AndroidStudio*",
+                  "~/Library/Logs/Google/AndroidStudio*"]
+        - name: Postman
+          bundleIDs: ["com.postmanlabs.mac"]
+          idPrefixes: ["com.postmanlabs."]
+          paths: ["~/Library/Application Support/Postman"]
+          note: "May contain collections you never synced to a Postman account."
+        - name: Cursor
+          bundleIDs: ["com.todesktop.230313mzl4w4u92"]
+          idPrefixes: ["com.todesktop.230313mzl4w4u92"]
+          paths: ["~/Library/Application Support/Cursor", "~/.cursor"]
+        - name: WhatsApp
+          bundleIDs: ["net.whatsapp.WhatsApp", "desktop.WhatsApp"]
+          idPrefixes: ["net.whatsapp."]
+          paths: ["~/Library/Application Support/WhatsApp", "~/Library/Caches/WhatsApp*", "~/Library/HTTPStorages/WhatsApp",
+                  "~/Library/Preferences/WhatsApp.plist", "~/Library/Saved Application State/WhatsApp.savedState",
+                  "~/Library/Containers/desktop.WhatsApp", "~/Library/Group Containers/*.desktop.WhatsApp"]
+          note: "Chats stay on your phone, but media saved only on this Mac is removed."
+        - name: Firefox
+          bundleIDs: ["org.mozilla.firefox", "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly"]
+          idPrefixes: ["org.mozilla."]
+          paths: ["~/Library/Application Support/Firefox", "~/Library/Caches/Firefox", "~/Library/Caches/Mozilla"]
+          note: "Your Firefox profile, with bookmarks and saved passwords, is here. Keep it if you don't use Firefox Sync."
+        - name: GitHub Desktop
+          bundleIDs: ["com.github.GitHubClient"]
+          idPrefixes: ["com.github.githubclient"]
+          paths: ["~/Library/Application Support/GitHub Desktop"]
+        - name: Antigravity
+          bundleIDs: ["com.google.antigravity", "com.google.antigravity-ide"]
+          idPrefixes: ["com.google.antigravity"]
+          paths: ["~/Library/Application Support/Antigravity*", "~/.antigravity*", "~/.gemini/antigravity*"]
+        - name: Comet
+          bundleIDs: ["ai.perplexity.comet"]
+          idPrefixes: ["ai.perplexity.comet"]
+          paths: ["~/Library/Caches/Comet", "~/Library/Application Support/Comet", "~/Applications/Comet Apps.localized"]
+        - name: Perplexity
+          bundleIDs: ["ai.perplexity.mac"]
+          idPrefixes: ["ai.perplexity.mac", "ai.perplexity.app"]
+        - name: ChatGPT
+          bundleIDs: ["com.openai.chat"]
+          idPrefixes: ["com.openai.chat"]
+        - name: ChatGPT Atlas
+          bundleIDs: ["com.openai.atlas"]
+          idPrefixes: ["com.openai.atlas"]
+        - name: Codex
+          bundleIDs: ["com.openai.codex"]
+          idPrefixes: ["com.openai.codex", "com.openai.sky"]
+          paths: ["~/Library/Application Support/Codex", "~/Library/Caches/Codex"]
+        - name: Slack
+          bundleIDs: ["com.tinyspeck.slackmacgap"]
+          idPrefixes: ["com.tinyspeck."]
+          paths: ["~/Library/Application Support/Slack"]
+        - name: Visual Studio Code
+          bundleIDs: ["com.microsoft.VSCode"]
+          idPrefixes: ["com.microsoft.vscode"]
+          paths: ["~/Library/Application Support/Code"]
+        - name: Discord
+          bundleIDs: ["com.hnc.Discord"]
+          idPrefixes: ["com.hnc.discord"]
+          paths: ["~/Library/Application Support/discord"]
+        - name: Zoom
+          bundleIDs: ["us.zoom.xos"]
+          idPrefixes: ["us.zoom."]
+          paths: ["~/Library/Application Support/zoom.us"]
+        - name: Figma
+          bundleIDs: ["com.figma.Desktop"]
+          idPrefixes: ["com.figma."]
+          paths: ["~/Library/Application Support/Figma"]
+        - name: Notion
+          bundleIDs: ["notion.id"]
+          paths: ["~/Library/Application Support/Notion"]
+        - name: Docker Desktop
+          bundleIDs: ["com.docker.docker"]
+          idPrefixes: ["com.docker."]
+          paths: ["~/Library/Application Support/Docker Desktop"]
+          note: "Docker images, containers and volumes are stored here."
+        - name: AnyDesk
+          bundleIDs: ["com.philandro.anydesk"]
+          idPrefixes: ["com.philandro."]
+          paths: ["~/.anydesk"]
+        - name: Cloudflare WARP
+          bundleIDs: ["com.cloudflare.1dot1dot1dot1.macos"]
+          idPrefixes: ["com.cloudflare.1dot1dot1dot1"]
+    actions:
+      - kind: trash
+    explain:
+      what: "Settings, caches and data {{app}} left in your Library folder."
+      why: "{{size}} in {{places}}, and {{app}} isn't installed any more."
+      ifDeleted: "Nothing changes on your Mac. If you reinstall {{app}}, it starts fresh, like a new install."
+      undo: "Restore from History while it's still in the Trash."

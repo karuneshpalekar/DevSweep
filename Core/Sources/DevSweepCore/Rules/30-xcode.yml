@@ -1,0 +1,101 @@
+rules:
+  - id: xcode-derived-data
+    title: Xcode build data
+    category: xcode
+    risk: rebuilds
+    minSizeMB: 100
+    detector:
+      kind: paths
+      paths: ["~/Library/Developer/Xcode/DerivedData/*"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Intermediate build files and indexes Xcode makes for each project (DerivedData)."
+      why: "{{size}} across {{count}} projects."
+      ifDeleted: "The next build of each project starts from scratch and indexing runs again."
+      wontLose: "Your source code, schemes or settings."
+      before: "Quit Xcode or stop any running builds."
+
+  - id: xcode-device-support
+    title: iPhone and Apple Watch debug symbols
+    category: xcode
+    risk: oldVersion
+    minSizeMB: 200
+    detector:
+      kind: paths
+      paths: ["~/Library/Developer/Xcode/iOS DeviceSupport/*", "~/Library/Developer/Xcode/watchOS DeviceSupport/*", "~/Library/Developer/Xcode/tvOS DeviceSupport/*"]
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "System symbols Xcode copied from each device you've plugged in, one folder per OS version."
+      why: "{{size}} for {{count}} OS versions."
+      ifDeleted: "The next time you debug on a device, Xcode copies its symbols again. That takes a few minutes."
+
+  - id: xcode-archives
+    title: Xcode archives
+    category: xcode
+    risk: holdsData
+    minSizeMB: 500
+    detector:
+      kind: paths
+      paths: ["~/Library/Developer/Xcode/Archives"]
+    actions:
+      - kind: trash
+    explain:
+      what: "Every build you archived for TestFlight or the App Store."
+      why: "{{size}} of archived builds."
+      ifDeleted: "You can't symbolicate crash reports from those releases or resubmit them without rebuilding."
+      better: "In Xcode's Organizer, delete only old archives of apps you no longer ship."
+
+  - id: simulator-runtimes
+    title: Simulator runtime
+    category: xcode
+    risk: oldVersion
+    minSizeMB: 100
+    detector:
+      kind: simulatorRuntimes
+      unusedDays: 90
+    actions:
+      - kind: command
+        label: Remove
+        command: ["xcrun", "simctl", "runtime", "delete", "{{runtimeID}}"]
+        detail: "Removed through Xcode's simctl."
+    explain:
+      what: "The {{platform}} {{version}} system image the simulator runs on."
+      why: "{{size}} for one runtime."
+      ifDeleted: "Simulators on {{platform}} {{version}} are removed too. You can still test on the runtimes you keep."
+      undo: "Download it again in Xcode, Settings, Components."
+
+  - id: unavailable-simulators
+    title: Unavailable simulators
+    category: xcode
+    risk: oldVersion
+    minSizeMB: 1
+    detector:
+      kind: unavailableSimulators
+    actions:
+      - kind: command
+        label: Remove
+        command: ["xcrun", "simctl", "delete", "unavailable"]
+        detail: "Runs xcrun simctl delete unavailable."
+    explain:
+      what: "Simulators whose runtime was removed, so they can't start any more."
+      why: "{{devices}} simulators, {{size}} of their data."
+      ifDeleted: "Nothing changes for simulators you can actually run."
+
+  - id: simulator-caches
+    title: Simulator caches
+    category: xcode
+    risk: rebuilds
+    minSizeMB: 200
+    detector:
+      kind: paths
+      paths: ["~/Library/Developer/CoreSimulator/Caches", "~/Library/Developer/Xcode/UserData/Previews"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Shared caches for the simulator and SwiftUI previews."
+      why: "{{size}} of caches."
+      ifDeleted: "The first simulator launch and preview after this is slower."
+      before: "Quit the Simulator and Xcode."

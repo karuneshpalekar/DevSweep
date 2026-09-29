@@ -1,0 +1,236 @@
+# Package-manager caches. Everything here comes back on its own, so the
+# default action is the tool's own clean command where it has one.
+rules:
+  - id: npm-cache
+    title: npm cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ["~/.npm/_cacache"]
+    actions:
+      - kind: command
+        label: Delete
+        command: ["npm", "cache", "clean", "--force"]
+        detail: "Runs npm cache clean --force."
+      - kind: delete
+    explain:
+      what: "Every package npm has downloaded, kept so the next install can skip the download."
+      why: "{{size}} of downloaded packages."
+      ifDeleted: "The next npm install in each project downloads its packages again, so it's slower once."
+      wontLose: "Your projects, their node_modules folders, or anything you've published."
+      undo: "Nothing to undo. npm refills the cache as you work."
+
+  - id: npx-cache
+    title: npx tool cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ["~/.npm/_npx"]
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Tools you've run once with npx, like create-next-app, kept for the next run."
+      why: "{{size}} of one-off tools."
+      ifDeleted: "The next time you run one of these tools with npx, it downloads again."
+      wontLose: "Globally installed npm packages or your projects."
+
+  - id: pip-cache
+    title: pip cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ["~/Library/Caches/pip"]
+    actions:
+      - kind: command
+        label: Delete
+        command: ["pip3", "cache", "purge"]
+        detail: "Runs pip3 cache purge."
+      - kind: delete
+    explain:
+      what: "Python packages pip has downloaded or built, kept to speed up future installs."
+      why: "{{size}} of downloaded and built packages."
+      ifDeleted: "The next pip install downloads packages again. Packages with native code may need to build again, which can take a while."
+      wontLose: "Packages already installed in your Python environments."
+
+  - id: homebrew-cache
+    title: Homebrew downloads and old versions
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 100
+    detector:
+      kind: paths
+      paths: ["~/Library/Caches/Homebrew"]
+    actions:
+      - kind: command
+        label: Clean up
+        command: ["brew", "cleanup", "--prune=all"]
+        detail: "Runs brew cleanup --prune=all."
+      - kind: delete
+    explain:
+      what: "Installers Homebrew downloaded. brew cleanup also removes old package versions it kept after upgrades."
+      why: "{{size}} of downloads, plus any old versions brew cleanup finds."
+      ifDeleted: "Reinstalling a package downloads it again. You can no longer switch back to a replaced version with brew switch."
+      wontLose: "Any package you have installed now."
+
+  - id: yarn-cache
+    title: Yarn cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ["~/Library/Caches/Yarn"]
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Packages Yarn has downloaded, shared across your projects."
+      why: "{{size}} of downloaded packages."
+      ifDeleted: "The next yarn install downloads packages again."
+      wontLose: "Your projects or their node_modules folders."
+
+  - id: cocoapods-cache
+    title: CocoaPods cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ["~/Library/Caches/CocoaPods"]
+    actions:
+      - kind: command
+        label: Delete
+        command: ["pod", "cache", "clean", "--all"]
+        detail: "Runs pod cache clean --all."
+      - kind: delete
+    explain:
+      what: "Pods CocoaPods has downloaded, kept for the next pod install."
+      why: "{{size}} of downloaded pods."
+      ifDeleted: "The next pod install downloads them again."
+      wontLose: "The Pods folder inside your projects."
+
+  - id: gradle-caches
+    title: Gradle dependency cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 500
+    blockers: ["GradleDaemon"]
+    detector:
+      kind: paths
+      paths: ["~/.gradle/caches"]
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Every library and plugin Gradle has downloaded for Android and Kotlin builds."
+      why: "{{size}} of downloaded libraries."
+      ifDeleted: "The next build of each Gradle project downloads everything again, which can take several minutes."
+      wontLose: "Your projects or their build settings."
+      before: "Stop running Gradle builds. Android Studio can stay open."
+      better: "If you build often, keep this and clear only Gradle daemons and old wrapper versions."
+
+  - id: gradle-daemons
+    title: Gradle daemon logs
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 100
+    blockers: ["GradleDaemon"]
+    detector:
+      kind: paths
+      paths: ["~/.gradle/daemon"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Logs and state from Gradle's background build processes."
+      why: "{{size}} of logs from past builds."
+      ifDeleted: "Nothing you'll notice. Gradle starts fresh daemons on the next build."
+      before: "A Gradle daemon has to be stopped first. Run gradle --stop, or it stops on its own after 3 idle hours."
+
+  - id: swiftpm-cache
+    title: Swift Package Manager cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ["~/Library/Caches/org.swift.swiftpm"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Swift packages SwiftPM and Xcode have downloaded, shared across your projects."
+      why: "{{size}} of downloaded package repositories."
+      ifDeleted: "The next package resolve in each project downloads its dependencies again."
+      wontLose: "Your projects or their Package.resolved files."
+
+  - id: go-build-cache
+    title: Go build cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 100
+    detector:
+      kind: paths
+      paths: ["~/Library/Caches/go-build"]
+    actions:
+      - kind: command
+        label: Delete
+        command: ["go", "clean", "-cache"]
+        detail: "Runs go clean -cache."
+      - kind: delete
+    explain:
+      what: "Compiled Go packages, kept so builds only recompile what changed."
+      why: "{{size}} of compiled output."
+      ifDeleted: "The next go build compiles everything from scratch once."
+
+  - id: cargo-cache
+    title: Cargo download cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 100
+    detector:
+      kind: paths
+      paths: ["~/.cargo/registry/cache", "~/.cargo/registry/src", "~/.cargo/git/checkouts"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Rust crates Cargo has downloaded and unpacked."
+      why: "{{size}} of downloaded crates."
+      ifDeleted: "The next cargo build downloads the crates it needs again."
+      wontLose: "Installed Rust toolchains or tools from cargo install."
+
+  - id: dev-tool-caches
+    title: Developer tool caches
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ["~/Library/Caches/node-gyp", "~/Library/Caches/electron", "~/Library/Caches/typescript", "~/Library/Caches/electron-builder"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Downloads kept by node-gyp (Node.js headers), Electron and the TypeScript server."
+      why: "{{size}} across {{count}} caches."
+      ifDeleted: "Each tool downloads what it needs again the next time it runs."
+
+  - id: playwright-browsers
+    title: Playwright test browsers
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 100
+    detector:
+      kind: paths
+      paths: ["~/Library/Caches/ms-playwright", "~/Library/Caches/ms-playwright-go"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Chromium, Firefox and WebKit builds Playwright downloaded for automated tests."
+      why: "{{size}} of test browsers."
+      ifDeleted: "Tests that use Playwright fail until you run npx playwright install again."
+      undo: "Run npx playwright install in a project that uses Playwright."

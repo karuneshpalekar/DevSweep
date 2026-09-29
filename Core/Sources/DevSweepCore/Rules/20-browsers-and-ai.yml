@@ -1,0 +1,123 @@
+rules:
+  - id: chrome-cache
+    title: Chrome cache
+    category: browsers
+    risk: rebuilds
+    minSizeMB: 200
+    blockers: ["Google Chrome"]
+    detector:
+      kind: paths
+      paths: ["~/Library/Caches/Google/Chrome/*"]
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Saved copies of images, scripts and fonts from sites you've visited, so pages open faster."
+      why: "{{size}} across {{count}} Chrome profiles."
+      ifDeleted: "Sites load a little slower the first time you revisit them. Chrome grows the cache back over time."
+      wontLose: "Logins, passwords, bookmarks, history or extensions. Those live in your profile, not the cache."
+      before: "Quit Chrome."
+      better: "Delete Chrome profiles you no longer use (profile menu, Manage profiles). That removes their cache and data for good."
+
+  - id: chrome-ai-model
+    title: Chrome's on-device AI model
+    category: browsers
+    risk: rebuilds
+    minSizeMB: 200
+    blockers: ["Google Chrome"]
+    detector:
+      kind: paths
+      paths: ["~/Library/Application Support/Google/Chrome/OptGuideOnDeviceModel"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Gemini Nano, the model Chrome uses for features like Help me write and tab grouping suggestions."
+      why: "{{size}} for a model Chrome downloaded in the background."
+      ifDeleted: "Chrome downloads it again unless you turn the feature off."
+      before: "Quit Chrome."
+      better: "To stop it coming back, open chrome://flags, set Enables optimization guide on device to Disabled, then delete it."
+
+  - id: edge-cache
+    title: Microsoft Edge cache
+    category: browsers
+    risk: rebuilds
+    minSizeMB: 200
+    blockers: ["Microsoft Edge"]
+    detector:
+      kind: paths
+      paths: ["~/Library/Caches/Microsoft Edge/*"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Saved copies of pages you've visited in Edge, so they open faster."
+      why: "{{size}} across {{count}} Edge profiles."
+      ifDeleted: "Sites load a little slower the first time you revisit them."
+      wontLose: "Logins, passwords, bookmarks or history."
+      before: "Quit Microsoft Edge."
+
+  - id: brave-cache
+    title: Brave cache
+    category: browsers
+    risk: rebuilds
+    minSizeMB: 200
+    blockers: ["Brave Browser"]
+    detector:
+      kind: paths
+      paths: ["~/Library/Caches/BraveSoftware/Brave-Browser/*"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Saved copies of pages you've visited in Brave, so they open faster."
+      why: "{{size}} across {{count}} Brave profiles."
+      ifDeleted: "Sites load a little slower the first time you revisit them."
+      wontLose: "Logins, passwords, bookmarks or history."
+      before: "Quit Brave."
+
+  - id: whisper-models
+    title: Whisper speech models
+    category: aiModels
+    risk: rebuilds
+    minSizeMB: 100
+    detector:
+      kind: paths
+      paths: ["~/.cache/whisper"]
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Speech-to-text models downloaded by OpenAI Whisper."
+      why: "{{size}} of models."
+      ifDeleted: "The next project that transcribes audio downloads the model again before it starts."
+      better: "Keep it if a project you're working on uses Whisper; the models are large to download."
+
+  - id: huggingface-models
+    title: Hugging Face model cache
+    category: aiModels
+    risk: rebuilds
+    minSizeMB: 200
+    detector:
+      kind: paths
+      paths: ["~/.cache/huggingface/hub"]
+    actions:
+      - kind: trash
+      - kind: delete
+    explain:
+      what: "Models and datasets downloaded by Hugging Face libraries like transformers and diffusers."
+      why: "{{size}} of models and datasets."
+      ifDeleted: "Any code that loads these models downloads them again on first use."
+      better: "Delete single models with huggingface-cli delete-cache to keep the ones you still use."
+
+  - id: torch-hub
+    title: PyTorch Hub cache
+    category: aiModels
+    risk: rebuilds
+    minSizeMB: 100
+    detector:
+      kind: paths
+      paths: ["~/.cache/torch"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Pretrained weights downloaded through torch.hub and torchvision."
+      why: "{{size}} of model weights."
+      ifDeleted: "Code that loads these weights downloads them again on first use."

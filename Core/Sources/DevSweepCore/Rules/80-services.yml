@@ -1,0 +1,16 @@
+rules:
+  - id: orphaned-launch-services
+    title: Background service for a missing program
+    category: backgroundServices
+    risk: leftover
+    minSizeMB: 0
+    detector:
+      kind: orphanedLaunchServices
+      paths: ["~/Library/LaunchAgents", "/Library/LaunchAgents", "/Library/LaunchDaemons"]
+    actions:
+      - kind: trash
+    explain:
+      what: "A job macOS starts in the background ({{label}}). It's set to run {{program}}."
+      why: "That program no longer exists, so the job fails every time macOS tries to start it."
+      ifDeleted: "macOS stops trying to start it. Nothing else changes."
+      undo: "Restore it from History if you reinstall the app and it doesn't set this up again."

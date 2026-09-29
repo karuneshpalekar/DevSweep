@@ -1,0 +1,11 @@
+// Signing defaults that work for anyone who clones the repo: an ad-hoc
+// signature, good enough to run locally.
+//
+// To sign with your own Apple Developer team (so macOS keeps the Full Disk
+// Access grant across rebuilds), copy Local.xcconfig.example to
+// Local.xcconfig and fill in your team ID. Local.xcconfig is git-ignored.
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = -
+DEVELOPMENT_TEAM =
+
+#include? "Local.xcconfig"

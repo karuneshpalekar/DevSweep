@@ -1,0 +1,54 @@
+rules:
+  - id: jetbrains-old
+    title: "{{key}} {{version}} settings and caches"
+    category: ideVersions
+    risk: oldVersion
+    minSizeMB: 10
+    detector:
+      kind: versionedSiblings
+      parents: ["~/Library/Application Support/JetBrains", "~/Library/Caches/JetBrains", "~/Library/Logs/JetBrains"]
+      pattern: "^(?<key>[A-Za-z]+)(?<version>20[0-9]{2}\\.[0-9]+)$"
+      keep: 1
+      groupEach: true
+    actions:
+      - kind: trash
+      - kind: delete
+    explain:
+      what: "Settings, indexes and logs from {{key}} {{version}}."
+      why: "{{size}}. {{key}} {{newest}} is newer and imported your settings on first launch."
+      ifDeleted: "Nothing changes in {{key}} {{newest}}."
+      wontLose: "Your projects."
+
+  - id: editor-extensions
+    title: Old editor extension versions
+    category: ideVersions
+    risk: oldVersion
+    minSizeMB: 10
+    detector:
+      kind: editorExtensions
+      paths: ["~/.vscode/extensions", "~/.vscode-insiders/extensions", "~/.cursor/extensions", "~/.windsurf/extensions"]
+    actions:
+      - kind: trash
+      - kind: delete
+    explain:
+      what: "Extension folders {{editor}} left behind after updating or uninstalling them."
+      why: "{{size}} in {{count}} folders {{editor}} no longer loads."
+      ifDeleted: "Nothing changes in {{editor}}. It only loads the versions in its extension list."
+
+  - id: vscode-caches
+    title: VS Code caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 200
+    blockers: ["Visual Studio Code", "Code"]
+    detector:
+      kind: paths
+      paths: ["~/Library/Application Support/Code/Cache", "~/Library/Application Support/Code/CachedData", "~/Library/Application Support/Code/CachedExtensionVSIXs", "~/Library/Application Support/Code/Code Cache"]
+    actions:
+      - kind: delete
+    explain:
+      what: "VS Code's web cache, compiled code and downloaded extension installers."
+      why: "{{size}} of caches."
+      ifDeleted: "VS Code starts a little slower once."
+      wontLose: "Settings, extensions, workspaces or unsaved files."
+      before: "Quit VS Code."

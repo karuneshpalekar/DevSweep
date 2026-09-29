@@ -1,0 +1,113 @@
+rules:
+  - id: android-system-images
+    title: "Android {{level}} system image"
+    category: android
+    risk: oldVersion
+    minSizeMB: 100
+    detector:
+      kind: androidSystemImages
+    actions:
+      - kind: trash
+      - kind: delete
+    explain:
+      what: "The Android OS image an emulator boots from."
+      why: "{{size}} for an image none of your emulators use."
+      ifDeleted: "You can't create an emulator on {{level}} until you download it again."
+      wontLose: "Your emulators or their data."
+      undo: "Android Studio, SDK Manager, SDK Platforms: tick {{level}} and apply."
+
+  - id: android-build-tools
+    title: Old Android build tools
+    category: android
+    risk: oldVersion
+    minSizeMB: 50
+    detector:
+      kind: versionedSiblings
+      parents: ["~/Library/Android/sdk/build-tools"]
+      pattern: "^(?<version>[0-9][0-9.]*)$"
+      keep: 3
+    actions:
+      - kind: trash
+      - kind: delete
+    explain:
+      what: "Older versions of Android's build tools (aapt, d8, zipalign)."
+      why: "{{size}} for versions {{versions}}. {{kept}} stay installed."
+      ifDeleted: "An old project that pins one of these versions asks you to download it again, or you update its buildToolsVersion."
+      undo: "Android Studio downloads the version a project asks for."
+
+  - id: android-platforms
+    title: Old Android platforms
+    category: android
+    risk: oldVersion
+    minSizeMB: 50
+    detector:
+      kind: versionedSiblings
+      parents: ["~/Library/Android/sdk/platforms"]
+      pattern: "^android-(?<version>[0-9]+)$"
+      keep: 3
+    actions:
+      - kind: trash
+      - kind: delete
+    explain:
+      what: "Android SDK platforms you compile against, one per API level."
+      why: "{{size}} for API levels {{versions}}. {{kept}} stay installed."
+      ifDeleted: "A project with an old compileSdk asks you to download that platform again."
+      undo: "Android Studio downloads the platform a project asks for."
+
+  - id: android-ndk
+    title: "Android NDK {{version}}"
+    category: android
+    risk: oldVersion
+    minSizeMB: 100
+    detector:
+      kind: versionedSiblings
+      parents: ["~/Library/Android/sdk/ndk"]
+      pattern: "^(?<version>[0-9][0-9.]*)$"
+      keep: 1
+      groupEach: true
+    actions:
+      - kind: trash
+      - kind: delete
+    explain:
+      what: "Native development kit for C and C++ code in Android apps."
+      why: "{{size}}. NDK {{newest}} is also installed."
+      ifDeleted: "A project that pins NDK {{version}} asks you to download it again, or you move it to NDK {{newest}}."
+      undo: "SDK Manager, SDK Tools, NDK (Side by side), tick Show package details and pick {{version}}."
+
+  - id: gradle-wrappers
+    title: Old Gradle versions
+    category: android
+    risk: oldVersion
+    minSizeMB: 50
+    detector:
+      kind: versionedSiblings
+      parents: ["~/.gradle/wrapper/dists"]
+      pattern: "^gradle-(?<version>[0-9][0-9.]*(-rc-?[0-9]+)?)-(bin|all)$"
+      keep: 2
+    actions:
+      - kind: trash
+      - kind: delete
+    explain:
+      what: "Copies of Gradle downloaded by projects' gradle wrappers."
+      why: "{{size}} for Gradle {{versions}}. {{kept}} stay."
+      ifDeleted: "A project still on one of these versions downloads it again on its next build."
+
+  - id: android-studio-old
+    title: "Android Studio {{version}} settings and caches"
+    category: ideVersions
+    risk: oldVersion
+    minSizeMB: 10
+    detector:
+      kind: versionedSiblings
+      parents: ["~/Library/Application Support/Google", "~/Library/Caches/Google", "~/Library/Logs/Google"]
+      pattern: "^AndroidStudio(?<version>[0-9][0-9.]*)$"
+      keep: 1
+      groupEach: true
+    actions:
+      - kind: trash
+      - kind: delete
+    explain:
+      what: "Settings, caches and logs from Android Studio {{version}}."
+      why: "{{size}}. You use Android Studio {{newest}}, which copied your settings when you first opened it."
+      ifDeleted: "Nothing changes in Android Studio {{newest}}."
+      wontLose: "Your projects, SDK or emulators."

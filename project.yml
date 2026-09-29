@@ -1,0 +1,53 @@
+name: DevSweep
+options:
+  bundleIdPrefix: io.github.karuneshpalekar.devsweep
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  xcodeVersion: "15.3"
+
+packages:
+  DevSweepCore:
+    path: Core
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+
+targets:
+  DevSweep:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+    dependencies:
+      - package: DevSweepCore
+        product: DevSweepCore
+    configFiles:
+      Debug: Config/Base.xcconfig
+      Release: Config/Base.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.karuneshpalekar.devsweep
+        PRODUCT_NAME: DevSweep
+        ENABLE_HARDENED_RUNTIME: YES
+        COMBINE_HIDPI_IMAGES: YES
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: DevSweep
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSApplicationCategoryType: public.app-category.developer-tools
+        NSHumanReadableCopyright: "MIT License"
+
+schemes:
+  DevSweep:
+    build:
+      targets:
+        DevSweep: all
+    run:
+      config: Debug
+    archive:
+      config: Release
