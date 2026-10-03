@@ -1,0 +1,38 @@
+rules:
+  - id: old-installers
+    title: "{{name}}"
+    category: largeFiles
+    risk: oldVersion
+    minSizeMB: 20
+    detector:
+      kind: largeOldFiles
+      roots: ["~/Downloads", "~/Desktop"]
+      extensions: ["dmg", "pkg", "mpkg", "iso", "xip"]
+      fileMinMB: 20
+      unusedDays: 14
+    actions:
+      - kind: trash
+    explain:
+      what: "An installer or disk image in {{folder}}."
+      why: "{{size}}, last opened {{ago}}. Once an app is installed, its installer is rarely needed again."
+      ifDeleted: "To install it again, download a fresh copy, which is usually a newer version anyway."
+      undo: "Restore from History while it's still in the Trash."
+
+  - id: large-old-files
+    title: "{{name}}"
+    category: largeFiles
+    risk: holdsData
+    minSizeMB: 200
+    detector:
+      kind: largeOldFiles
+      roots: ["~/Downloads", "~/Desktop", "~/Documents", "~/Movies"]
+      fileMinMB: 200
+      unusedDays: 120
+    actions:
+      - kind: trash
+    explain:
+      what: "A large file in {{folder}} that hasn't been opened in a while."
+      why: "{{size}}, last opened {{ago}}."
+      ifDeleted: "It's gone from this Mac once you empty the Trash. DevSweep can't tell whether it's backed up elsewhere."
+      before: "If you might need it again, move it to an external drive or cloud storage instead."
+      undo: "Restore from History while it's still in the Trash."

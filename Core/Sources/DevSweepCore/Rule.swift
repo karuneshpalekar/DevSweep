@@ -41,6 +41,16 @@ public struct DetectorSpec: Codable, Sendable {
         case oldJDKs
         /// node_modules / venvs in projects nobody touched in a while.
         case staleProjectArtifacts
+        /// What `docker system df` says is reclaimable, for one type.
+        case docker
+        /// Big files nobody has opened in a long time.
+        case largeOldFiles
+        /// iPhone and iPad backups made by Finder.
+        case iosBackups
+        /// Time Machine snapshots kept on this disk.
+        case timeMachineSnapshots
+        /// Chrome profiles nobody has used in a long time.
+        case chromeProfiles
     }
 
     public var kind: Kind
@@ -56,6 +66,10 @@ public struct DetectorSpec: Codable, Sendable {
     public var sharedIDs: [String]?
     public var minMajor: Int?
     public var unusedDays: Int?
+    /// Per-file size threshold for largeOldFiles.
+    public var fileMinMB: Int?
+    /// File extensions to include (largeOldFiles); nil means any.
+    public var extensions: [String]?
 }
 
 public struct KnownApp: Codable, Sendable {

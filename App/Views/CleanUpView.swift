@@ -4,21 +4,28 @@ import SwiftUI
 /// Kinds of things to clean, shown as filter chips instead of one sidebar
 /// row per category.
 enum CleanupKind: String, CaseIterable, Identifiable {
-    case caches, oldVersions, leftovers, projectFiles
+    case caches, oldVersions, largeFiles, docker, backups, leftovers, projectFiles
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .caches: return "Caches"
-        case .oldVersions: return "Old versions"
+        case .oldVersions: return "Old and unused"
+        case .largeFiles: return "Large files"
+        case .docker: return "Docker"
+        case .backups: return "Backups"
         case .leftovers: return "Leftovers"
         case .projectFiles: return "Project dependencies"
         }
     }
 
     static func of(_ f: Finding) -> CleanupKind {
+        if f.ruleID == "chrome-profiles" { return .oldVersions }
         switch f.category {
+        case .largeFiles: return .largeFiles
+        case .docker: return .docker
+        case .backups: return .backups
         case .packageCaches, .browsers, .aiModels: return .caches
         case .ideVersions, .android, .toolchains: return .oldVersions
         case .xcode: return f.risk == .rebuilds ? .caches : .oldVersions
@@ -178,7 +185,7 @@ struct CleanUpView: View {
             Spacer()
             if risk != .needsAdmin {
                 Button(allChecked ? "Deselect all" : "Select all") {
-                    let ids = group.map(\.id)
+                    let ids = group.filter { $0.defaultAction?.kind != .manual }.map(\.id)
                     if allChecked { model.checked.subtract(ids) } else { model.checked.formUnion(ids) }
                 }
                 .buttonStyle(.link)
@@ -223,7 +230,7 @@ struct FindingRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            if finding.risk != .needsAdmin {
+            if finding.defaultAction?.kind != .manual {
                 Toggle("", isOn: Binding(
                     get: { model.checked.contains(finding.id) },
                     set: { if $0 { model.checked.insert(finding.id) } else { model.checked.remove(finding.id) } }

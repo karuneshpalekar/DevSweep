@@ -43,7 +43,8 @@ struct SizeText: View {
     let bytes: Int64
 
     var body: some View {
-        Text(SizeFormat.string(bytes)).monospacedDigit()
+        // 0 means macOS doesn't report a size (e.g. Time Machine snapshots).
+        Text(bytes == 0 ? "—" : SizeFormat.string(bytes)).monospacedDigit()
     }
 }
 

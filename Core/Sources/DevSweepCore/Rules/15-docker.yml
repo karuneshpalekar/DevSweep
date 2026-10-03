@@ -1,0 +1,82 @@
+# Docker. Sizes come from `docker system df`; cleaning uses Docker's own
+# prune commands. Nothing here runs when Docker isn't running.
+rules:
+  - id: docker-build-cache
+    title: Docker build cache
+    category: docker
+    risk: rebuilds
+    minSizeMB: 100
+    detector:
+      kind: docker
+      names: ["Build Cache"]
+    actions:
+      - kind: command
+        label: Delete
+        command: ["{{docker}}", "builder", "prune", "-f"]
+        detail: "Runs docker builder prune."
+    explain:
+      what: "Layers Docker kept from earlier image builds, so rebuilds are faster."
+      why: "{{size}} that no current build needs."
+      ifDeleted: "The next docker build of each project runs every step again, so it's slower once."
+      wontLose: "Your images, containers or volumes."
+      undo: "Nothing to undo. Docker refills the cache as you build."
+
+  - id: docker-images
+    title: Unused Docker images
+    category: docker
+    risk: oldVersion
+    minSizeMB: 200
+    detector:
+      kind: docker
+      names: ["Images"]
+    actions:
+      - kind: command
+        label: Remove
+        command: ["{{docker}}", "image", "prune", "-a", "-f"]
+        detail: "Runs docker image prune -a: removes images no container uses."
+    explain:
+      what: "Images you pulled or built that no container uses right now."
+      why: "{{size}} reclaimable out of {{total}} images; {{active}} are in use and stay."
+      ifDeleted: "The next docker run or docker compose up downloads or rebuilds the images it needs."
+      wontLose: "Images used by any container, running or stopped."
+      undo: "Pull or build the image again."
+
+  - id: docker-containers
+    title: Stopped Docker containers
+    category: docker
+    risk: holdsData
+    minSizeMB: 50
+    detector:
+      kind: docker
+      names: ["Containers"]
+    actions:
+      - kind: command
+        label: Remove
+        command: ["{{docker}}", "container", "prune", "-f"]
+        detail: "Runs docker container prune: removes stopped containers."
+    explain:
+      what: "Containers that have stopped. Each keeps whatever was written inside it."
+      why: "{{size}} in stopped containers."
+      ifDeleted: "Anything written inside those containers (not in a volume) is gone. Running containers aren't touched."
+      before: "If a stopped container holds something you need, copy it out first with docker cp."
+      undo: "Can't be undone. Create the containers again from their images."
+
+  - id: docker-volumes
+    title: Unused Docker volumes
+    category: docker
+    risk: holdsData
+    minSizeMB: 100
+    detector:
+      kind: docker
+      names: ["Local Volumes"]
+    actions:
+      - kind: command
+        label: Remove
+        command: ["{{docker}}", "volume", "prune", "-f"]
+        detail: "Runs docker volume prune: removes anonymous volumes no container uses."
+    explain:
+      what: "Volumes no container is attached to. Databases in Docker usually keep their data in volumes."
+      why: "{{size}} in volumes nothing uses."
+      ifDeleted: "The data in those volumes is gone for good. Named volumes are kept by default."
+      before: "Check with docker volume ls that none of them is a database you still want."
+      undo: "Can't be undone."

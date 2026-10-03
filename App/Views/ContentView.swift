@@ -124,6 +124,9 @@ extension DevSweepCore.Category {
         case .projects: return "folder"
         case .aiModels: return "brain"
         case .backgroundServices: return "gearshape.2"
+        case .largeFiles: return "doc.zipper"
+        case .docker: return "shippingbox.circle"
+        case .backups: return "externaldrive"
         }
     }
 }

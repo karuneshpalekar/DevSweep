@@ -331,9 +331,15 @@ final class AppModel {
         refreshPorts()
     }
 
-    func runAdminCommands(for f: Finding) {
+    /// Manual actions: opening an app happens directly; anything else runs
+    /// in Terminal, where the user sees it and sudo can ask for a password.
+    func runManualAction(for f: Finding) {
         guard let a = f.defaultAction, let commands = a.command else { return }
-        runInTerminal(RuntimeStep(kind: .remove, title: f.title, detail: a.displayDetail, commands: commands))
+        if commands.allSatisfy({ $0.hasPrefix("open ") }) {
+            for c in commands { Shell.run(["/bin/sh", "-c", c]) }
+        } else {
+            runInTerminal(RuntimeStep(kind: .remove, title: f.title, detail: a.displayDetail, commands: commands))
+        }
     }
 
     // MARK: - Cleaning

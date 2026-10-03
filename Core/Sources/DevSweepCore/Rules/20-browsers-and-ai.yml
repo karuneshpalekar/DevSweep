@@ -121,3 +121,23 @@ rules:
       what: "Pretrained weights downloaded through torch.hub and torchvision."
       why: "{{size}} of model weights."
       ifDeleted: "Code that loads these weights downloads them again on first use."
+
+  - id: chrome-profiles
+    title: Chrome profile
+    category: browsers
+    risk: holdsData
+    minSizeMB: 20
+    detector:
+      kind: chromeProfiles
+      unusedDays: 180
+    actions:
+      - kind: manual
+        label: Open Chrome
+        command: ["open -a \"Google Chrome\""]
+        detail: "In Chrome, click your profile picture, choose Manage profiles, then ⋮ on “{{profile}}” and Delete."
+    explain:
+      what: "The Chrome profile “{{profile}}”: its bookmarks, history, passwords, extensions and settings."
+      why: "{{size}}, last used {{ago}}."
+      ifDeleted: "Everything in that profile is removed from this Mac. If it was signed in to sync, the synced data stays in that Google account."
+      before: "Delete it from inside Chrome, so Chrome also removes it from its profile list."
+      better: "Deleting old profiles also removes their cache, so you won't have to clean it again."

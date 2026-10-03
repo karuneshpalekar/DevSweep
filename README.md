@@ -67,7 +67,10 @@ in Settings.
 | Toolchains | Old Kotlin/Native compilers, Intel builds on Apple silicon, Java versions older than 11 |
 | Package caches | npm, npx, pip, Homebrew, Yarn, CocoaPods, SwiftPM, Gradle, Go, Cargo |
 | Projects | `node_modules`, virtualenvs and Pods in projects untouched for 30 days |
-| Browsers and AI models | Chrome/Edge/Brave caches, Chrome's on-device model, Whisper, Hugging Face, PyTorch |
+| Browsers and AI models | Chrome/Edge/Brave caches, Chrome's on-device model, Chrome profiles unused for 6 months, Whisper, Hugging Face, PyTorch |
+| Docker | Build cache, unused images, stopped containers and unused volumes, sized by `docker system df` and cleaned with Docker's own prune commands |
+| Large files | Old installers (.dmg, .pkg, .iso) in Downloads and Desktop, and files over 200 MB nobody has opened in 4 months, judged by Spotlight's last-opened date |
+| Backups | Old or replaced iPhone and iPad backups, and Time Machine local snapshots (run in Terminal) |
 
 ## Health: tools and versions
 

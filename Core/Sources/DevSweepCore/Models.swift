@@ -45,6 +45,9 @@ public enum Category: String, Codable, CaseIterable, Sendable {
     case projects
     case aiModels
     case backgroundServices
+    case largeFiles
+    case docker
+    case backups
 
     public var title: String {
         switch self {
@@ -57,6 +60,9 @@ public enum Category: String, Codable, CaseIterable, Sendable {
         case .browsers: return "Browsers"
         case .projects: return "Projects"
         case .aiModels: return "AI models"
+        case .largeFiles: return "Large files"
+        case .docker: return "Docker"
+        case .backups: return "Backups"
         case .backgroundServices: return "Background services"
         }
     }

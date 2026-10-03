@@ -72,7 +72,7 @@ struct InspectorView: View {
     private var actions: some View {
         VStack(alignment: .leading, spacing: 8) {
             heading("What to do")
-            if finding.risk == .needsAdmin, let a = finding.defaultAction, let lines = a.command {
+            if let a = finding.defaultAction, a.kind == .manual, let lines = a.command {
                 Text(a.displayDetail).font(.callout).foregroundStyle(.secondary)
                 Text(lines.joined(separator: "\n"))
                     .font(.system(.caption, design: .monospaced))
@@ -81,13 +81,15 @@ struct InspectorView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
                 HStack {
-                    Label("Asks for your password", systemImage: "lock").font(.caption).foregroundStyle(.secondary)
+                    if lines.contains(where: { $0.contains("sudo ") }) {
+                        Label("Asks for your password", systemImage: "lock").font(.caption).foregroundStyle(.secondary)
+                    }
                     Spacer()
                     Button("Copy") {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
                     }
-                    Button("Run in Terminal") { model.runAdminCommands(for: finding) }
+                    Button(a.displayLabel) { model.runManualAction(for: finding) }
                         .buttonStyle(.borderedProminent)
                 }
             } else {

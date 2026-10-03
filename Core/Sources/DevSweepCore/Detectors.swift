@@ -13,6 +13,11 @@ enum Detectors {
         case .editorExtensions: return editorExtensions(rule, ctx)
         case .oldJDKs: return oldJDKs(rule, ctx)
         case .staleProjectArtifacts: return staleProjectArtifacts(rule, ctx)
+        case .docker: return docker(rule, ctx)
+        case .largeOldFiles: return largeOldFiles(rule, ctx)
+        case .iosBackups: return iosBackups(rule, ctx)
+        case .timeMachineSnapshots: return timeMachineSnapshots(rule, ctx)
+        case .chromeProfiles: return chromeProfiles(rule, ctx)
         }
     }
 

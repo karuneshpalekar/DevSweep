@@ -1,0 +1,36 @@
+rules:
+  - id: ios-backups
+    title: iPhone or iPad backup
+    category: backups
+    risk: holdsData
+    minSizeMB: 100
+    detector:
+      kind: iosBackups
+      unusedDays: 90
+    actions:
+      - kind: trash
+    explain:
+      what: "A backup of {{device}} made with Finder (or iTunes) on {{when}}."
+      why: "{{size}} for a backup that's more than 3 months old or replaced by a newer one."
+      ifDeleted: "You can't restore the device to the state it was in on {{when}}. If the device backs up to iCloud, that backup isn't affected."
+      before: "Make sure the device still exists and backs up somewhere else, such as iCloud."
+      better: "Finder shows the same backups: select the device in the sidebar, then Manage Backups."
+      undo: "Restore from History while it's still in the Trash."
+
+  - id: time-machine-snapshots
+    title: Time Machine snapshots
+    category: backups
+    risk: needsAdmin
+    minSizeMB: 0
+    detector:
+      kind: timeMachineSnapshots
+    actions:
+      - kind: manual
+        label: Run in Terminal
+        command: ["sudo tmutil deletelocalsnapshots /"]
+        detail: "Deletes Time Machine's local snapshots on this disk. macOS asks for your password."
+    explain:
+      what: "Hourly snapshots Time Machine keeps on this disk while your backup drive isn't connected."
+      why: "There are {{count}}. macOS doesn't report how much space they use, and it removes them on its own when space runs low."
+      ifDeleted: "You can't go back to those hours until the next backup. Backups on your Time Machine drive aren't affected."
+      better: "Usually there's no need: macOS deletes them automatically when an app needs the space."
