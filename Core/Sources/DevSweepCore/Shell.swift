@@ -33,7 +33,7 @@ public enum Shell {
     }
 
     @discardableResult
-    public static func run(_ args: [String], timeout: TimeInterval = 120) -> ShellResult {
+    public static func run(_ args: [String], env extra: [String: String] = [:], timeout: TimeInterval = 120) -> ShellResult {
         guard let tool = args.first, let exe = locate(tool) else {
             return ShellResult(status: 127, stdout: "", stderr: "\(args.first ?? "") not found")
         }
@@ -42,6 +42,7 @@ public enum Shell {
         p.arguments = Array(args.dropFirst())
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = childPATH
+        env.merge(extra) { _, new in new }
         p.environment = env
         let out = Pipe(), err = Pipe()
         p.standardOutput = out

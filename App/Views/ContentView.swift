@@ -19,6 +19,7 @@ struct ContentView: View {
                     switch model.selection ?? .home {
                     case .home: HomeView()
                     case .cleanUp: CleanUpView()
+                    case .projects: ProjectsView()
                     case .health: HealthView()
                     case .history: HistoryView()
                     }
@@ -52,6 +53,7 @@ struct ContentView: View {
             if model.lastScan == nil { model.scan() }
             if model.versions == nil { model.checkVersions() }
             if model.security.isEmpty { model.checkSecurity() }
+            if !model.hasLoadedProjects { model.refreshProjects() }
         }
     }
 }
@@ -67,6 +69,9 @@ struct SidebarView: View {
             Label("Clean up", systemImage: "wand.and.stars")
                 .badge(model.findings.count)
                 .tag(SidebarItem.cleanUp)
+            Label("Projects", systemImage: "folder")
+                .badge(model.projectsNeedingPush.count)
+                .tag(SidebarItem.projects)
             Label("Health", systemImage: "checkmark.shield")
                 .badge(model.healthAttentionCount)
                 .tag(SidebarItem.health)

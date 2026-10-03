@@ -17,14 +17,15 @@ exactly what happens if you remove it.
 
 ## Four places, nothing more
 
-DevSweep keeps the window simple: **Home**, **Clean up** and **Health**,
-plus History and Settings. Light and dark mode follow your Mac, or pick one
+DevSweep keeps the window simple: **Home**, **Clean up**, **Projects** and
+**Health**, plus History and Settings. Light and dark mode follow your Mac, or pick one
 in Settings.
 
 | | Light | Dark |
 |---|---|---|
 | **Home.** Free space, what can be cleaned, what grew or appeared since last week, and the few things that need attention. | ![Home, light](docs/screenshots/home-light.png) | ![Home, dark](docs/screenshots/home-dark.png) |
 | **Clean up.** Everything that can go, filtered by kind (caches, old versions, leftovers, project dependencies) and grouped by risk. The ⓘ panel explains each item: what it is, what was checked on your Mac, what you won't lose, and a better option when there is one. | ![Clean up, light](docs/screenshots/cleanup-light.png) | ![Clean up, dark](docs/screenshots/cleanup-dark.png) |
+| **Projects.** Your repos on this Mac and on GitHub, across every account you're signed in to. Each one says whether it's safe to remove (commits not pushed, uncommitted changes, stashes) before it can leave your Mac, and anything on GitHub downloads again on demand. | ![Projects, light](docs/screenshots/projects-light.png) | ![Projects, dark](docs/screenshots/projects-dark.png) |
 | **Review before anything changes.** Items are grouped by what will actually happen, and apps that must quit first are flagged. | ![Review, light](docs/screenshots/review-light.png) | ![Review, dark](docs/screenshots/review-dark.png) |
 | **Health: Security.** Recovery codes, private keys, cloud keys, password exports and `.env` files that git would commit. Recognised by name and shape; the secrets themselves are never read into DevSweep. | ![Security, light](docs/screenshots/security-light.png) | ![Security, dark](docs/screenshots/security-dark.png) |
 | **Health: Tools and versions.** Every install of 12 languages and databases, which one your shell runs, whether it's still supported, and what your projects ask for, with fixes you can run in Terminal. | ![Tools and versions, light](docs/screenshots/health-light.png) | ![Tools and versions, dark](docs/screenshots/health-dark.png) |
@@ -71,6 +72,39 @@ in Settings.
 | Docker | Build cache, unused images, stopped containers and unused volumes, sized by `docker system df` and cleaned with Docker's own prune commands |
 | Large files | Old installers (.dmg, .pkg, .iso) in Downloads and Desktop, and files over 200 MB nobody has opened in 4 months, judged by Spotlight's last-opened date |
 | Backups | Old or replaced iPhone and iPad backups, and Time Machine local snapshots (run in Terminal) |
+
+## Projects
+
+Projects replaces RepoShelf, and carries its features over:
+
+- **Every project in one list**: repos on GitHub for each account `gh` knows,
+  clones already on your Mac (found by their `origin`, wherever the folder is),
+  folders with no GitHub origin, and repos you removed earlier, which stay
+  listed with a Download button.
+- **Safe removal.** Before a project can leave your Mac, DevSweep checks for
+  commits on any branch that aren't on GitHub, uncommitted or untracked files,
+  and stashes. Only a fully backed-up project can be removed, to the Trash,
+  and a removed project downloads back into the folder it came from. **Push**
+  runs in Terminal so you see it.
+- **Download with a strategy**: blobless (full history, contents on demand),
+  shallow (latest commit only) or full, with a size estimate.
+- **Per-account commit identity.** Set a name and email for each GitHub
+  account in Settings, GitHub, and they're written into every project
+  downloaded with it, so commits are attributed correctly whatever your global
+  Git identity is. DevSweep warns when an account has none.
+- **Accounts without switching.** It uses each account's own token, so the
+  account active in your terminal never changes.
+- **Publish a folder** to GitHub (private or public), after checking it for
+  files that look like secrets.
+- **Add any repo by URL**, for forks and team repos outside your own lists.
+- **Idle projects.** "Not opened lately" lists projects untouched for three
+  weeks, with a button to remove the ones that are fully on GitHub.
+- The menu bar lists your recent projects.
+
+DevSweep imports what RepoShelf remembered (clone strategies, when you last
+opened projects, repos you'd removed) the first time Projects loads.
+
+From the command line: `swift run devsweep projects`.
 
 ## Health: tools and versions
 

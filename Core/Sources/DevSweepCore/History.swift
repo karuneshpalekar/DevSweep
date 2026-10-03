@@ -20,6 +20,14 @@ public struct HistoryEntry: Codable, Identifiable, Hashable, Sendable {
     public var note: String?
     public var restoredAt: Date?
 
+    public init(id: UUID = UUID(), date: Date = Date(), title: String, findingID: String = "", ruleID: String = "",
+                actionKind: CleanAction.Kind, actionLabel: String, size: Int64 = 0, items: [MovedItem] = [],
+                command: [String]? = nil, note: String? = nil, restoredAt: Date? = nil) {
+        self.id = id; self.date = date; self.title = title; self.findingID = findingID; self.ruleID = ruleID
+        self.actionKind = actionKind; self.actionLabel = actionLabel; self.size = size; self.items = items
+        self.command = command; self.note = note; self.restoredAt = restoredAt
+    }
+
     /// Restorable while at least one trashed item is still in the Trash.
     public var canRestore: Bool {
         restoredAt == nil && items.contains { $0.trashed.map { FileManager.default.fileExists(atPath: $0) } ?? false }

@@ -59,6 +59,25 @@ struct MenuBarView: View {
                 }
             }
 
+            let recent = Array(model.projects.filter(\.onDisk).sorted { ($0.lastUsed ?? .distantPast) > ($1.lastUsed ?? .distantPast) }.prefix(3))
+            if !recent.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Recent projects").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    ForEach(recent) { p in
+                        HStack(spacing: 8) {
+                            Text(p.name).lineLimit(1)
+                            if let n = p.safety?.unpushedCommits, n > 0, p.safety?.hasRemote == true {
+                                Text("\(n) not pushed").font(.caption2).foregroundStyle(.orange).lineLimit(1)
+                            }
+                            Spacer(minLength: 4)
+                            Button("Open") { model.openInEditor(p) }.controlSize(.small)
+                        }
+                        .font(.callout)
+                    }
+                    Button("All projects") { show(.projects) }.buttonStyle(.link).font(.caption)
+                }
+            }
+
             HStack {
                 Button("Scan now") { model.scanEverything() }
                 .disabled(model.isScanning)

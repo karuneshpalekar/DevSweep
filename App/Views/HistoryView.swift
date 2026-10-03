@@ -86,6 +86,8 @@ struct HistoryRow: View {
             tag("Restored", .green)
         } else if entry.canRestore {
             Button("Restore") { model.restore(entry) }.controlSize(.small)
+        } else if entry.actionKind == .manual {
+            EmptyView()
         } else if entry.actionKind == .delete || entry.actionKind == .command {
             tag("Rebuilds itself", .secondary)
         } else {

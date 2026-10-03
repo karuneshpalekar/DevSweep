@@ -7,8 +7,34 @@ import SwiftUI
 enum SidebarItem: Hashable {
     case home
     case cleanUp
+    case projects
     case health
     case history
+}
+
+enum ProjectFilter: String, CaseIterable, Identifiable {
+    case onMac, idle, onGitHub
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .onMac: return "On this Mac"
+        case .idle: return "Not opened lately"
+        case .onGitHub: return "Only on GitHub"
+        }
+    }
+}
+
+enum ProjectSheet: Identifiable {
+    case clone(String)
+    case publish
+    case addByURL
+    var id: String {
+        switch self {
+        case .clone(let id): return "clone:" + id
+        case .publish: return "publish"
+        case .addByURL: return "add"
+        }
+    }
 }
 
 enum HealthTab: String, CaseIterable, Identifiable {
@@ -31,6 +57,8 @@ struct HealthAlert: Identifiable {
     var target: String
     var critical: Bool
     var text: String
+    /// Set for alerts about a project; they open Projects instead.
+    var projectID: String? = nil
 }
 
 /// Preferences that aren't per-window state.
@@ -82,6 +110,18 @@ final class AppModel {
     var isLoadingPorts = false
     var selectedPortID: String?
 
+    var projects: [Project] = []
+    var githubAccounts: [GitHubAccount] = []
+    var isLoadingProjects = false
+    var hasLoadedProjects = false
+    var projectsMessage: String?
+    var projectFilter: ProjectFilter = .onMac
+    var accountFilter: String?
+    var selectedProjectID: String?
+    var projectSheet: ProjectSheet?
+    var busyProjectID: String?
+    var projectsState = ProjectsState()
+
     var changes: ScanChanges?
     var showWelcome = !AppSettings.welcomeDone && ProcessInfo.processInfo.environment["DEVSWEEP_SHOTS"] == nil
 
@@ -93,10 +133,12 @@ final class AppModel {
     @ObservationIgnored let history = HistoryStore()
     @ObservationIgnored let ignores = IgnoreStore()
     @ObservationIgnored let snapshots = ScanSnapshotStore()
+    @ObservationIgnored let projectStore = ProjectStore()
 
     init() {
         historyEntries = history.entries
         ignoredIDs = ignores.ids
+        projectsState = projectStore.state
     }
 
     // MARK: - Derived
@@ -283,6 +325,11 @@ final class AppModel {
         for a in versionAlerts {
             out.append(HealthAlert(tab: .tools, target: a.id, critical: a.issue.level == .critical, text: a.issue.text))
         }
+        for p in projectsNeedingPush {
+            let n = p.safety?.unpushedCommits ?? 0
+            out.append(HealthAlert(tab: .tools, target: p.id, critical: false,
+                                   text: "\(p.name) has \(n) commit\(n == 1 ? "" : "s") that aren't on GitHub", projectID: p.id))
+        }
         for p in versions?.projects ?? [] where p.status != .ok {
             out.append(HealthAlert(tab: .tools, target: "projects", critical: false, text: p.message))
         }
@@ -294,6 +341,12 @@ final class AppModel {
     }
 
     func open(_ alert: HealthAlert) {
+        if let id = alert.projectID {
+            selection = .projects
+            projectFilter = .onMac
+            selectedProjectID = id
+            return
+        }
         selection = .health
         healthTab = alert.tab
         switch alert.tab {
@@ -314,6 +367,254 @@ final class AppModel {
         return out.sorted { ($0.1.level == .critical ? 0 : 1) < ($1.1.level == .critical ? 0 : 1) }
     }
 
+    // MARK: - Projects
+
+    /// Folders searched for clones: your project folders plus where downloads land.
+    var projectScanRoots: [URL] {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let paths = (AppSettings.projectFolders ?? RuleLoader.defaultProjectRoots) + [projectsState.workspaceRoot]
+        return FS_uniqueDirectories(paths, home: home)
+    }
+
+    func refreshProjects() {
+        guard !isLoadingProjects, !useSampleData else { return }
+        isLoadingProjects = true
+        let roots = projectScanRoots
+        let store = projectStore
+        Task {
+            let result = await Task.detached { () -> ([Project], [GitHubAccount], String?) in
+                var message: String?
+                var remote: [RemoteRepo] = []
+                var accounts: [GitHubAccount] = []
+                do {
+                    accounts = try GitHubClient.accounts()
+                    for a in accounts {
+                        do { remote += try GitHubClient.repos(for: a.login, token: try GitHubClient.token(for: a.login)) }
+                        catch { message = "Couldn't list \(a.login)'s repositories: \(error.localizedDescription)" }
+                    }
+                } catch { message = error.localizedDescription }
+                let local = ProjectScanner.scanLocal(roots: roots)
+                // Remember where each clone lives, so a removed one comes back to the same folder.
+                store.update { s in
+                    for c in local {
+                        guard let slug = c.slug else { continue }
+                        let account = remote.first { $0.nameWithOwner.lowercased() == slug.lowercased() }?.account
+                            ?? s.known.first { $0.nameWithOwner.lowercased() == slug.lowercased() }?.account
+                            ?? String(slug.split(separator: "/")[0])
+                        let parent = FS_abbreviate(c.path.deletingLastPathComponent().path)
+                        if let i = s.known.firstIndex(where: { $0.nameWithOwner.lowercased() == slug.lowercased() }) {
+                            s.known[i].lastParent = parent
+                        } else {
+                            s.known.append(.init(nameWithOwner: slug, account: account, lastParent: parent))
+                        }
+                    }
+                }
+                let merged = ProjectScanner.merge(local: local, remote: remote, state: store.state,
+                                                  home: FileManager.default.homeDirectoryForCurrentUser)
+                return (merged, accounts, message)
+            }.value
+            // Screenshots use sample data; a real scan finishing late must not replace it.
+            guard !useSampleData else { isLoadingProjects = false; return }
+            projects = result.0
+            githubAccounts = result.1
+            projectsMessage = result.2
+            projectsState = projectStore.state
+            hasLoadedProjects = true
+            isLoadingProjects = false
+            if let id = selectedProjectID, !projects.contains(where: { $0.id == id }) { selectedProjectID = nil }
+        }
+    }
+
+    var selectedProject: Project? { projects.first { $0.id == selectedProjectID } }
+
+    func toggleProject(_ p: Project) { selectedProjectID = selectedProjectID == p.id ? nil : p.id }
+
+    /// Projects with commits that exist only on this Mac.
+    var projectsNeedingPush: [Project] {
+        projects.filter { $0.onDisk && ($0.safety?.hasRemote ?? false) && ($0.safety?.unpushedCommits ?? 0) > 0 }
+    }
+
+    var visibleProjects: [Project] {
+        let idleBefore = Date().addingTimeInterval(-21 * 86_400)
+        return projects.filter { p in
+            if let a = accountFilter, (p.account ?? p.owner) != a { return false }
+            switch projectFilter {
+            case .onMac: return p.onDisk
+            case .idle: return p.onDisk && (p.lastUsed ?? .distantPast) < idleBefore
+            case .onGitHub: return !p.onDisk
+            }
+        }
+    }
+
+    func openInEditor(_ p: Project) {
+        guard let path = p.localPath else { return }
+        projectStore.update { $0.lastOpened[p.nameWithOwner] = Date() }
+        projectsState = projectStore.state
+        if let i = projects.firstIndex(where: { $0.id == p.id }) { projects[i].lastOpened = Date() }
+        if Shell.locate("code") != nil {
+            Shell.run(["code", path], timeout: 20)
+        } else {
+            NSWorkspace.shared.open([URL(fileURLWithPath: path)], withApplicationAt: URL(fileURLWithPath: "/Applications/Visual Studio Code.app"),
+                                    configuration: NSWorkspace.OpenConfiguration())
+        }
+    }
+
+    func openOnGitHub(_ p: Project) {
+        if let url = URL(string: "https://github.com/\(p.nameWithOwner)") { NSWorkspace.shared.open(url) }
+    }
+
+    /// Pushing uses your normal git setup, so it runs where you can see it.
+    func push(_ p: Project) {
+        guard let path = p.localPath else { return }
+        runInTerminal(RuntimeStep(kind: .upgrade, title: "Push \(p.name)",
+                                  detail: "Pushes the current branch to GitHub. Other branches aren't pushed.",
+                                  commands: ["cd \(shellQuote(path))", "git push || git push -u origin HEAD"]))
+    }
+
+    /// Moves the folder to the Trash (restorable from History). Only when nothing would be lost.
+    func removeFromMac(_ p: Project) {
+        guard let path = p.localPath, p.safety?.isSafeToRemove == true else { return }
+        let finding = Finding(id: "project:" + p.id, ruleID: "projects", title: p.nameWithOwner, subtitle: path, category: .projects,
+                              risk: .holdsData, paths: [path], size: p.localSize,
+                              explanation: Explanation(what: "A project folder.", why: "", ifDeleted: "Download it again from GitHub.",
+                                                       undo: "Download it again from Projects, or restore it from History."),
+                              checks: [], actions: [CleanAction(kind: .trash)], blockingApps: [], blockers: [])
+        busyProjectID = p.id
+        let history = self.history
+        Task {
+            let results = await Task.detached { Cleaner(history: history).run([PlannedAction(finding: finding, action: CleanAction(kind: .trash))]) }.value
+            if let r = results.first, !r.succeeded { errorMessage = r.message }
+            historyEntries = history.entries
+            disk = DiskInfo.current()
+            busyProjectID = nil
+            selectedProjectID = nil
+            refreshProjects()
+        }
+    }
+
+    /// Removes every project that's fully backed up and idle.
+    var safeIdleProjects: [Project] { visibleProjects.filter { $0.onDisk && $0.safety?.isSafeToRemove == true } }
+
+    func removeAllSafeIdle() {
+        let list = safeIdleProjects
+        guard !list.isEmpty else { return }
+        let findings = list.map { p in
+            Finding(id: "project:" + p.id, ruleID: "projects", title: p.nameWithOwner, subtitle: p.localPath ?? "", category: .projects,
+                    risk: .holdsData, paths: [p.localPath ?? ""], size: p.localSize,
+                    explanation: Explanation(what: "A project folder.", why: "", ifDeleted: "Download it again from GitHub."),
+                    checks: [], actions: [CleanAction(kind: .trash)], blockingApps: [], blockers: [])
+        }
+        let history = self.history
+        busyProjectID = "all"
+        Task {
+            let results = await Task.detached {
+                Cleaner(history: history).run(findings.map { PlannedAction(finding: $0, action: CleanAction(kind: .trash)) })
+            }.value
+            if let bad = results.first(where: { !$0.succeeded }) { errorMessage = bad.message }
+            historyEntries = history.entries
+            disk = DiskInfo.current()
+            busyProjectID = nil
+            refreshProjects()
+        }
+    }
+
+    func identity(for account: String) -> GitIdentity? { projectsState.identities[account] }
+
+    func setIdentity(_ identity: GitIdentity, for account: String) {
+        projectStore.update { $0.identities[account] = identity }
+        projectsState = projectStore.state
+    }
+
+    func setWorkspaceRoot(_ path: String) {
+        projectStore.update { $0.workspaceRoot = path }
+        projectsState = projectStore.state
+    }
+
+    /// Records a clone or publish in History, so it shows up next to cleanups.
+    private func logActivity(_ title: String, _ label: String, size: Int64 = 0) {
+        history.append(HistoryEntry(title: title, actionKind: .manual, actionLabel: label, size: size))
+        historyEntries = history.entries
+    }
+
+    func download(_ p: Project, strategy: CloneStrategy, to destination: URL, completion: @escaping (String?) -> Void) {
+        guard let account = p.account ?? githubAccounts.first(where: { $0.isActive })?.login else {
+            completion("Sign in to GitHub first: run gh auth login in Terminal."); return
+        }
+        let identity = projectsState.identities[account]
+        busyProjectID = p.id
+        Task {
+            let error: String? = await Task.detached {
+                do {
+                    let token = try GitHubClient.token(for: account)
+                    try GitHubClient.clone(slug: p.nameWithOwner, into: destination, strategy: strategy, token: token, identity: identity)
+                    return nil
+                } catch { return error.localizedDescription }
+            }.value
+            busyProjectID = nil
+            if error == nil {
+                projectStore.update { s in
+                    s.strategies[p.nameWithOwner] = strategy
+                    s.lastOpened[p.nameWithOwner] = Date()
+                }
+                projectsState = projectStore.state
+                logActivity("Downloaded \(p.nameWithOwner)", "Downloaded (\(strategy.title.lowercased()))", size: FS_size(destination.path))
+                refreshProjects()
+            }
+            completion(error)
+        }
+    }
+
+    func publish(folder: URL, name: String, account: String, description: String, isPrivate: Bool, completion: @escaping (String?) -> Void) {
+        let identity = projectsState.identities[account]
+        busyProjectID = "publish"
+        Task {
+            let error: String? = await Task.detached {
+                do {
+                    let token = try GitHubClient.token(for: account)
+                    try GitHubClient.publish(folder: folder, owner: account, name: name, description: description,
+                                             isPrivate: isPrivate, token: token, identity: identity)
+                    return nil
+                } catch { return error.localizedDescription }
+            }.value
+            busyProjectID = nil
+            if error == nil {
+                logActivity("Published \(account)/\(name)", isPrivate ? "Published (private)" : "Published (public)")
+                refreshProjects()
+            }
+            completion(error)
+        }
+    }
+
+    /// Adds a repo by URL, for ones outside your own lists (forks, other orgs).
+    func addByURL(_ text: String, completion: @escaping (String?) -> Void) {
+        guard let slug = GitHubClient.parseSlug(text) else {
+            completion("That doesn't look like a GitHub repo. Use owner/name or a github.com URL."); return
+        }
+        let accounts = githubAccounts
+        Task {
+            let found: (RemoteRepo?, String?) = await Task.detached {
+                var lastError = "Sign in to GitHub first."
+                for a in accounts {
+                    do {
+                        let r = try GitHubClient.repoView(slug: slug, account: a.login, token: try GitHubClient.token(for: a.login))
+                        return (r, nil)
+                    } catch { lastError = error.localizedDescription }
+                }
+                return (nil, lastError)
+            }.value
+            guard let repo = found.0 else { completion("Couldn't find \(slug) with your signed-in accounts. \(found.1 ?? "")"); return }
+            projectStore.update { s in
+                if !s.known.contains(where: { $0.nameWithOwner.lowercased() == repo.nameWithOwner.lowercased() }) {
+                    s.known.append(.init(nameWithOwner: repo.nameWithOwner, account: repo.account, isPrivate: repo.isPrivate, remoteKB: repo.diskUsageKB))
+                }
+            }
+            projectsState = projectStore.state
+            projectFilter = .onGitHub
+            refreshProjects()
+            completion(nil)
+        }
+    }
+
     /// Dismisses the first-launch screen and starts the first scan.
     func finishWelcome() {
         AppSettings.welcomeDone = true
@@ -321,10 +622,12 @@ final class AppModel {
         if lastScan == nil { scan() }
         if versions == nil { checkVersions() }
         checkSecurity()
+        refreshProjects()
     }
 
     /// The toolbar's Scan again: everything, read-only.
     func scanEverything() {
+        refreshProjects()
         scan()
         checkVersions()
         checkSecurity()
@@ -421,6 +724,21 @@ final class AppModel {
     func reveal(_ path: String) {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
     }
+}
+
+func shellQuote(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+
+func FS_uniqueDirectories(_ paths: [String], home: URL) -> [URL] {
+    var seen = Set<String>()
+    var out: [URL] = []
+    for p in paths {
+        let url = p.hasPrefix("~/") ? home.appendingPathComponent(String(p.dropFirst(2))) : URL(fileURLWithPath: p)
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue else { continue }
+        let key = (try? url.resourceValues(forKeys: [.canonicalPathKey]))?.canonicalPath ?? url.path
+        if seen.insert(key.lowercased()).inserted { out.append(url) }
+    }
+    return out
 }
 
 func FS_size(_ path: String) -> Int64 {

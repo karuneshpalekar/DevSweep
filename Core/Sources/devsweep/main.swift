@@ -9,6 +9,7 @@ USAGE
   devsweep runtimes [--json]           Tool versions, support status, project requirements
   devsweep security                    Secrets stored where they shouldn't be
   devsweep ports                       What's listening on which port
+  devsweep projects [--local]          Your projects on this Mac and on GitHub, and what's safe to remove
   devsweep rules                       List loaded rules
   devsweep history                     Show what DevSweep has changed
   devsweep restore <history-id>        Move an entry's items back from the Trash
@@ -106,6 +107,28 @@ case "ports":
         let net = p.reachableFromNetwork ? "network" : "local"
         print("\(String(p.port).padding(toLength: 6, withPad: " ", startingAt: 0)) \(p.label.padding(toLength: 44, withPad: " ", startingAt: 0)) pid \(p.pid)  \(net)\(p.isDevelopment ? "  [dev]" : "")")
     }
+case "projects":
+    let store = ProjectStore()
+    let home = FileManager.default.homeDirectoryForCurrentUser
+    let roots = (AppSettingsCLI.folders ?? RuleLoader.defaultProjectRoots).map { FS_expand($0, home) }
+    var remote: [RemoteRepo] = []
+    if !args.contains("--local") {
+        do {
+            for a in try GitHubClient.accounts() {
+                remote += try GitHubClient.repos(for: a.login, token: try GitHubClient.token(for: a.login))
+                print("account \(a.login)\(a.isActive ? " (active)" : ""): \(remote.filter { $0.account == a.login }.count) repos")
+            }
+        } catch { print("GitHub: \(error.localizedDescription)") }
+    }
+    let local = ProjectScanner.scanLocal(roots: roots)
+    let projects = ProjectScanner.merge(local: local, remote: remote, state: store.state, home: home)
+    for p in projects where p.onDisk || args.contains("--all") {
+        let status = p.status
+        let mark = status.level == .ok ? "✓" : (status.level == .attention ? "▲" : "·")
+        print("\(mark) \(p.nameWithOwner.padding(toLength: 44, withPad: " ", startingAt: 0)) \(status.text.padding(toLength: 34, withPad: " ", startingAt: 0)) \(SizeFormat.string(p.localSize))")
+        if let path = p.localPath { print("    \(path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))") }
+    }
+    print("\(projects.filter(\.onDisk).count) on this Mac, \(projects.filter { !$0.onDisk }.count) only on GitHub")
 case "rules":
     let (rules, errors) = RuleLoader.loadAll()
     for r in rules { print("\(r.id.padding(toLength: 28, withPad: " ", startingAt: 0)) \(r.category.title) · \(r.risk.title)") }
@@ -127,4 +150,12 @@ case "restore":
     }
 default:
     print(usage)
+}
+
+enum AppSettingsCLI {
+    static var folders: [String]? { UserDefaults(suiteName: "io.github.karuneshpalekar.devsweep")?.stringArray(forKey: "projectFolders") }
+}
+
+func FS_expand(_ path: String, _ home: URL) -> URL {
+    path.hasPrefix("~/") ? home.appendingPathComponent(String(path.dropFirst(2))) : URL(fileURLWithPath: path)
 }

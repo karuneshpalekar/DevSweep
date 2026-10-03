@@ -56,6 +56,19 @@ public enum SecurityScanner {
         return out.sorted { ($0.level, $0.title) < ($1.level, $1.title) }
     }
 
+    /// Secrets inside one folder, minus files its .gitignore already lists by name.
+    /// Used before publishing a folder to GitHub.
+    public static func scanFolder(_ folder: URL, home: URL = FileManager.default.homeDirectoryForCurrentUser) -> [SecurityFinding] {
+        let ignored = Set(((try? String(contentsOf: folder.appendingPathComponent(".gitignore"), encoding: .utf8)) ?? "")
+            .split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "/")) })
+        var out: [SecurityFinding] = []
+        walk(folder, depth: 4) { url in
+            guard let f = classify(url, home: home), f.level != .ok, !ignored.contains(url.lastPathComponent) else { return }
+            out.append(f)
+        }
+        return out
+    }
+
     static let skipDirs: Set<String> = ["node_modules", ".git", "Library", ".venv", "venv", "Pods", "build", "dist", ".Trash", ".gradle"]
 
     static func walk(_ dir: URL, depth: Int, onlyEnv: Bool = false, _ visit: (URL) -> Void) {

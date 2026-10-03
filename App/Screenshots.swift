@@ -23,11 +23,16 @@ enum ScreenshotTour {
         window.makeKeyAndOrderFront(nil)
 
         model.checkSecurity()
-        for _ in 0..<120 where model.versions == nil || model.isCheckingVersions || model.isCheckingSecurity { await pause(0.5) }
+        for _ in 0..<120 where model.versions == nil || model.isCheckingVersions || model.isCheckingSecurity || model.isLoadingProjects {
+            await pause(0.5)
+        }
         // Security and Ports would show where your own secret files are, so
         // the README shows made-up examples instead. Nothing touches disk.
         model.security = SampleData.security
         model.ports = SampleData.ports
+        model.projects = SampleData.projects
+        model.githubAccounts = [GitHubAccount(login: "sample-dev", isActive: true)]
+        model.hasLoadedProjects = true
         model.useSampleData = true
         let panelItem = model.findings.first { $0.ruleID == "chrome-cache" } ?? model.findings.first
         let reviewIDs = pickReviewItems(model.findings)
@@ -52,6 +57,14 @@ enum ScreenshotTour {
             save(window, "cleanup-\(mode.rawValue)", dir)
 
             model.inspectedID = nil
+            model.selection = .projects
+            model.projectFilter = .onMac
+            await pause(0.8)
+            model.selectedProjectID = model.projects.first { ($0.safety?.unpushedCommits ?? 0) > 0 }?.id
+            await pause(1.4)
+            save(window, "projects-\(mode.rawValue)", dir)
+            model.selectedProjectID = nil
+
             model.selection = .health
             model.healthTab = .security
             await pause(0.8)
@@ -213,6 +226,35 @@ enum SampleData {
                         why: "This is the right way to keep local secrets: git ignores the file.",
                         whatToDo: "Nothing to do.", checks: [.passed("git ignores this file")]),
     ]
+
+    static var projects: [Project] {
+        let now = Date()
+        let h = NSHomeDirectory()
+        func ago(_ days: Double) -> Date { now.addingTimeInterval(-days * 86_400) }
+        return [
+            Project(id: "sample-dev/web-app", name: "web-app", nameWithOwner: "sample-dev/web-app", owner: "sample-dev",
+                    description: "Marketing site", isPrivate: true, localPath: h + "/Code/sample-dev/web-app", localSize: 412_000_000,
+                    remoteKB: 90_000, onGitHub: true, account: "sample-dev", safety: GitSafety(), lastOpened: now.addingTimeInterval(-7_200),
+                    lastActivity: ago(1), strategy: .blobless),
+            Project(id: "sample-dev/demo-api", name: "demo-api", nameWithOwner: "sample-dev/demo-api", owner: "sample-dev",
+                    description: "REST API", isPrivate: true, localPath: h + "/Code/sample-dev/demo-api", localSize: 1_130_000_000,
+                    remoteKB: 220_000, onGitHub: true, account: "sample-dev",
+                    safety: GitSafety(unpushedCommits: 3, changedFiles: 2, stashes: 0), lastOpened: ago(1), lastActivity: ago(1), strategy: .blobless),
+            Project(id: "sample-dev/design-system", name: "design-system", nameWithOwner: "sample-dev/design-system", owner: "sample-dev",
+                    description: "", isPrivate: false, localPath: h + "/Code/sample-dev/design-system", localSize: 88_000_000,
+                    remoteKB: 40_000, onGitHub: true, account: "sample-dev", safety: GitSafety(), lastOpened: ago(9), lastActivity: ago(9), strategy: .shallow),
+            Project(id: "sample-dev/old-experiments", name: "old-experiments", nameWithOwner: "sample-dev/old-experiments", owner: "sample-dev",
+                    description: "", isPrivate: true, localPath: h + "/Code/sample-dev/old-experiments", localSize: 640_000_000,
+                    remoteKB: 150_000, onGitHub: true, account: "sample-dev", safety: GitSafety(), lastOpened: ago(75), lastActivity: ago(80), strategy: .full),
+            Project(id: "local:scratch-notes", name: "scratch-notes", nameWithOwner: "scratch-notes", owner: "", description: "",
+                    isPrivate: nil, localPath: h + "/Code/scratch-notes", localSize: 2_000_000, onGitHub: false,
+                    safety: GitSafety(unpushedCommits: 0, changedFiles: 0, stashes: 0, hasRemote: false), lastActivity: ago(3)),
+            Project(id: "sample-dev/mobile-app", name: "mobile-app", nameWithOwner: "sample-dev/mobile-app", owner: "sample-dev",
+                    description: "iOS and Android client", isPrivate: true, remoteKB: 520_000, onGitHub: true, account: "sample-dev", lastActivity: ago(14)),
+            Project(id: "sample-dev/docs-site", name: "docs-site", nameWithOwner: "sample-dev/docs-site", owner: "sample-dev",
+                    description: "Documentation", isPrivate: false, remoteKB: 31_000, onGitHub: true, account: "sample-dev", lastActivity: ago(40)),
+        ]
+    }
 
     static let ports: [ListeningPort] = [
         ListeningPort(port: 3000, pid: 41230, command: "node", arguments: "node ~/Code/web-app/node_modules/.bin/next dev",

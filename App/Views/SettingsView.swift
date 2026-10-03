@@ -70,6 +70,7 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             GeneralSettings().tabItem { Label("General", systemImage: "gearshape") }
+            GitHubSettings().tabItem { Label("GitHub", systemImage: "person.crop.circle") }
             FolderSettings().tabItem { Label("Folders", systemImage: "folder") }
             IgnoredSettings().tabItem { Label("Ignored", systemImage: "eye.slash") }
             PermissionSettings().tabItem { Label("Permissions", systemImage: "lock") }
@@ -102,6 +103,92 @@ struct GeneralSettings: View {
             (AppearanceMode(rawValue: new) ?? .system).apply()
         }
     }
+}
+
+/// GitHub accounts known to `gh`, each with the commit identity written into its clones.
+@MainActor
+struct GitHubSettings: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Each account's name and email are written into the projects you download with it, so commits are attributed correctly whatever your global Git identity is.")
+                    .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if model.githubAccounts.isEmpty {
+                    Text(model.projectsMessage ?? "Looking for GitHub accounts…").foregroundStyle(.secondary)
+                }
+                ForEach(model.githubAccounts) { AccountRow(account: $0) }
+                HStack {
+                    Button("Add account…") {
+                        model.runInTerminal(RuntimeStep(kind: .upgrade, title: "Sign in to GitHub",
+                                                        detail: "Opens GitHub's sign-in. Choose HTTPS and sign in through the browser.",
+                                                        commands: ["gh auth login"]))
+                    }
+                    Button("Refresh") { model.refreshProjects() }
+                }
+                Divider()
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Downloads go to").fontWeight(.medium)
+                        Text(model.projectsState.workspaceRoot).font(.callout.monospaced()).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Choose…") { chooseWorkspace() }
+                }
+            }
+            .padding(24)
+        }
+        .task { if !model.hasLoadedProjects { model.refreshProjects() } }
+    }
+
+    private func chooseWorkspace() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Choose"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let home = NSHomeDirectory()
+        model.setWorkspaceRoot(url.path.hasPrefix(home) ? "~" + url.path.dropFirst(home.count) : url.path)
+    }
+}
+
+@MainActor
+struct AccountRow: View {
+    @Environment(AppModel.self) private var model
+    let account: GitHubAccount
+    @State private var name = ""
+    @State private var email = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(account.login).fontWeight(.semibold)
+                if account.isActive { StatusTag(text: "Active in Terminal", color: .secondary) }
+            }
+            HStack {
+                TextField("Name for commits", text: $name).textFieldStyle(.roundedBorder)
+                TextField("Email for commits", text: $email).textFieldStyle(.roundedBorder)
+            }
+            if name.isEmpty && email.isEmpty {
+                Text("Not set. Projects downloaded with this account use your global Git identity.")
+                    .font(.caption).foregroundStyle(.orange)
+            }
+        }
+        .padding(12)
+        .background(.background, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(.separator))
+        .onAppear {
+            let i = model.identity(for: account.login)
+            name = i?.name ?? ""
+            email = i?.email ?? ""
+        }
+        .onChange(of: name) { _, _ in save() }
+        .onChange(of: email) { _, _ in save() }
+    }
+
+    private func save() { model.setIdentity(GitIdentity(name: name, email: email), for: account.login) }
 }
 
 @MainActor
