@@ -26,6 +26,12 @@ public struct SecurityFinding: Codable, Hashable, Sendable, Identifiable {
     public var checks: [Check]
     /// Commands for fixes that aren't just "move to Trash" (e.g. stop tracking a .env).
     public var fix: [String]?
+
+    public init(kind: Kind, level: Level, title: String, path: String, status: String, why: String,
+                whatToDo: String, checks: [Check], fix: [String]? = nil) {
+        self.kind = kind; self.level = level; self.title = title; self.path = path; self.status = status
+        self.why = why; self.whatToDo = whatToDo; self.checks = checks; self.fix = fix
+    }
 }
 
 public enum SecurityScanner {

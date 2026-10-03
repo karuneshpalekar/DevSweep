@@ -24,6 +24,11 @@ enum ScreenshotTour {
 
         model.checkSecurity()
         for _ in 0..<120 where model.versions == nil || model.isCheckingVersions || model.isCheckingSecurity { await pause(0.5) }
+        // Security and Ports would show where your own secret files are, so
+        // the README shows made-up examples instead. Nothing touches disk.
+        model.security = SampleData.security
+        model.ports = SampleData.ports
+        model.useSampleData = true
         let panelItem = model.findings.first { $0.ruleID == "chrome-cache" } ?? model.findings.first
         let reviewIDs = pickReviewItems(model.findings)
 
@@ -56,9 +61,8 @@ enum ScreenshotTour {
             model.selectedSecurityID = nil
 
             model.healthTab = .ports
-            for _ in 0..<20 where model.isLoadingPorts || model.ports.isEmpty { await pause(0.5) }
-            await pause(0.6)
-            model.selectedPortID = model.ports.first(where: \.isDevelopment)?.id
+            await pause(0.8)
+            model.selectedPortID = model.ports.first { $0.isDevelopment && $0.reachableFromNetwork }?.id
             await pause(1.4)
             save(window, "ports-\(mode.rawValue)", dir)
             model.selectedPortID = nil
@@ -182,5 +186,46 @@ enum ScreenshotTour {
         if let img = image(of: win) { write(img, "menubar-\(mode.rawValue)", dir) }
         win.orderOut(nil)
     }
+}
+/// Made-up findings for README screenshots.
+enum SampleData {
+    static let home = NSHomeDirectory()
+
+    static let security: [SecurityFinding] = [
+        SecurityFinding(kind: .recoveryCodes, level: .critical, title: "GitHub recovery codes",
+                        path: home + "/Downloads/github-recovery-codes.txt", status: "Plain text",
+                        why: "Anyone who gets this file can sign in to your GitHub account without your password or phone.",
+                        whatToDo: "Save the codes in your password manager, then delete the file. GitHub can also generate new codes, which makes these useless.",
+                        checks: [.passed("Recognised from the file name"), .passed("The codes themselves were never read into DevSweep")]),
+        SecurityFinding(kind: .serviceAccountKey, level: .critical, title: "Google Cloud service-account key",
+                        path: home + "/Downloads/my-project-4f2a.json", status: "Plain text",
+                        why: "It gives full access to whatever that service account can reach, with no password and no expiry.",
+                        whatToDo: "If you still need it, keep it outside Downloads or in a secrets manager. If you don't, delete it and revoke the key.",
+                        checks: [.passed("Recognised from the file's structure (a service-account key)")]),
+        SecurityFinding(kind: .envFile, level: .critical, title: ".env with 3 secrets is committed in demo-api",
+                        path: home + "/Code/demo-api/.env", status: "Committed to git",
+                        why: "Everyone with access to this repository, now or later, can read these secrets, including in its history.",
+                        whatToDo: "Stop tracking the file and ignore it, then rotate the secrets.",
+                        checks: [.warning("git tracks this file"), .passed("Only key names were checked; values were never kept")],
+                        fix: ["cd ~/Code/demo-api", "git rm --cached .env", "echo .env >> .gitignore", "git commit -m \"Stop tracking .env\""]),
+        SecurityFinding(kind: .envFile, level: .ok, title: ".env.local with 2 secrets in web-app",
+                        path: home + "/Code/web-app/.env.local", status: "Kept out of git",
+                        why: "This is the right way to keep local secrets: git ignores the file.",
+                        whatToDo: "Nothing to do.", checks: [.passed("git ignores this file")]),
+    ]
+
+    static let ports: [ListeningPort] = [
+        ListeningPort(port: 3000, pid: 41230, command: "node", arguments: "node ~/Code/web-app/node_modules/.bin/next dev",
+                      label: "Next.js dev server in web-app", folder: "~/Code/web-app",
+                      started: Date().addingTimeInterval(-3 * 3600), reachableFromNetwork: false, isDevelopment: true),
+        ListeningPort(port: 5432, pid: 812, command: "postgres", arguments: "/opt/homebrew/opt/postgresql@17/bin/postgres -D /opt/homebrew/var/postgresql@17",
+                      label: "PostgreSQL 17 (Homebrew)", folder: nil, started: Date().addingTimeInterval(-86_400 * 2),
+                      reachableFromNetwork: false, isDevelopment: true),
+        ListeningPort(port: 8000, pid: 41388, command: "Python", arguments: "python manage.py runserver 0.0.0.0:8000",
+                      label: "Django dev server in demo-api", folder: "~/Code/demo-api",
+                      started: Date().addingTimeInterval(-1800), reachableFromNetwork: true, isDevelopment: true),
+        ListeningPort(port: 5000, pid: 630, command: "ControlCenter", arguments: "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter",
+                      label: "macOS AirPlay Receiver", folder: nil, started: nil, reachableFromNetwork: true, isDevelopment: false),
+    ]
 }
 #endif

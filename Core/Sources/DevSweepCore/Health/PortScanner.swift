@@ -18,6 +18,13 @@ public struct ListeningPort: Codable, Hashable, Sendable, Identifiable {
     public var reachableFromNetwork: Bool
     /// A developer tool or project server rather than an app or macOS service.
     public var isDevelopment: Bool
+
+    public init(port: Int, pid: Int32, command: String, arguments: String, label: String, folder: String?,
+                started: Date?, reachableFromNetwork: Bool, isDevelopment: Bool) {
+        self.port = port; self.pid = pid; self.command = command; self.arguments = arguments; self.label = label
+        self.folder = folder; self.started = started; self.reachableFromNetwork = reachableFromNetwork
+        self.isDevelopment = isDevelopment
+    }
 }
 
 public enum PortScanner {

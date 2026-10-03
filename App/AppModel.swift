@@ -202,8 +202,11 @@ final class AppModel {
 
     // MARK: - Security and ports
 
+    /// Debug screenshots use sample data; real scans must not replace it.
+    @ObservationIgnored var useSampleData = false
+
     func checkSecurity() {
-        guard !isCheckingSecurity else { return }
+        guard !isCheckingSecurity, !useSampleData else { return }
         isCheckingSecurity = true
         let roots = AppSettings.projectFolders
         Task {
@@ -217,7 +220,7 @@ final class AppModel {
     var visibleSecurity: [SecurityFinding] { security.filter { !ignoredIDs.contains($0.id) } }
 
     func refreshPorts() {
-        guard !isLoadingPorts else { return }
+        guard !isLoadingPorts, !useSampleData else { return }
         isLoadingPorts = true
         let installs = versions?.runtimes.flatMap(\.installs) ?? []
         Task {
