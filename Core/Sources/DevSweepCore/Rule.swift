@@ -118,6 +118,11 @@ public enum RuleLoader {
         let text = try String(contentsOf: url, encoding: .utf8)
         return try YAMLDecoder().decode(RulePack.self, from: text).rules
     }
+
+    /// Folders the idle-projects rule looks in by default.
+    public static var defaultProjectRoots: [String] {
+        loadAll().rules.first { $0.detector.kind == .staleProjectArtifacts }?.detector.roots ?? []
+    }
 }
 
 enum Template {

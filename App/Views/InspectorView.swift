@@ -80,9 +80,15 @@ struct InspectorView: View {
                     .padding(8)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
-                Button("Copy commands") {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
+                HStack {
+                    Label("Asks for your password", systemImage: "lock").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Copy") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
+                    }
+                    Button("Run in Terminal") { model.runAdminCommands(for: finding) }
+                        .buttonStyle(.borderedProminent)
                 }
             } else {
                 ForEach(finding.actions) { a in

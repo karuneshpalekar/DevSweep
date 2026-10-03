@@ -111,6 +111,14 @@ public struct RuntimeStep: Codable, Hashable, Sendable, Identifiable {
     public var title: String
     public var detail: String
     public var commands: [String]
+
+    public init(kind: Kind, title: String, detail: String, commands: [String]) {
+        self.kind = kind
+        self.title = title
+        self.detail = detail
+        self.commands = commands
+    }
+
     /// Commands contain sudo, so Terminal will ask for the password.
     public var needsAdmin: Bool { commands.contains { $0.contains("sudo ") } }
 }

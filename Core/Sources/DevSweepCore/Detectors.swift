@@ -205,12 +205,12 @@ enum Detectors {
                     let domain = dir.lastPathComponent == "LaunchDaemons" ? "system" : "gui/$(id -u)"
                     c.risk = .needsAdmin
                     c.actions = [CleanAction(
-                        kind: .manual, label: "Copy commands",
+                        kind: .manual, label: "Run in Terminal",
                         command: ["sudo launchctl bootout \(domain) \"\(plist.path)\"",
                                   "sudo mv \"\(plist.path)\" ~/.Trash/"],
-                        detail: "Needs your admin password. Paste these into Terminal."
+                        detail: "Runs in Terminal, where macOS asks for your password."
                     )]
-                    c.checks.append(.warning("It's outside your home folder, so you run the commands yourself."))
+                    c.checks.append(.warning("It's outside your home folder, so it needs your Mac password."))
                 }
                 out.append(c)
             }
@@ -474,7 +474,7 @@ enum Detectors {
             )
         }
 
-        for rootPath in rule.detector.roots ?? [] {
+        for rootPath in ctx.projectRoots ?? rule.detector.roots ?? [] {
             let root = FS.expand(rootPath, home: ctx.home)
             if FS.isDirectory(root) { walk(root, depth: 1) }
         }

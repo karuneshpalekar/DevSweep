@@ -16,6 +16,7 @@ struct DevSweepApp: App {
 
         Settings {
             SettingsView()
+                .environment(model)
         }
 
         MenuBarExtra {

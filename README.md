@@ -11,22 +11,25 @@ ago. DevSweep finds them, tells you what each one is, what was checked, and
 exactly what happens if you remove it.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/items-dark.png">
-  <img alt="DevSweep: items grouped by risk, with the explanation panel open for Chrome cache" src="docs/screenshots/items-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/cleanup-dark.png">
+  <img alt="DevSweep Clean up: items grouped by risk, with the explanation panel open for Chrome cache" src="docs/screenshots/cleanup-light.png">
 </picture>
 
-## Screenshots
+## Four places, nothing more
 
-Light and dark mode follow your Mac, or pick one in the sidebar.
+DevSweep keeps the window simple: **Home**, **Clean up** and **Health**,
+plus History and Settings. Light and dark mode follow your Mac, or pick one
+in Settings.
 
 | | Light | Dark |
 |---|---|---|
-| **Every item explained.** The ⓘ panel says what it is, why it was flagged, what was checked on your Mac, what you won't lose, and a better option when there is one. | ![Items and explanation panel, light](docs/screenshots/items-light.png) | ![Items and explanation panel, dark](docs/screenshots/items-dark.png) |
-| **Review before anything changes.** Items are grouped by what will actually happen: deleted right away (rebuilds itself) or moved to the Trash (restorable). Apps that must quit first are flagged, with a button to quit them. | ![Review sheet, light](docs/screenshots/review-light.png) | ![Review sheet, dark](docs/screenshots/review-dark.png) |
-| **Runtimes and versions.** Every Node, Python, Java, PostgreSQL, Go and Ruby install, who installed it, which one your shell runs, and whether it's still supported. Fixes are shown as commands and run in Terminal, including a guided PostgreSQL upgrade. | ![Runtimes and versions, light](docs/screenshots/runtimes-light.png) | ![Runtimes and versions, dark](docs/screenshots/runtimes-dark.png) |
+| **Home.** Free space, what can be cleaned, what grew or appeared since last week, and the few things that need attention. | ![Home, light](docs/screenshots/home-light.png) | ![Home, dark](docs/screenshots/home-dark.png) |
+| **Clean up.** Everything that can go, filtered by kind (caches, old versions, leftovers, project dependencies) and grouped by risk. The ⓘ panel explains each item: what it is, what was checked on your Mac, what you won't lose, and a better option when there is one. | ![Clean up, light](docs/screenshots/cleanup-light.png) | ![Clean up, dark](docs/screenshots/cleanup-dark.png) |
+| **Review before anything changes.** Items are grouped by what will actually happen, and apps that must quit first are flagged. | ![Review, light](docs/screenshots/review-light.png) | ![Review, dark](docs/screenshots/review-dark.png) |
+| **Health.** Every Node, Python, Java, PostgreSQL, Go and Ruby install, which one your shell runs, and whether it's still supported, with fixes you can run in Terminal. | ![Health, light](docs/screenshots/health-light.png) | ![Health, dark](docs/screenshots/health-dark.png) |
 | **History and undo.** Everything DevSweep changed, with Restore for anything still in the Trash. | ![History, light](docs/screenshots/history-light.png) | ![History, dark](docs/screenshots/history-dark.png) |
-| **Overview.** Free space, what can be cleaned, and where it is. | ![Overview, light](docs/screenshots/overview-light.png) | ![Overview, dark](docs/screenshots/overview-dark.png) |
-| **Menu bar.** Space at a glance and a quick scan. | <img alt="Menu bar, light" src="docs/screenshots/menubar-light.png" width="320"> | <img alt="Menu bar, dark" src="docs/screenshots/menubar-dark.png" width="320"> |
+| **First launch.** What DevSweep looks at, what it never does, and the permissions macOS may ask for. | ![Welcome, light](docs/screenshots/welcome-light.png) | ![Welcome, dark](docs/screenshots/welcome-dark.png) |
+| **Settings and menu bar.** Project folders, ignored items and permissions in one window; space and alerts at a glance from the menu bar. | <img alt="Settings" src="docs/screenshots/settings-light.png" width="420"> <img alt="Menu bar" src="docs/screenshots/menubar-light.png" width="280"> | <img alt="Settings, dark" src="docs/screenshots/settings-dark.png" width="420"> <img alt="Menu bar, dark" src="docs/screenshots/menubar-dark.png" width="280"> |
 
 ## How it behaves
 
@@ -35,6 +38,8 @@ Light and dark mode follow your Mac, or pick one in the sidebar.
 - **Everything is explained.** Each item has an ⓘ panel: what it is, why it
   was flagged, what was checked on your Mac, what happens if you clean it,
   what you won't lose, and how to undo it.
+- **Explains before it asks.** The first launch says what DevSweep looks at
+  and which permission prompts macOS may show, before the first scan.
 - **Reversible by default.** Anything that could matter goes to the Trash
   and can be restored from History. Only things that rebuild on their own
   (caches) are deleted outright, using the tool's own command where there is
@@ -62,9 +67,9 @@ Light and dark mode follow your Mac, or pick one in the sidebar.
 | Projects | `node_modules`, virtualenvs and Pods in projects untouched for 30 days |
 | Browsers and AI models | Chrome/Edge/Brave caches, Chrome's on-device model, Whisper, Hugging Face, PyTorch |
 
-## Runtimes and versions (v0.2)
+## Health: tools and versions
 
-A separate screen answers a different question: are the tools you rely on
+The Health section answers a different question: are the tools you rely on
 still supported, and do you have too many copies of them?
 
 - **Finds every install** of Node.js, Python, Java, PostgreSQL, Go and Ruby,

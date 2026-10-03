@@ -84,16 +84,16 @@ struct RuntimesView: View {
         .animation(Motion.panel, value: isOpen)
         .animation(Motion.swap, value: panelID)
         .onChange(of: model.selectedRuntimeID, initial: true) { _, new in if let new { panelID = new } }
-        .navigationTitle("Runtimes and versions")
+        .navigationTitle("Health")
         .navigationSubtitle(subtitle)
     }
 
     private var subtitle: String {
         if model.isCheckingVersions { return "Checking · \(model.versionsStatus)" }
-        guard let v = model.versions else { return "Not checked yet" }
+        guard let v = model.versions else { return "Tools and versions · not checked yet" }
         let when = v.date.formatted(date: .omitted, time: .shortened)
-        return v.eolOffline ? "Checked \(when) · support dates may be out of date (offline)"
-                            : "Checked \(when) · support dates from endoflife.date"
+        return v.eolOffline ? "Tools and versions · checked \(when) · support dates may be out of date (offline)"
+                            : "Tools and versions · checked \(when) · support dates from endoflife.date"
     }
 
     // MARK: - List

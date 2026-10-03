@@ -21,9 +21,12 @@ public final class ScanContext: @unchecked Sendable {
     let installedBundleIDs: Set<String>
     let runningAppNames: Set<String>
     let processArgs: [String]
+    /// Project folders chosen in Settings; nil means the rule's defaults.
+    let projectRoots: [String]?
 
-    public init(home: URL = FileManager.default.homeDirectoryForCurrentUser) {
+    public init(home: URL = FileManager.default.homeDirectoryForCurrentUser, projectRoots: [String]? = nil) {
         self.home = home
+        self.projectRoots = projectRoots
         #if arch(arm64)
         arch = "arm64"
         #else

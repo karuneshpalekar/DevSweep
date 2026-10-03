@@ -3,13 +3,28 @@ import DevSweepCore
 import Observation
 import SwiftUI
 
+/// The four places in the app. Settings is its own window.
 enum SidebarItem: Hashable {
-    case overview
-    case all
-    case category(DevSweepCore.Category)
-    case runtimes
+    case home
+    case cleanUp
+    case health
     case history
-    case ignored
+}
+
+/// Preferences that aren't per-window state.
+enum AppSettings {
+    static let defaults = UserDefaults.standard
+
+    /// Folders searched for idle projects; nil means DevSweep's defaults.
+    static var projectFolders: [String]? {
+        get { defaults.stringArray(forKey: "projectFolders") }
+        set { defaults.set(newValue, forKey: "projectFolders") }
+    }
+
+    static var welcomeDone: Bool {
+        get { defaults.bool(forKey: "welcomeDone") }
+        set { defaults.set(newValue, forKey: "welcomeDone") }
+    }
 }
 
 @MainActor
@@ -22,7 +37,7 @@ final class AppModel {
     var disk: DiskInfo? = DiskInfo.current()
     var ruleErrors: [String] = []
 
-    var selection: SidebarItem? = .overview
+    var selection: SidebarItem? = .home
     var checked: Set<String> = []
     var chosenAction: [String: String] = [:]
     var inspectedID: String?
@@ -37,6 +52,9 @@ final class AppModel {
     var versionsStatus = ""
     var selectedRuntimeID: String?
 
+    var changes: ScanChanges?
+    var showWelcome = !AppSettings.welcomeDone && ProcessInfo.processInfo.environment["DEVSWEEP_SHOTS"] == nil
+
     var historyEntries: [HistoryEntry] = []
     var ignoredIDs: Set<String> = []
     var errorMessage: String?
@@ -44,6 +62,7 @@ final class AppModel {
 
     @ObservationIgnored let history = HistoryStore()
     @ObservationIgnored let ignores = IgnoreStore()
+    @ObservationIgnored let snapshots = ScanSnapshotStore()
 
     init() {
         historyEntries = history.entries
@@ -54,11 +73,11 @@ final class AppModel {
 
     var totalSize: Int64 { findings.reduce(0) { $0 + $1.size } }
 
-    func findings(for item: SidebarItem) -> [Finding] {
-        switch item {
-        case .category(let c): return findings.filter { $0.category == c }
-        default: return findings
-        }
+    /// What was cleaned in the last 7 days, from History.
+    var cleanedThisWeek: (count: Int, bytes: Int64) {
+        let since = Date().addingTimeInterval(-7 * 86_400)
+        let recent = historyEntries.filter { $0.date >= since && $0.restoredAt == nil }
+        return (recent.count, recent.reduce(0) { $0 + $1.size })
     }
 
     func size(of category: DevSweepCore.Category) -> Int64 {
@@ -97,9 +116,10 @@ final class AppModel {
         scanStatus = "Starting"
         hasFullDiskAccess = FullDiskAccess.isGranted
         let ignored = ignores.ids
+        let roots = AppSettings.projectFolders
         Task {
             let (rules, errors) = RuleLoader.loadAll()
-            let context = await Task.detached { ScanContext() }.value
+            let context = await Task.detached { ScanContext(projectRoots: roots) }.value
             let result = await Scanner(rules: rules, context: context).scan(ignored: ignored) { [self] status in
                 Task { @MainActor in self.scanStatus = status }
             }
@@ -107,6 +127,8 @@ final class AppModel {
             disk = result.disk ?? DiskInfo.current()
             ruleErrors = errors
             lastScan = result.date
+            changes = snapshots.changes(for: findings)
+            snapshots.record(findings, diskFree: disk?.free)
             let ids = Set(findings.map(\.id))
             checked = checked.intersection(ids)
             if let i = inspectedID, !ids.contains(i) { inspectedID = nil }
@@ -147,7 +169,7 @@ final class AppModel {
         do { try TerminalRunner.run(step) } catch { errorMessage = error.localizedDescription }
     }
 
-    /// Critical and warning issues across runtimes, for Overview.
+    /// Critical and warning issues across runtimes, for Home.
     var versionAlerts: [(id: String, issue: RuntimeIssue)] {
         guard let v = versions else { return [] }
         var out: [(String, RuntimeIssue)] = []
@@ -156,6 +178,19 @@ final class AppModel {
         }
         if let b = v.homebrew { out += b.issues.filter { $0.level != .info }.map { ("homebrew", $0) } }
         return out.sorted { ($0.1.level == .critical ? 0 : 1) < ($1.1.level == .critical ? 0 : 1) }
+    }
+
+    /// Dismisses the first-launch screen and starts the first scan.
+    func finishWelcome() {
+        AppSettings.welcomeDone = true
+        showWelcome = false
+        if lastScan == nil { scan() }
+        if versions == nil { checkVersions() }
+    }
+
+    func runAdminCommands(for f: Finding) {
+        guard let a = f.defaultAction, let commands = a.command else { return }
+        runInTerminal(RuntimeStep(kind: .remove, title: f.title, detail: a.displayDetail, commands: commands))
     }
 
     // MARK: - Cleaning

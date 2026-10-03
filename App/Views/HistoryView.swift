@@ -99,28 +99,3 @@ struct HistoryRow: View {
             .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
     }
 }
-
-@MainActor
-struct IgnoredView: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        Group {
-            if model.ignoredIDs.isEmpty {
-                ContentUnavailableView("Nothing ignored", systemImage: "eye",
-                                       description: Text("Items you choose to always ignore are listed here."))
-            } else {
-                List(model.ignoredIDs.sorted(), id: \.self) { id in
-                    HStack {
-                        Text(id).font(.callout.monospaced())
-                        Spacer()
-                        Button("Stop ignoring") { model.unignore(id) }.controlSize(.small)
-                    }
-                }
-                .listStyle(.inset)
-            }
-        }
-        .navigationTitle("Ignored")
-        .navigationSubtitle("Shown again on the next scan once you stop ignoring them")
-    }
-}

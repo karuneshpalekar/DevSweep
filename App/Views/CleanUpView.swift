@@ -1,22 +1,43 @@
 import DevSweepCore
 import SwiftUI
 
-@MainActor
-struct FindingsView: View {
-    @Environment(AppModel.self) private var model
-    let item: SidebarItem
+/// Kinds of things to clean, shown as filter chips instead of one sidebar
+/// row per category.
+enum CleanupKind: String, CaseIterable, Identifiable {
+    case caches, oldVersions, leftovers, projectFiles
 
-    @State private var search = ""
-    @State private var riskFilter: Risk?
+    var id: String { rawValue }
 
-    private var title: String {
-        if case .category(let c) = item { return c.title }
-        return "All items"
+    var title: String {
+        switch self {
+        case .caches: return "Caches"
+        case .oldVersions: return "Old versions"
+        case .leftovers: return "Leftovers"
+        case .projectFiles: return "Project dependencies"
+        }
     }
 
+    static func of(_ f: Finding) -> CleanupKind {
+        switch f.category {
+        case .packageCaches, .browsers, .aiModels: return .caches
+        case .ideVersions, .android, .toolchains: return .oldVersions
+        case .xcode: return f.risk == .rebuilds ? .caches : .oldVersions
+        case .leftovers, .backgroundServices: return .leftovers
+        case .projects: return .projectFiles
+        }
+    }
+}
+
+@MainActor
+struct CleanUpView: View {
+    @Environment(AppModel.self) private var model
+
+    @State private var search = ""
+    @State private var kindFilter: CleanupKind?
+
     private var visible: [Finding] {
-        model.findings(for: item).filter { f in
-            (riskFilter == nil || f.risk == riskFilter)
+        model.findings.filter { f in
+            (kindFilter == nil || CleanupKind.of(f) == kindFilter)
                 && (search.isEmpty || f.title.localizedCaseInsensitiveContains(search)
                     || f.subtitle.localizedCaseInsensitiveContains(search))
         }
@@ -54,7 +75,7 @@ struct FindingsView: View {
         .onChange(of: model.inspectedID, initial: true) { _, _ in
             if let f = model.inspected { panelFinding = f }
         }
-        .navigationTitle(title)
+        .navigationTitle("Clean up")
         .navigationSubtitle(subtitle)
     }
 
@@ -98,7 +119,7 @@ struct FindingsView: View {
     }
 
     private var subtitle: String {
-        let list = model.findings(for: item)
+        let list = model.findings
         let size = list.reduce(0) { $0 + $1.size }
         var s = "\(list.count) items · \(SizeFormat.string(size)) can be cleaned"
         if model.isScanning { s += " · scanning" }
@@ -111,17 +132,17 @@ struct FindingsView: View {
             // push into the search field.
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    chip("All", selected: riskFilter == nil) { withAnimation(Motion.swap) { riskFilter = nil } }
-                    ForEach(Risk.allCases, id: \.self) { r in
-                        if model.findings(for: item).contains(where: { $0.risk == r }) {
-                            chip(r.title, selected: riskFilter == r) { withAnimation(Motion.swap) { riskFilter = r } }
+                    chip("All", selected: kindFilter == nil) { withAnimation(Motion.swap) { kindFilter = nil } }
+                    ForEach(CleanupKind.allCases) { k in
+                        if model.findings.contains(where: { CleanupKind.of($0) == k }) {
+                            chip(k.title, selected: kindFilter == k) { withAnimation(Motion.swap) { kindFilter = k } }
                         }
                     }
                 }
             }
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Search items", text: $search)
+                TextField("Search", text: $search)
                     .textFieldStyle(.plain)
                 if !search.isEmpty {
                     Button { search = "" } label: { Image(systemName: "xmark.circle.fill") }

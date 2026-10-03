@@ -29,30 +29,36 @@ enum ScreenshotTour {
         for mode in [AppearanceMode.light, .dark] {
             mode.apply()
             model.inspectedID = nil
-            model.selection = .overview
+            model.selection = .home
             await pause(1.5)
-            save(window, "overview-\(mode.rawValue)", dir)
+            save(window, "home-\(mode.rawValue)", dir)
 
-            model.selection = .all
+            model.showWelcome = true
+            await pause(1.2)
+            saveWithSheet(window, "welcome-\(mode.rawValue)", dir)
+            model.showWelcome = false
+            await pause(0.8)
+
+            model.selection = .cleanUp
             await pause(1)
             model.inspectedID = panelItem?.id
             await pause(1.2)
-            save(window, "items-\(mode.rawValue)", dir)
+            save(window, "cleanup-\(mode.rawValue)", dir)
 
             model.inspectedID = nil
-            model.selection = .runtimes
+            model.selection = .health
             await pause(0.8)
             model.selectedRuntimeID = model.versions?.runtimes.first { $0.steps.contains { $0.kind == .guided } }?.id
                 ?? model.versions?.runtimes.first?.id
             await pause(1.4)
-            save(window, "runtimes-\(mode.rawValue)", dir)
+            save(window, "health-\(mode.rawValue)", dir)
             model.selectedRuntimeID = nil
 
             model.selection = .history
             await pause(1)
             save(window, "history-\(mode.rawValue)", dir)
 
-            model.selection = .all
+            model.selection = .cleanUp
             model.checked = reviewIDs
             model.outcomes = nil
             model.showReview = true
@@ -63,10 +69,30 @@ enum ScreenshotTour {
             await pause(0.8)
 
             await saveMenuBar(model, mode, dir)
+            await saveSettings(mode, dir)
         }
         AppearanceMode.current.apply()
         print("SHOTS OK")
         exit(0)
+    }
+
+    /// The Settings window, opened the way ⌘, opens it.
+    private static func saveSettings(_ mode: AppearanceMode, _ dir: URL) async {
+        let before = Set(NSApp.windows.map(\.windowNumber))
+        NSApp.activate(ignoringOtherApps: true)
+        // Same as choosing DevSweep > Settings… (⌘,).
+        if let appMenu = NSApp.mainMenu?.items.first?.submenu,
+           let index = appMenu.items.firstIndex(where: { $0.title.hasPrefix("Settings") }) {
+            appMenu.performActionForItem(at: index)
+        }
+        await pause(1.5)
+        guard let win = NSApp.windows.first(where: { !before.contains($0.windowNumber) && $0.isVisible })
+            ?? NSApp.windows.first(where: { $0.isVisible && $0.frame.width < 700 && $0.frame.width > 400 }) else {
+            print("shots: settings window not found"); return
+        }
+        if let img = image(of: win) { write(img, "settings-\(mode.rawValue)", dir) }
+        win.close()
+        await pause(0.5)
     }
 
     /// One item per kind of action, so the review sheet shows every group.
