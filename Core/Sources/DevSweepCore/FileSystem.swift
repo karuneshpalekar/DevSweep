@@ -69,6 +69,23 @@ enum FS {
         return total
     }
 
+    /// Expands and de-duplicates folders. "~/Code" and "~/code" are the same
+    /// folder on a case-insensitive disk, so compare file identity, not text.
+    static func uniqueDirectories(_ paths: [String], home: URL) -> [URL] {
+        var seen: [NSObject] = []
+        var out: [URL] = []
+        for p in paths {
+            let url = expand(p, home: home)
+            guard isDirectory(url) else { continue }
+            if let id = (try? url.resourceValues(forKeys: [.fileResourceIdentifierKey]))?.fileResourceIdentifier as? NSObject {
+                if seen.contains(where: { $0.isEqual(id) }) { continue }
+                seen.append(id)
+            }
+            out.append(url)
+        }
+        return out
+    }
+
     static func modificationDate(_ url: URL) -> Date? {
         (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
     }

@@ -6,6 +6,9 @@ devsweep: find what's safe to clean on a developer Mac
 
 USAGE
   devsweep scan [--json] [--explain]   Scan (read-only) and list findings
+  devsweep runtimes [--json]           Tool versions, support status, project requirements
+  devsweep security                    Secrets stored where they shouldn't be
+  devsweep ports                       What's listening on which port
   devsweep rules                       List loaded rules
   devsweep history                     Show what DevSweep has changed
   devsweep restore <history-id>        Move an entry's items back from the Trash
@@ -80,7 +83,29 @@ case "runtimes":
         print("\nHOMEBREW  \(b.outdated.count) outdated, \(b.deprecated.count) deprecated")
         for issue in b.issues { print("    \(issue.level == .info ? "·" : "▲") \(issue.text)") }
     }
+    if !result.projects.isEmpty {
+        print("\nYOUR PROJECTS")
+        for p in result.projects {
+            let mark = p.status == .ok ? "✓" : "▲"
+            print("  \(mark) \(p.message)")
+            if let fix = p.fix { print("        $ \(fix.joined(separator: " && "))") }
+        }
+    }
     if result.eolOffline { print("\n(Support dates may be out of date: couldn't reach endoflife.date.)") }
+case "security":
+    let found = SecurityScanner.scan()
+    if found.isEmpty { print("No secrets found in loose folders or project .env files.") }
+    for f in found {
+        let mark = f.level == .ok ? "✓" : (f.level == .critical ? "✗" : "!")
+        print("\(mark) \(f.title)  [\(f.status)]")
+        print("    \(f.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))")
+    }
+case "ports":
+    let ports = PortScanner.scan()
+    for p in ports {
+        let net = p.reachableFromNetwork ? "network" : "local"
+        print("\(String(p.port).padding(toLength: 6, withPad: " ", startingAt: 0)) \(p.label.padding(toLength: 44, withPad: " ", startingAt: 0)) pid \(p.pid)  \(net)\(p.isDevelopment ? "  [dev]" : "")")
+    }
 case "rules":
     let (rules, errors) = RuleLoader.loadAll()
     for r in rules { print("\(r.id.padding(toLength: 28, withPad: " ", startingAt: 0)) \(r.category.title) · \(r.risk.title)") }

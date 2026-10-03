@@ -159,6 +159,7 @@ struct RuntimeProbe {
                 }
             }
         }
+        list += conda()
         var out = dedupe(list)
         markDefault(&out, command: "python3")
         return out
@@ -289,5 +290,136 @@ struct RuntimeProbe {
         var out = dedupe(list)
         markDefault(&out, command: "ruby")
         return out
+    }
+}
+
+// MARK: - More tools (v0.4)
+
+extension RuntimeProbe {
+    func php() -> [Installation] {
+        var list = brewKegs(#"php(@\d+\.\d+)?"#).map {
+            Installation(version: $0.version, cycle: Self.majorMinor($0.version), path: $0.dir, source: .homebrew, sourceDetail: $0.formula)
+        }
+        list += managed([("~/.asdf/installs/php/*", .asdf), ("~/.local/share/mise/installs/php/*", .mise)])
+            .map { Installation(version: $0.version, cycle: Self.majorMinor($0.version), path: $0.dir, source: $0.source) }
+        var out = dedupe(list)
+        markDefault(&out, command: "php")
+        return out
+    }
+
+    /// rustup toolchains are named "stable-aarch64-apple-darwin", "1.75.0-…" or "nightly-…".
+    func rust() -> [Installation] {
+        var list: [Installation] = []
+        for dir in FS.children(home.appendingPathComponent(".rustup/toolchains")) where FS.isDirectory(dir) {
+            let name = dir.lastPathComponent
+            guard let v = versionFromBinary(dir.path + "/bin/rustc") else { continue }
+            list.append(Installation(version: v, cycle: Self.majorMinor(v), path: dir.path, source: .rustup, sourceDetail: name))
+        }
+        list += brewKegs("rust").map {
+            Installation(version: $0.version, cycle: Self.majorMinor($0.version), path: $0.dir, source: .homebrew, sourceDetail: $0.formula)
+        }
+        var out = dedupe(list)
+        markDefault(&out, command: "rustc")
+        // rustup's proxy in ~/.cargo/bin hides which toolchain runs; ask it.
+        if !out.contains(where: \.isDefault), Shell.locate("rustup") != nil || FileManager.default.fileExists(atPath: home.path + "/.cargo/bin/rustup") {
+            let rustup = FileManager.default.fileExists(atPath: home.path + "/.cargo/bin/rustup") ? home.path + "/.cargo/bin/rustup" : "rustup"
+            let active = Shell.run([rustup, "show", "active-toolchain"], timeout: 10).stdout.split(separator: " ").first.map(String.init) ?? ""
+            if let i = out.firstIndex(where: { $0.sourceDetail == active }) { out[i].isDefault = true }
+        }
+        return out
+    }
+
+    /// One entry per installed .NET SDK.
+    func dotnet() -> [Installation] {
+        var list: [Installation] = []
+        let roots: [(String, InstallSource)] = [("/usr/local/share/dotnet", .dotnetInstaller), (home.path + "/.dotnet", .sdkFolder)]
+            + brewKegs("dotnet").map { ($0.dir + "/libexec", .homebrew) }
+        for (root, source) in roots {
+            for sdk in FS.children(URL(fileURLWithPath: root + "/sdk")) where FS.isDirectory(sdk) {
+                let v = sdk.lastPathComponent
+                guard v.first?.isNumber == true else { continue }
+                list.append(Installation(version: v, cycle: Self.major(v), path: sdk.path, source: source, sourceDetail: ".NET SDK"))
+            }
+        }
+        var out = dedupe(list)
+        // dotnet picks the newest SDK unless a project's global.json says otherwise.
+        if let resolved = env.resolve("dotnet") {
+            let root = URL(fileURLWithPath: resolved).deletingLastPathComponent().path
+            if let newest = out.indices.filter({ out[$0].path.hasPrefix(root) })
+                .max(by: { Version.less(out[$0].version, out[$1].version) }) { out[newest].isDefault = true }
+        }
+        return out
+    }
+
+    func flutter() -> [Installation] {
+        func version(_ root: URL) -> String? {
+            if let data = try? Data(contentsOf: root.appendingPathComponent("bin/cache/flutter.version.json")),
+               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let v = obj["frameworkVersion"] as? String { return v }
+            return (try? String(contentsOf: root.appendingPathComponent("version"), encoding: .utf8))?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        var list: [Installation] = []
+        for path in ["~/flutter", "~/development/flutter", "~/dev/flutter", "~/sdk/flutter", "/opt/homebrew/Caskroom/flutter/*/flutter"] {
+            for root in FS.glob(path, home: home) {
+                if let v = version(root) {
+                    let source: InstallSource = root.path.contains("/Caskroom/") ? .homebrew : .sdkFolder
+                    list.append(Installation(version: v, cycle: Self.majorMinor(v), path: root.path, source: source, sourceDetail: "Flutter SDK"))
+                }
+            }
+        }
+        for root in FS.glob("~/fvm/versions/*", home: home) {
+            if let v = version(root) {
+                list.append(Installation(version: v, cycle: Self.majorMinor(v), path: root.path, source: .fvm, sourceDetail: root.lastPathComponent))
+            }
+        }
+        var out = dedupe(list)
+        markDefault(&out, command: "flutter")
+        return out
+    }
+
+    func deno() -> [Installation] {
+        var list = brewKegs("deno").map {
+            Installation(version: $0.version, cycle: Self.majorMinor($0.version), path: $0.dir, source: .homebrew, sourceDetail: $0.formula)
+        }
+        let own = home.path + "/.deno"
+        if let v = versionFromBinary(own + "/bin/deno") {
+            list.append(Installation(version: v, cycle: Self.majorMinor(v), path: own, source: .denoInstaller))
+        }
+        var out = dedupe(list)
+        markDefault(&out, command: "deno")
+        return out
+    }
+
+    func bun() -> [Installation] {
+        var list = brewKegs("bun").map {
+            Installation(version: $0.version, cycle: Self.major($0.version), path: $0.dir, source: .homebrew, sourceDetail: $0.formula)
+        }
+        let own = home.path + "/.bun"
+        if let v = versionFromBinary(own + "/bin/bun") {
+            list.append(Installation(version: v, cycle: Self.major(v), path: own, source: .bunInstaller))
+        }
+        var out = dedupe(list)
+        markDefault(&out, command: "bun")
+        return out
+    }
+
+    /// conda's base Python and each environment's Python.
+    func conda() -> [Installation] {
+        var list: [Installation] = []
+        let roots = ["~/miniconda3", "~/anaconda3", "~/miniforge3", "~/mambaforge", "/opt/miniconda3", "/opt/anaconda3",
+                     "/opt/homebrew/Caskroom/miniconda/base", "/opt/homebrew/Caskroom/miniforge/base"]
+        for root in roots.flatMap({ FS.glob($0, home: home) }) {
+            if let v = versionFromBinary(root.path + "/bin/python3") {
+                list.append(Installation(version: v, cycle: Self.majorMinor(v), path: root.path, source: .conda, sourceDetail: "base"))
+            }
+            for envDir in FS.children(root.appendingPathComponent("envs")) where FS.isDirectory(envDir) {
+                if let v = versionFromBinary(envDir.path + "/bin/python3") {
+                    list.append(Installation(version: v, cycle: Self.majorMinor(v), path: envDir.path, source: .conda,
+                                             sourceDetail: "env \(envDir.lastPathComponent)"))
+                }
+            }
+        }
+        return dedupe(list)
     }
 }

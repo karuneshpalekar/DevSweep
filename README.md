@@ -26,7 +26,9 @@ in Settings.
 | **Home.** Free space, what can be cleaned, what grew or appeared since last week, and the few things that need attention. | ![Home, light](docs/screenshots/home-light.png) | ![Home, dark](docs/screenshots/home-dark.png) |
 | **Clean up.** Everything that can go, filtered by kind (caches, old versions, leftovers, project dependencies) and grouped by risk. The ⓘ panel explains each item: what it is, what was checked on your Mac, what you won't lose, and a better option when there is one. | ![Clean up, light](docs/screenshots/cleanup-light.png) | ![Clean up, dark](docs/screenshots/cleanup-dark.png) |
 | **Review before anything changes.** Items are grouped by what will actually happen, and apps that must quit first are flagged. | ![Review, light](docs/screenshots/review-light.png) | ![Review, dark](docs/screenshots/review-dark.png) |
-| **Health.** Every Node, Python, Java, PostgreSQL, Go and Ruby install, which one your shell runs, and whether it's still supported, with fixes you can run in Terminal. | ![Health, light](docs/screenshots/health-light.png) | ![Health, dark](docs/screenshots/health-dark.png) |
+| **Health: Security.** Recovery codes, private keys, cloud keys, password exports and `.env` files that git would commit. Recognised by name and shape; the secrets themselves are never read into DevSweep. | ![Security, light](docs/screenshots/security-light.png) | ![Security, dark](docs/screenshots/security-dark.png) |
+| **Health: Tools and versions.** Every install of 12 languages and databases, which one your shell runs, whether it's still supported, and what your projects ask for, with fixes you can run in Terminal. | ![Tools and versions, light](docs/screenshots/health-light.png) | ![Tools and versions, dark](docs/screenshots/health-dark.png) |
+| **Health: Ports.** What's listening, which project it belongs to, and whether other devices on your network can reach it. | ![Ports, light](docs/screenshots/ports-light.png) | ![Ports, dark](docs/screenshots/ports-dark.png) |
 | **History and undo.** Everything DevSweep changed, with Restore for anything still in the Trash. | ![History, light](docs/screenshots/history-light.png) | ![History, dark](docs/screenshots/history-dark.png) |
 | **First launch.** What DevSweep looks at, what it never does, and the permissions macOS may ask for. | ![Welcome, light](docs/screenshots/welcome-light.png) | ![Welcome, dark](docs/screenshots/welcome-dark.png) |
 | **Settings and menu bar.** Project folders, ignored items and permissions in one window; space and alerts at a glance from the menu bar. | <img alt="Settings" src="docs/screenshots/settings-light.png" width="420"> <img alt="Menu bar" src="docs/screenshots/menubar-light.png" width="280"> | <img alt="Settings, dark" src="docs/screenshots/settings-dark.png" width="420"> <img alt="Menu bar, dark" src="docs/screenshots/menubar-dark.png" width="280"> |
@@ -72,10 +74,16 @@ in Settings.
 The Health section answers a different question: are the tools you rely on
 still supported, and do you have too many copies of them?
 
-- **Finds every install** of Node.js, Python, Java, PostgreSQL, Go and Ruby,
+- **Finds every install** of Node.js, Python (including conda environments),
+  Java, PostgreSQL, Go, Ruby, PHP, Rust, the .NET SDK, Flutter, Deno and Bun,
   whoever installed it: Homebrew, nvm, fnm, Volta, asdf, mise, pyenv, uv,
-  rbenv, RVM, SDKMAN, the official installers, Postgres.app, IDE-bundled JDKs
-  and macOS itself.
+  rbenv, RVM, SDKMAN, rustup, FVM, the official installers, Postgres.app,
+  IDE-bundled JDKs and macOS itself.
+- **Checks your projects:** reads `.nvmrc`, `package.json` engines,
+  `.python-version`, `pyproject.toml`, `.ruby-version`, `go.mod`, Gradle
+  toolchains, `composer.json`, `rust-toolchain` and `.tool-versions`, and
+  says when a project asks for a version you don't have or one that's past
+  end of life.
 - **Knows which one you actually use** by asking your login shell for its
   PATH, so it can tell you when a python.org copy is shadowing Homebrew's.
 - **Checks support dates** from [endoflife.date](https://endoflife.date),
@@ -97,6 +105,21 @@ still supported, and do you have too many copies of them?
   reported but never offered for removal.
 
 From the command line: `swift run devsweep runtimes` (or `--json`).
+
+## Health: Security and Ports
+
+- **Security** looks in Downloads, Desktop, Documents and your project folders
+  for recovery codes, private keys outside `~/.ssh`, cloud service-account
+  keys (even base64-encoded), AWS access-key CSVs, password-manager exports,
+  and `.env` files. For `.env` files it asks git whether the file is
+  committed, ignored, or one `git add .` away from being committed. Files are
+  recognised by name and their first few kilobytes; secret values are never
+  kept, logged or shown.
+- **Ports** lists what's listening, started by you: dev servers, databases,
+  Docker. It names the project folder, flags anything reachable from your
+  network, and can stop a process (like Ctrl-C in its terminal).
+
+From the command line: `swift run devsweep security` and `swift run devsweep ports`.
 
 ## Install
 

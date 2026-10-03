@@ -11,6 +11,28 @@ enum SidebarItem: Hashable {
     case history
 }
 
+enum HealthTab: String, CaseIterable, Identifiable {
+    case security, tools, ports
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .security: return "Security"
+        case .tools: return "Tools and versions"
+        case .ports: return "Ports"
+        }
+    }
+}
+
+/// Something worth surfacing on Home and in the menu bar.
+struct HealthAlert: Identifiable {
+    var id: String { tab.rawValue + ":" + target }
+    var tab: HealthTab
+    /// Item to open in that tab.
+    var target: String
+    var critical: Bool
+    var text: String
+}
+
 /// Preferences that aren't per-window state.
 enum AppSettings {
     static let defaults = UserDefaults.standard
@@ -51,6 +73,14 @@ final class AppModel {
     var isCheckingVersions = false
     var versionsStatus = ""
     var selectedRuntimeID: String?
+
+    var healthTab: HealthTab = .security
+    var security: [SecurityFinding] = []
+    var isCheckingSecurity = false
+    var selectedSecurityID: String?
+    var ports: [ListeningPort] = []
+    var isLoadingPorts = false
+    var selectedPortID: String?
 
     var changes: ScanChanges?
     var showWelcome = !AppSettings.welcomeDone && ProcessInfo.processInfo.environment["DEVSWEEP_SHOTS"] == nil
@@ -148,8 +178,9 @@ final class AppModel {
         isCheckingVersions = true
         versionsStatus = "Starting"
         let report: @Sendable (String) -> Void = { [self] s in Task { @MainActor in self.versionsStatus = s } }
+        let roots = AppSettings.projectFolders
         Task {
-            let result = await Task.detached { await RuntimeScanner().scan(progress: report) }.value
+            let result = await Task.detached { await RuntimeScanner().scan(projectRoots: roots, progress: report) }.value
             versions = result
             if let id = selectedRuntimeID, !allRuntimeIDs.contains(id) { selectedRuntimeID = nil }
             isCheckingVersions = false
@@ -169,7 +200,107 @@ final class AppModel {
         do { try TerminalRunner.run(step) } catch { errorMessage = error.localizedDescription }
     }
 
-    /// Critical and warning issues across runtimes, for Home.
+    // MARK: - Security and ports
+
+    func checkSecurity() {
+        guard !isCheckingSecurity else { return }
+        isCheckingSecurity = true
+        let roots = AppSettings.projectFolders
+        Task {
+            security = await Task.detached { SecurityScanner.scan(projectRoots: roots) }.value
+            if let id = selectedSecurityID, !security.contains(where: { $0.id == id }) { selectedSecurityID = nil }
+            isCheckingSecurity = false
+        }
+    }
+
+    /// Security findings minus the ones you've marked as handled.
+    var visibleSecurity: [SecurityFinding] { security.filter { !ignoredIDs.contains($0.id) } }
+
+    func refreshPorts() {
+        guard !isLoadingPorts else { return }
+        isLoadingPorts = true
+        let installs = versions?.runtimes.flatMap(\.installs) ?? []
+        Task {
+            ports = await Task.detached { PortScanner.scan(installs: installs) }.value
+            if let id = selectedPortID, !ports.contains(where: { $0.id == id }) { selectedPortID = nil }
+            isLoadingPorts = false
+        }
+    }
+
+    func stop(_ port: ListeningPort) {
+        if !PortScanner.stop(port.pid) { errorMessage = "Couldn't stop \(port.label). It may belong to another user." }
+        selectedPortID = nil
+        Task {
+            try? await Task.sleep(for: .milliseconds(700))
+            refreshPorts()
+        }
+    }
+
+    /// Moves a secret file to the Trash through the cleaner, so it shows in History.
+    func trash(_ f: SecurityFinding) {
+        let finding = Finding(
+            id: f.id, ruleID: "security", title: f.title, subtitle: f.path, category: .leftovers, risk: .holdsData,
+            paths: [f.path], size: FS_size(f.path), explanation: Explanation(what: f.why, why: f.why, ifDeleted: f.whatToDo),
+            checks: [], actions: [CleanAction(kind: .trash)], blockingApps: [], blockers: [])
+        let result = Cleaner(history: history).run([PlannedAction(finding: finding, action: CleanAction(kind: .trash))])
+        if let r = result.first, !r.succeeded { errorMessage = r.message }
+        historyEntries = history.entries
+        selectedSecurityID = nil
+        checkSecurity()
+    }
+
+    func markHandled(_ f: SecurityFinding) {
+        ignores.ignore(f.id)
+        ignoredIDs = ignores.ids
+        selectedSecurityID = nil
+    }
+
+    func runFix(_ f: SecurityFinding) {
+        guard let fix = f.fix else { return }
+        runInTerminal(RuntimeStep(kind: .remove, title: f.title, detail: f.whatToDo, commands: fix))
+    }
+
+    /// Everything that needs attention in Health, most serious first.
+    var healthAlerts: [HealthAlert] {
+        var out: [HealthAlert] = []
+        // Files of the same kind in the same folder become one alert.
+        let problems = visibleSecurity.filter { $0.level != .ok }
+        let groups = Dictionary(grouping: problems) { f in
+            f.title + "|" + URL(fileURLWithPath: f.path).deletingLastPathComponent().path
+        }
+        for f in problems where groups[f.title + "|" + URL(fileURLWithPath: f.path).deletingLastPathComponent().path]?.first?.id == f.id {
+            let same = groups[f.title + "|" + URL(fileURLWithPath: f.path).deletingLastPathComponent().path] ?? [f]
+            let folder = URL(fileURLWithPath: f.path).deletingLastPathComponent().lastPathComponent
+            let text: String
+            if f.kind == .envFile { text = f.title }
+            else if same.count > 1 { text = "\(same.count) \(f.title.replacingOccurrences(of: "codes", with: "code")) files in \(folder), stored as plain text" }
+            else { text = "\(f.title) in \(folder), stored as plain text" }
+            out.append(HealthAlert(tab: .security, target: f.id, critical: f.level == .critical, text: text))
+        }
+        for a in versionAlerts {
+            out.append(HealthAlert(tab: .tools, target: a.id, critical: a.issue.level == .critical, text: a.issue.text))
+        }
+        for p in versions?.projects ?? [] where p.status != .ok {
+            out.append(HealthAlert(tab: .tools, target: "projects", critical: false, text: p.message))
+        }
+        return out.enumerated().sorted { ($0.element.critical ? 0 : 1, $0.offset) < ($1.element.critical ? 0 : 1, $1.offset) }.map(\.element)
+    }
+
+    var healthAttentionCount: Int {
+        (versions?.attentionCount ?? 0) + visibleSecurity.filter { $0.level != .ok }.count
+    }
+
+    func open(_ alert: HealthAlert) {
+        selection = .health
+        healthTab = alert.tab
+        switch alert.tab {
+        case .security: selectedSecurityID = alert.target
+        case .tools: selectedRuntimeID = alert.target
+        case .ports: selectedPortID = alert.target
+        }
+    }
+
+    /// Critical and warning issues across runtimes.
     var versionAlerts: [(id: String, issue: RuntimeIssue)] {
         guard let v = versions else { return [] }
         var out: [(String, RuntimeIssue)] = []
@@ -186,6 +317,15 @@ final class AppModel {
         showWelcome = false
         if lastScan == nil { scan() }
         if versions == nil { checkVersions() }
+        checkSecurity()
+    }
+
+    /// The toolbar's Scan again: everything, read-only.
+    func scanEverything() {
+        scan()
+        checkVersions()
+        checkSecurity()
+        refreshPorts()
     }
 
     func runAdminCommands(for f: Finding) {
@@ -255,6 +395,11 @@ final class AppModel {
     func reveal(_ path: String) {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
     }
+}
+
+func FS_size(_ path: String) -> Int64 {
+    let values = try? URL(fileURLWithPath: path).resourceValues(forKeys: [.totalFileAllocatedSizeKey])
+    return Int64(values?.totalFileAllocatedSize ?? 0)
 }
 
 enum FullDiskAccess {

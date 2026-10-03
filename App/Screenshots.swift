@@ -22,7 +22,8 @@ enum ScreenshotTour {
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
 
-        for _ in 0..<120 where model.versions == nil || model.isCheckingVersions { await pause(0.5) }
+        model.checkSecurity()
+        for _ in 0..<120 where model.versions == nil || model.isCheckingVersions || model.isCheckingSecurity { await pause(0.5) }
         let panelItem = model.findings.first { $0.ruleID == "chrome-cache" } ?? model.findings.first
         let reviewIDs = pickReviewItems(model.findings)
 
@@ -47,6 +48,22 @@ enum ScreenshotTour {
 
             model.inspectedID = nil
             model.selection = .health
+            model.healthTab = .security
+            await pause(0.8)
+            model.selectedSecurityID = model.visibleSecurity.first { $0.level == .critical }?.id
+            await pause(1.4)
+            save(window, "security-\(mode.rawValue)", dir)
+            model.selectedSecurityID = nil
+
+            model.healthTab = .ports
+            for _ in 0..<20 where model.isLoadingPorts || model.ports.isEmpty { await pause(0.5) }
+            await pause(0.6)
+            model.selectedPortID = model.ports.first(where: \.isDevelopment)?.id
+            await pause(1.4)
+            save(window, "ports-\(mode.rawValue)", dir)
+            model.selectedPortID = nil
+
+            model.healthTab = .tools
             await pause(0.8)
             model.selectedRuntimeID = model.versions?.runtimes.first { $0.steps.contains { $0.kind == .guided } }?.id
                 ?? model.versions?.runtimes.first?.id

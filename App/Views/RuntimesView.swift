@@ -84,16 +84,6 @@ struct RuntimesView: View {
         .animation(Motion.panel, value: isOpen)
         .animation(Motion.swap, value: panelID)
         .onChange(of: model.selectedRuntimeID, initial: true) { _, new in if let new { panelID = new } }
-        .navigationTitle("Health")
-        .navigationSubtitle(subtitle)
-    }
-
-    private var subtitle: String {
-        if model.isCheckingVersions { return "Checking · \(model.versionsStatus)" }
-        guard let v = model.versions else { return "Tools and versions · not checked yet" }
-        let when = v.date.formatted(date: .omitted, time: .shortened)
-        return v.eolOffline ? "Tools and versions · checked \(when) · support dates may be out of date (offline)"
-                            : "Tools and versions · checked \(when) · support dates from endoflife.date"
     }
 
     // MARK: - List
@@ -108,6 +98,7 @@ struct RuntimesView: View {
                     ForEach(v.runtimes) { r in runtimeRow(r) }
                     if let b = v.homebrew { homebrewRow(b) }
                     if let m = v.macOS { runtimeRow(m) }
+                    if !v.projects.isEmpty { projectsRow(v.projects) }
                 }
                 .listStyle(.inset)
             }
@@ -134,6 +125,20 @@ struct RuntimesView: View {
     private func runtimeRow(_ r: RuntimeReport) -> some View {
         row(id: r.id, title: r.name, summary: summary(r), issues: r.issues) {
             FlowPills(installs: r.installs)
+        }
+    }
+
+    private func projectsRow(_ reqs: [ProjectRequirement]) -> some View {
+        let problems = reqs.filter { $0.status != .ok }
+        let issues = problems.map { RuntimeIssue(level: .warning, text: $0.message) }
+        let names = Set(reqs.map(\.project))
+        return row(id: "projects", title: "Your projects",
+                   summary: "\(names.count) project\(names.count == 1 ? "" : "s") · \(reqs.count) requirement\(reqs.count == 1 ? "" : "s")",
+                   issues: issues) {
+            HStack(spacing: 6) {
+                if !problems.isEmpty { StatusTag(text: "\(problems.count) not met", color: .orange) }
+                StatusTag(text: "\(reqs.count - problems.count) OK", color: .green)
+            }
         }
     }
 
@@ -200,7 +205,9 @@ struct RuntimesView: View {
     @ViewBuilder
     private func detail(for id: String) -> some View {
         if let v = model.versions {
-            if id == "homebrew", let b = v.homebrew {
+            if id == "projects" {
+                ProjectsDetail(requirements: v.projects)
+            } else if id == "homebrew", let b = v.homebrew {
                 HomebrewDetail(report: b)
             } else if let r = (v.runtimes + [v.macOS].compactMap { $0 }).first(where: { $0.id == id }) {
                 RuntimeDetail(report: r)

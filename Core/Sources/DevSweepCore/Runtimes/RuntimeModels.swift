@@ -27,6 +27,7 @@ public enum InstallSource: String, Codable, Sendable {
     case homebrew, nvm, fnm, volta, asdf, mise, pyenv, uv, rbenv, rvm, sdkman
     case pythonOrg, nodejsOrg, goOrg, postgresApp
     case jdkFolder, ideBundled, apple, unknown
+    case rustup, dotnetInstaller, fvm, sdkFolder, conda, denoInstaller, bunInstaller
 
     public var title: String {
         switch self {
@@ -49,6 +50,13 @@ public enum InstallSource: String, Codable, Sendable {
         case .ideBundled: return "Bundled with an IDE"
         case .apple: return "macOS / Xcode tools"
         case .unknown: return "Unknown"
+        case .rustup: return "rustup"
+        case .dotnetInstaller: return "Microsoft installer"
+        case .fvm: return "FVM"
+        case .sdkFolder: return "SDK folder"
+        case .conda: return "conda"
+        case .denoInstaller: return "Deno installer"
+        case .bunInstaller: return "Bun installer"
         }
     }
 
@@ -59,6 +67,7 @@ public enum InstallSource: String, Codable, Sendable {
         case .nodejsOrg: return "nodejs.org"
         case .goOrg: return "go.dev"
         case .jdkFolder: return "JDK folder"
+        case .dotnetInstaller: return "Microsoft"
         case .ideBundled, .apple: return "system"
         default: return title
         }
@@ -101,6 +110,11 @@ public struct RuntimeIssue: Codable, Hashable, Sendable {
     public enum Level: String, Codable, Sendable { case critical, warning, info }
     public var level: Level
     public var text: String
+
+    public init(level: Level, text: String) {
+        self.level = level
+        self.text = text
+    }
 }
 
 /// A fix DevSweep can show and run in Terminal. Nothing runs without the user.
@@ -155,13 +169,22 @@ public struct HomebrewReport: Codable, Hashable, Sendable {
 
 public struct VersionsResult: Sendable {
     public var runtimes: [RuntimeReport]
+    /// Versions your projects ask for, and whether they're met.
+    public var projects: [ProjectRequirement] = []
     public var homebrew: HomebrewReport?
     public var macOS: RuntimeReport?
     public var eolOffline: Bool
     public var date: Date
 
+    public init(runtimes: [RuntimeReport], projects: [ProjectRequirement] = [], homebrew: HomebrewReport?,
+                macOS: RuntimeReport?, eolOffline: Bool, date: Date) {
+        self.runtimes = runtimes; self.projects = projects; self.homebrew = homebrew
+        self.macOS = macOS; self.eolOffline = eolOffline; self.date = date
+    }
+
     public var attentionCount: Int {
         runtimes.filter(\.needsAttention).count
+            + (projects.contains { $0.status != .ok } ? 1 : 0)
             + (homebrew.map { $0.deprecated.isEmpty ? 0 : 1 } ?? 0)
             + (macOS?.needsAttention == true ? 1 : 0)
     }

@@ -176,6 +176,15 @@ public struct Finding: Identifiable, Hashable, Codable, Sendable {
     public var blockers: [String]
 
     public var defaultAction: CleanAction? { actions.first }
+
+    public init(id: String, ruleID: String, title: String, subtitle: String, category: Category, risk: Risk,
+                paths: [String], size: Int64, explanation: Explanation, checks: [Check], actions: [CleanAction],
+                blockingApps: [String], blockers: [String]) {
+        self.id = id; self.ruleID = ruleID; self.title = title; self.subtitle = subtitle
+        self.category = category; self.risk = risk; self.paths = paths; self.size = size
+        self.explanation = explanation; self.checks = checks; self.actions = actions
+        self.blockingApps = blockingApps; self.blockers = blockers
+    }
 }
 
 public struct ScanResult: Sendable {

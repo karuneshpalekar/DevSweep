@@ -474,9 +474,8 @@ enum Detectors {
             )
         }
 
-        for rootPath in ctx.projectRoots ?? rule.detector.roots ?? [] {
-            let root = FS.expand(rootPath, home: ctx.home)
-            if FS.isDirectory(root) { walk(root, depth: 1) }
+        for root in FS.uniqueDirectories(ctx.projectRoots ?? rule.detector.roots ?? [], home: ctx.home) {
+            walk(root, depth: 1)
         }
         return out
     }

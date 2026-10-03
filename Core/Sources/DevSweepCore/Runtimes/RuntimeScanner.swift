@@ -4,7 +4,9 @@ import Foundation
 /// status, and explains what to do. Read-only: it only suggests commands.
 public final class RuntimeScanner {
     struct Tool {
-        let id: String, name: String, product: String
+        let id: String, name: String
+        /// endoflife.date product; nil when no support schedule is published.
+        let product: String?
         /// Prefer LTS release lines when recommending an upgrade.
         let preferLTS: Bool
         let probe: (RuntimeProbe) -> [Installation]
@@ -17,6 +19,12 @@ public final class RuntimeScanner {
         Tool(id: "postgres", name: "PostgreSQL", product: "postgresql", preferLTS: false) { $0.postgres() },
         Tool(id: "go", name: "Go", product: "go", preferLTS: false) { $0.go() },
         Tool(id: "ruby", name: "Ruby", product: "ruby", preferLTS: false) { $0.ruby() },
+        Tool(id: "php", name: "PHP", product: "php", preferLTS: false) { $0.php() },
+        Tool(id: "rust", name: "Rust", product: "rust", preferLTS: false) { $0.rust() },
+        Tool(id: "dotnet", name: ".NET SDK", product: "dotnet", preferLTS: true) { $0.dotnet() },
+        Tool(id: "flutter", name: "Flutter", product: nil, preferLTS: false) { $0.flutter() },
+        Tool(id: "deno", name: "Deno", product: "deno", preferLTS: false) { $0.deno() },
+        Tool(id: "bun", name: "Bun", product: "bun", preferLTS: false) { $0.bun() },
     ]
 
     let eol: EndOfLifeClient
@@ -27,20 +35,33 @@ public final class RuntimeScanner {
         self.home = home
     }
 
-    public func scan(progress: (@Sendable (String) -> Void)? = nil) async -> VersionsResult {
+    public func scan(projectRoots: [String]? = nil, progress: (@Sendable (String) -> Void)? = nil) async -> VersionsResult {
         progress?("Reading your shell setup")
         let env = ShellEnvironment.load()
         let args = Shell.run(["ps", "-axo", "args="], timeout: 10).stdout.split(separator: "\n").map(String.init)
         let probe = RuntimeProbe(home: home, env: env, processArgs: args)
 
         var reports: [RuntimeReport] = []
+        var allCycles: [String: [ReleaseCycle]] = [:]
         for tool in Self.tools {
             progress?(tool.name)
             let installs = tool.probe(probe)
             guard !installs.isEmpty else { continue }
-            let (cycles, fetched) = await eol.cycles(for: tool.product)
+            let (cycles, fetched) = tool.product == nil ? ([], nil) : await eol.cycles(for: tool.product!)
+            allCycles[tool.id] = cycles
             reports.append(Self.report(tool, installs, cycles, fetched))
         }
+
+        progress?("Your projects")
+        let roots = projectRoots ?? RuleLoader.defaultProjectRoots
+        let raw = ProjectRequirementScanner.projects(in: roots, home: home).flatMap(ProjectRequirementScanner.requirements)
+        for tool in Set(raw.map(\.tool)) where allCycles[tool] == nil {
+            if let product = Self.tools.first(where: { $0.id == tool })?.product {
+                allCycles[tool] = await eol.cycles(for: product).cycles
+            }
+        }
+        let names = Dictionary(uniqueKeysWithValues: Self.tools.map { ($0.id, $0.name) })
+        let projects = ProjectRequirementScanner.evaluate(raw, reports: reports, cycles: allCycles, toolNames: names)
 
         progress?("Homebrew")
         let brew = Self.homebrew()
@@ -48,7 +69,7 @@ public final class RuntimeScanner {
         let (macCycles, macFetched) = await eol.cycles(for: "macos")
         let mac = Self.macOSReport(macCycles, macFetched)
 
-        return VersionsResult(runtimes: reports, homebrew: brew, macOS: mac,
+        return VersionsResult(runtimes: reports, projects: projects, homebrew: brew, macOS: mac,
                               eolOffline: eol.usedStaleData, date: Date())
     }
 
@@ -313,7 +334,12 @@ enum Commands {
         case .nodejsOrg:
             return ["sudo rm -rf /usr/local/bin/node /usr/local/bin/npm /usr/local/bin/npx /usr/local/lib/node_modules/npm /usr/local/include/node",
                     "sudo pkgutil --forget org.nodejs.node.pkg"]
-        case .postgresApp, .ideBundled, .apple, .unknown: return nil
+        case .rustup: return i.sourceDetail.map { ["rustup toolchain uninstall \($0)"] }
+        case .conda: return i.sourceDetail.flatMap { $0.hasPrefix("env ") ? ["conda env remove -n \($0.dropFirst(4))"] : nil }
+        case .fvm: return ["fvm remove \(i.version)"]
+        case .sdkFolder: return i.path.hasPrefix(home + "/") ? ["mv \(q(i.path)) ~/.Trash/"] : nil
+        case .dotnetInstaller: return ["sudo rm -rf \(q(i.path))"]
+        case .postgresApp, .ideBundled, .apple, .unknown, .denoInstaller, .bunInstaller: return nil
         }
     }
 
@@ -337,6 +363,16 @@ enum Commands {
         case ("ruby", _): return ["brew install ruby"]
         case (_, .asdf): return ["asdf install \(asdfName(tool)) latest:\(cycle)", "asdf set -u \(asdfName(tool)) latest:\(cycle)"]
         case (_, .mise): return ["mise use -g \(tool)@\(cycle)"]
+        case ("php", _): return ["brew install php@\(cycle)", "brew unlink php 2>/dev/null; brew link --overwrite --force php@\(cycle)", "php --version"]
+        case ("rust", _): return ["rustup update stable", "rustup default stable"]
+        case ("dotnet", .homebrew): return ["brew install --cask dotnet-sdk"]
+        case ("dotnet", _): return ["open https://dotnet.microsoft.com/download/dotnet/\(cycle).0"]
+        case ("deno", .homebrew): return ["brew upgrade deno"]
+        case ("deno", _): return ["deno upgrade"]
+        case ("bun", .homebrew): return ["brew upgrade bun"]
+        case ("bun", _): return ["bun upgrade"]
+        case ("flutter", .fvm): return ["fvm install stable", "fvm global stable"]
+        case ("flutter", _): return ["flutter upgrade"]
         default: return nil
         }
     }

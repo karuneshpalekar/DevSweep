@@ -118,7 +118,7 @@ struct HomeView: View {
 
     @ViewBuilder
     private var attention: some View {
-        let alerts = Array(model.versionAlerts.prefix(4))
+        let alerts = Array(model.healthAlerts.prefix(4))
         VStack(alignment: .leading, spacing: 8) {
             Text("Needs attention").font(.headline).foregroundStyle(.secondary)
             if alerts.isEmpty {
@@ -127,13 +127,10 @@ struct HomeView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(alerts.enumerated()), id: \.offset) { i, alert in
-                        Button {
-                            model.selection = .health
-                            model.selectedRuntimeID = alert.id
-                        } label: {
+                        Button { model.open(alert) } label: {
                             HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: alert.issue.level.symbol).foregroundStyle(alert.issue.level.color)
-                                Text(alert.issue.text).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                                StatusTag(text: alert.tab == .security ? "Security" : "Health", color: alert.critical ? .red : .orange)
+                                Text(alert.text).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
                                 Spacer(minLength: 0)
                             }
                             .padding(12)
@@ -145,7 +142,7 @@ struct HomeView: View {
                 }
                 .background(.background, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(.separator))
-                if model.versionAlerts.count > alerts.count {
+                if model.healthAlerts.count > alerts.count {
                     Text("Showing the \(alerts.count) most important. Health has the rest.")
                         .font(.caption).foregroundStyle(.secondary)
                 }

@@ -19,7 +19,7 @@ struct ContentView: View {
                     switch model.selection ?? .home {
                     case .home: HomeView()
                     case .cleanUp: CleanUpView()
-                    case .health: RuntimesView()
+                    case .health: HealthView()
                     case .history: HistoryView()
                     }
                 }
@@ -32,10 +32,7 @@ struct ContentView: View {
         // fragile in NavigationSplitView on macOS 14.
         .toolbar {
             ToolbarItem {
-                Button {
-                    model.scan()
-                    model.checkVersions()
-                } label: { Label("Scan again", systemImage: "arrow.clockwise") }
+                Button { model.scanEverything() } label: { Label("Scan again", systemImage: "arrow.clockwise") }
                     .help(model.isScanning || model.isCheckingVersions ? "Scanning…" : "Scan again")
                     .disabled(model.isScanning || model.isCheckingVersions)
             }
@@ -54,6 +51,7 @@ struct ContentView: View {
             guard !model.showWelcome else { return }
             if model.lastScan == nil { model.scan() }
             if model.versions == nil { model.checkVersions() }
+            if model.security.isEmpty { model.checkSecurity() }
         }
     }
 }
@@ -70,7 +68,7 @@ struct SidebarView: View {
                 .badge(model.findings.count)
                 .tag(SidebarItem.cleanUp)
             Label("Health", systemImage: "checkmark.shield")
-                .badge(model.versions?.attentionCount ?? 0)
+                .badge(model.healthAttentionCount)
                 .tag(SidebarItem.health)
         }
         .listStyle(.sidebar)

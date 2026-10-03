@@ -36,18 +36,19 @@ struct MenuBarView: View {
             .padding(12)
             .background(.background, in: RoundedRectangle(cornerRadius: 10))
 
-            let alerts = Array(model.versionAlerts.prefix(2))
+            let alerts = Array(model.healthAlerts.prefix(2))
             if !alerts.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Needs attention").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     ForEach(Array(alerts.enumerated()), id: \.offset) { _, alert in
                         Button {
-                            model.selectedRuntimeID = alert.id
-                            show(.health)
+                            model.open(alert)
+                            show(nil)
                         } label: {
                             HStack(alignment: .top, spacing: 8) {
-                                Image(systemName: alert.issue.level.symbol).foregroundStyle(alert.issue.level.color)
-                                Text(alert.issue.text).lineLimit(2).multilineTextAlignment(.leading)
+                                Image(systemName: alert.critical ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+                                    .foregroundStyle(alert.critical ? .red : .orange)
+                                Text(alert.text).lineLimit(2).multilineTextAlignment(.leading)
                                 Spacer(minLength: 0)
                             }
                             .font(.callout)
@@ -59,10 +60,7 @@ struct MenuBarView: View {
             }
 
             HStack {
-                Button("Scan now") {
-                    model.scan()
-                    model.checkVersions()
-                }
+                Button("Scan now") { model.scanEverything() }
                 .disabled(model.isScanning)
                 .frame(maxWidth: .infinity)
                 Button("Open DevSweep") { show(nil) }
