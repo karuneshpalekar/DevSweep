@@ -40,7 +40,7 @@ rules:
     category: ideVersions
     risk: rebuilds
     minSizeMB: 200
-    blockers: ["Visual Studio Code", "Code"]
+    blockers: ["Visual Studio Code"]
     detector:
       kind: paths
       paths: ["~/Library/Application Support/Code/Cache", "~/Library/Application Support/Code/CachedData", "~/Library/Application Support/Code/CachedExtensionVSIXs", "~/Library/Application Support/Code/Code Cache"]

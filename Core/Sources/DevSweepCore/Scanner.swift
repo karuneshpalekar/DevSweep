@@ -20,6 +20,9 @@ public final class ScanContext: @unchecked Sendable {
     let arch: String
     let installedBundleIDs: Set<String>
     let runningAppNames: Set<String>
+    /// File names of running apps' bundles, e.g. "visual studio code" for an
+    /// app whose display name is just "Code".
+    let runningBundleNames: Set<String>
     let processArgs: [String]
     /// Project folders chosen in Settings; nil means the rule's defaults.
     let projectRoots: [String]?
@@ -34,6 +37,7 @@ public final class ScanContext: @unchecked Sendable {
         #endif
         let running = NSWorkspace.shared.runningApplications
         runningAppNames = Set(running.compactMap { $0.localizedName?.lowercased() })
+        runningBundleNames = Set(running.compactMap { $0.bundleURL?.deletingPathExtension().lastPathComponent.lowercased() })
         installedBundleIDs = Self.findInstalledApps(home: home)
             .union(running.compactMap { $0.bundleIdentifier?.lowercased() })
         processArgs = Shell.run(["ps", "-axo", "args="], timeout: 10).stdout
@@ -42,9 +46,21 @@ public final class ScanContext: @unchecked Sendable {
 
     /// Running apps or processes matching the given blocker names.
     public func running(_ blockers: [String]) -> [String] {
-        blockers.filter { b in
-            runningAppNames.contains(b.lowercased()) || processArgs.contains { $0.contains(b) }
+        blockers.filter {
+            Self.isRunning($0, appNames: runningAppNames, bundleNames: runningBundleNames, processArgs: processArgs)
         }
+    }
+
+    /// An app counts as running when its display name or bundle name matches.
+    /// Command lines are only searched for process-style names with no spaces
+    /// ("GradleDaemon"): a short word like "Code" would match any path with
+    /// a Code folder in it.
+    static func isRunning(_ blocker: String, appNames: Set<String>, bundleNames: Set<String>,
+                          processArgs: [String]) -> Bool {
+        let b = blocker.lowercased()
+        if appNames.contains(b) || bundleNames.contains(b) { return true }
+        guard !blocker.contains(" "), blocker.count >= 8 else { return false }
+        return processArgs.contains { $0.contains(blocker) }
     }
 
     func isInstalled(_ bundleID: String) -> Bool {

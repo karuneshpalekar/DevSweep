@@ -137,3 +137,30 @@ final class Phase3Tests: XCTestCase {
         }
     }
 }
+
+final class BlockerTests: XCTestCase {
+    func testVSCodeIsMatchedByBundleNameNotByTheWordCode() {
+        // VS Code's display name is "Code"; its bundle is "Visual Studio Code.app".
+        let vscode = ScanContext.isRunning("Visual Studio Code", appNames: ["code", "finder"],
+                                           bundleNames: ["visual studio code", "finder"], processArgs: [])
+        XCTAssertTrue(vscode)
+
+        // A program running from a folder called Code is not VS Code.
+        let args = ["/Users/me/Code/karuneshpalekar/DevSweep/build/DevSweep.app/Contents/MacOS/DevSweep"]
+        XCTAssertFalse(ScanContext.isRunning("Visual Studio Code", appNames: ["finder"], bundleNames: ["finder"], processArgs: args))
+        XCTAssertFalse(ScanContext.isRunning("Code", appNames: ["finder"], bundleNames: ["finder"], processArgs: args),
+                       "short names are never matched against command lines")
+    }
+
+    func testProcessStyleBlockersStillMatchCommandLines() {
+        let args = ["/opt/homebrew/bin/java -Dfoo org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.11"]
+        XCTAssertTrue(ScanContext.isRunning("GradleDaemon", appNames: [], bundleNames: [], processArgs: args))
+        XCTAssertFalse(ScanContext.isRunning("GradleDaemon", appNames: [], bundleNames: [], processArgs: ["/usr/bin/true"]))
+        XCTAssertTrue(ScanContext.isRunning("Google Chrome", appNames: ["google chrome"], bundleNames: ["google chrome"], processArgs: []))
+    }
+
+    func testVSCodeRuleOnlyWaitsForTheApp() {
+        let rule = RuleLoader.loadAll().rules.first { $0.id == "vscode-caches" }
+        XCTAssertEqual(rule?.blockers, ["Visual Studio Code"])
+    }
+}

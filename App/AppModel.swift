@@ -395,9 +395,26 @@ final class AppModel {
 
     // MARK: - Apps that block cleaning
 
-    func quit(_ appName: String) {
-        for app in NSWorkspace.shared.runningApplications where app.localizedName == appName {
-            app.terminate()
+    /// Asks an app to quit, matching its display name or its bundle name
+    /// (VS Code is shown as "Code" but lives in "Visual Studio Code.app").
+    /// Names that aren't apps, like a Gradle daemon, are stopped as processes.
+    /// Then it re-checks, so the warning goes away once the app has quit.
+    func quit(_ name: String) {
+        let apps = NSWorkspace.shared.runningApplications.filter {
+            $0.localizedName == name || $0.bundleURL?.deletingPathExtension().lastPathComponent == name
+        }
+        if apps.isEmpty {
+            Shell.run(["pkill", "-f", name], timeout: 10)
+        } else {
+            apps.forEach { $0.terminate() }
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            if ScanContext(home: FileManager.default.homeDirectoryForCurrentUser).running([name]).isEmpty {
+                scan()
+            } else {
+                errorMessage = "\(name) didn't quit. It may be asking you to save something. Quit it yourself, then scan again."
+            }
         }
     }
 
