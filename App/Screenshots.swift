@@ -39,11 +39,9 @@ enum ScreenshotTour {
                 await pause(1.5)
                 await saveStable(window, "state-\(name)", dir)
             }
-            for tab in SettingsTab.allCases {
-                model.openSettings(tab)
-                await pause(2)
-                await saveStable(window, "state-settings-\(tab.rawValue)", dir)
-            }
+            model.openSettings()
+            await pause(2)
+            await saveStable(window, "state-settings", dir)
             exit(0)
         }
         // Security and Ports would show where your own secret files are, so
@@ -150,13 +148,10 @@ enum ScreenshotTour {
 
     /// Settings, inline: General, then Scans and alerts.
     private static func saveSettings(_ mode: AppearanceMode, _ dir: URL, model: AppModel, window: NSWindow) async {
-        model.openSettings(.general)
+        model.openSettings()
         await pause(1.2)
         await saveStable(window, "settings-\(mode.rawValue)", dir)
-        model.openSettings(.scans)
-        await pause(1.2)
-        await saveStable(window, "scans-\(mode.rawValue)", dir)
-        model.openSettings(.general)
+        model.openSettings()
         model.selection = .home
         await pause(0.5)
     }

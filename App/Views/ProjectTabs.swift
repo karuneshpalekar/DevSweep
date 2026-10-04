@@ -29,6 +29,7 @@ struct CleanupTab: View {
                         confirmAll = true
                     }
                     .buttonStyle(.borderedProminent)
+                    .tint(.red)
                     .disabled(model.busyProjectID != nil)
                 }
             }
@@ -77,7 +78,7 @@ struct CleanupTab: View {
                 ProgressView().controlSize(.small)
             } else if s.isSafeToRemove {
                 StatusTag(text: "Safe to remove", color: .green)
-                Button("Remove") { model.removeFromMac(p) }.controlSize(.small)
+                Button("Remove", role: .destructive) { model.removeFromMac(p) }.buttonStyle(.bordered).tint(.red).controlSize(.small)
             } else {
                 StatusTag(text: p.status.text, color: .orange)
             }
@@ -133,7 +134,7 @@ struct AccountsTab: View {
                     Button("Add account…") { model.projectSheet = .addAccount }.buttonStyle(.borderedProminent)
                     Button("Refresh") { model.refreshProjects() }.disabled(model.isLoadingProjects)
                     Spacer()
-                    Button("Downloads and folders in Settings") { model.openSettings(.folders) }
+                    Button("Downloads and folders in Settings") { model.openSettings() }
                         .buttonStyle(.link)
                 }
             }

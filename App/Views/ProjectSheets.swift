@@ -113,7 +113,7 @@ struct CloneSheet: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("No commit identity saved for \(project.account ?? "this account"), so commits here will use your global Git identity.")
                         .font(.callout).fixedSize(horizontal: false, vertical: true)
-                    Button("Set one in Settings, GitHub") { model.openSettings(.github) }.buttonStyle(.link).font(.callout)
+                    Button("Set one in Settings, GitHub") { model.openSettings() }.buttonStyle(.link).font(.callout)
                 }
             }
             .padding(10).background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))

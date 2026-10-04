@@ -14,21 +14,6 @@ enum SidebarItem: Hashable {
     case settings
 }
 
-enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, scans, github, folders, ignored, permissions
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .general: return "General"
-        case .scans: return "Scans and alerts"
-        case .github: return "GitHub"
-        case .folders: return "Folders"
-        case .ignored: return "Ignored"
-        case .permissions: return "Permissions"
-        }
-    }
-}
-
 /// The four parts of Projects, like RepoShelf's tabs.
 enum ProjectsTab: String, CaseIterable, Identifiable {
     case projects, cleanup, accounts, activity
@@ -178,7 +163,6 @@ final class AppModel {
     var selectedRuntimeID: String?
 
     var healthTab: HealthTab = .security
-    var settingsTab: SettingsTab = .general
     /// Which kind of cleanup the Clean up list shows; chosen in the sidebar.
     var cleanupKind: CleanupKind?
     var security: [SecurityFinding] = []
@@ -445,9 +429,8 @@ final class AppModel {
     }
 
     /// Settings opens inside the main window, on the given tab.
-    func openSettings(_ tab: SettingsTab = .general) {
+    func openSettings() {
         projectSheet = nil
-        settingsTab = tab
         selection = .settings
     }
 

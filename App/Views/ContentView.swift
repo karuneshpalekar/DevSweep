@@ -111,13 +111,6 @@ struct SidebarView: View {
                 mainRow(.history, "History", "clock.arrow.circlepath", badge: "")
 
                 mainRow(.settings, "Settings", "gearshape", badge: "")
-                if expanded == .settings {
-                    group {
-                        ForEach(SettingsTab.allCases) { t in
-                            subRow(t.title, count: "", selected: model.settingsTab == t, section: .settings) { model.settingsTab = t }
-                        }
-                    }
-                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)

@@ -64,38 +64,49 @@ struct AppearanceToggle: View {
     }
 }
 
-/// Settings, inline in the main window. The sidebar picks the tab.
+/// Settings, inline in the main window: one page, sections in order.
 @MainActor
 struct SettingsView: View {
-    @Environment(AppModel.self) private var model
-
     var body: some View {
-        ZStack {
-            Group {
-                switch model.settingsTab {
-                case .general: GeneralSettings()
-                case .scans: ScanSettings()
-                case .github: GitHubSettings()
-                case .folders: FolderSettings()
-                case .ignored: IgnoredSettings()
-                case .permissions: PermissionSettings()
-                }
-            }
-            .modifier(FadeIn())
-            .id(model.settingsTab)
+        Form {
+            GeneralSettings()
+            ScanSettings()
+            GitHubSettings()
+            FolderSettings()
+            IgnoredSettings()
+            PermissionSettings()
         }
+        .formStyle(.grouped)
+        .modifier(FadeIn())
         .navigationTitle("Settings")
-        .navigationSubtitle(model.settingsTab.title)
+        .navigationSubtitle("General")
     }
 }
 
-/// Scheduled scans, alerts and open at login.
+@MainActor
+struct GeneralSettings: View {
+    @AppStorage(AppearanceMode.storageKey) private var appearance = AppearanceMode.system.rawValue
+
+    var body: some View {
+        Section("Appearance") {
+            Picker("Appearance", selection: $appearance) {
+                ForEach(AppearanceMode.allCases) { Text($0.title).tag($0.rawValue) }
+            }
+            .pickerStyle(.segmented)
+        }
+        .onChange(of: appearance) { _, new in
+            (AppearanceMode(rawValue: new) ?? .system).apply()
+        }
+    }
+}
+
+/// Open at login, scheduled scans and alerts.
 @MainActor
 struct ScanSettings: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        Form {
+        Group {
             Section {
                 Toggle("Open DevSweep at login, in the menu bar", isOn: Binding(
                     get: { model.loginState == .on || model.loginState == .needsApproval },
@@ -107,8 +118,11 @@ struct ScanSettings: View {
                     }
                     .font(.callout)
                 }
+            } header: {
+                Text("Open at login")
             } footer: {
                 Text("Scheduled scans and alerts only run while DevSweep is open. Opening it at login keeps it in the menu bar.")
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             Section {
@@ -127,8 +141,11 @@ struct ScanSettings: View {
                     }
                     if let next = model.nextScanText { LabeledContent("Next scan", value: next) }
                 }
+            } header: {
+                Text("Scheduled scans")
             } footer: {
-                Text("Scans are read-only, like every scan. Nothing is cleaned automatically. A Mac that was asleep at the scheduled time scans when it wakes.")
+                Text("Scans are read-only, like every scan. Nothing is cleaned until you review and confirm. A Mac that was asleep at the scheduled time scans when it wakes.")
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             Section("Alert me when") {
@@ -163,7 +180,6 @@ struct ScanSettings: View {
                 }
             }
         }
-        .formStyle(.grouped)
         .task { await model.refreshNotificationStatus() }
     }
 
@@ -184,32 +200,6 @@ struct ScanSettings: View {
     }
 }
 
-@MainActor
-struct GeneralSettings: View {
-    @AppStorage(AppearanceMode.storageKey) private var appearance = AppearanceMode.system.rawValue
-
-    var body: some View {
-        Form {
-            Section {
-                Picker("Appearance", selection: $appearance) {
-                    ForEach(AppearanceMode.allCases) { Text($0.title).tag($0.rawValue) }
-                }
-                .pickerStyle(.segmented)
-            }
-            Section {
-                LabeledContent("Scans") {
-                    Text("Read-only. Nothing is cleaned until you review and confirm.")
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .formStyle(.grouped)
-        .onChange(of: appearance) { _, new in
-            (AppearanceMode(rawValue: new) ?? .system).apply()
-        }
-    }
-}
-
 /// GitHub accounts known to `gh`, each with the commit identity written into its clones.
 @MainActor
 struct GitHubSettings: View {
@@ -217,10 +207,8 @@ struct GitHubSettings: View {
     @State private var showAddAccount = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Each account's name and email are written into the projects you download with it, so commits are attributed correctly whatever your global Git identity is.")
-                    .foregroundStyle(.secondary)
+        Group {
+            Section {
                 if model.githubAccounts.isEmpty { GitHubSetupCard { showAddAccount = true } }
                 ForEach(model.githubAccounts) { account in
                     AccountCard(account: account, summary: model.accountSummaries.first { $0.login == account.login })
@@ -229,17 +217,21 @@ struct GitHubSettings: View {
                     Button("Add account…") { showAddAccount = true }
                     Button("Refresh") { model.refreshProjects() }
                 }
-                Divider()
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Downloads go to").fontWeight(.medium)
+            } header: {
+                Text("GitHub accounts")
+            } footer: {
+                Text("Each account's name and email are written into the projects you download with it, so commits are attributed correctly whatever your global Git identity is.")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Section("Downloads") {
+                LabeledContent("Downloads go to") {
+                    HStack {
                         Text(model.projectsState.workspaceRoot).font(.callout.monospaced()).foregroundStyle(.secondary)
+                        Button("Choose…") { chooseWorkspace() }
                     }
-                    Spacer()
-                    Button("Choose…") { chooseWorkspace() }
                 }
             }
-            .padding(24)
         }
         .task { if !model.hasLoadedProjects { model.refreshProjects() } }
         .sheet(isPresented: $showAddAccount) { AddAccountSheet() }
@@ -261,38 +253,32 @@ struct GitHubSettings: View {
 struct FolderSettings: View {
     @Environment(AppModel.self) private var model
     @State private var folders: [String] = AppSettings.projectFolders ?? RuleLoader.defaultProjectRoots
-    @State private var selection: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("DevSweep looks for idle projects in these folders. Only node_modules, virtual environments and Pods are suggested, and only in projects untouched for 30 days.")
-                .foregroundStyle(.secondary)
-                .lineLimit(3)
-            List(selection: $selection) {
-                ForEach(folders, id: \.self) { f in
-                    HStack {
-                        Image(systemName: "folder").foregroundStyle(.secondary)
-                        Text(f)
-                        Spacer()
-                        if !FileManager.default.fileExists(atPath: (f as NSString).expandingTildeInPath) {
-                            Text("Not on this Mac").font(.caption).foregroundStyle(.secondary)
-                        }
+        Section {
+            ForEach(folders, id: \.self) { f in
+                HStack {
+                    Image(systemName: "folder").foregroundStyle(.secondary)
+                    Text(f)
+                    if !FileManager.default.fileExists(atPath: (f as NSString).expandingTildeInPath) {
+                        Text("Not on this Mac").font(.caption).foregroundStyle(.secondary)
                     }
-                    .tag(f)
+                    Spacer()
+                    Button { save(folders.filter { $0 != f }, isDefault: false) } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("Remove \(f)")
                 }
             }
-            .listStyle(.bordered(alternatesRowBackgrounds: true))
             HStack {
-                Button { add() } label: { Image(systemName: "plus") }.accessibilityLabel("Add folder")
-                Button { remove() } label: { Image(systemName: "minus") }
-                    .disabled(selection == nil)
-                    .accessibilityLabel("Remove folder")
-                Spacer()
+                Button("Add folder…") { add() }
                 Button("Restore defaults") { save(RuleLoader.defaultProjectRoots, isDefault: true) }
             }
-            .controlSize(.small)
+        } header: {
+            Text("Project folders")
+        } footer: {
+            Text("DevSweep looks for idle projects in these folders. Only node_modules, virtual environments and Pods are suggested, and only in projects untouched for 30 days.")
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(20)
     }
 
     private func add() {
@@ -307,12 +293,6 @@ struct FolderSettings: View {
         save(folders + added.filter { !folders.contains($0) }, isDefault: false)
     }
 
-    private func remove() {
-        guard let s = selection else { return }
-        save(folders.filter { $0 != s }, isDefault: false)
-        selection = nil
-    }
-
     private func save(_ list: [String], isDefault: Bool) {
         folders = list
         AppSettings.projectFolders = isDefault ? nil : list
@@ -325,24 +305,23 @@ struct IgnoredSettings: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        Group {
+        Section {
             if model.ignoredIDs.isEmpty {
-                ContentUnavailableView("Nothing ignored", systemImage: "eye",
-                                       description: Text("Items you choose to always ignore show up here, so you can bring them back."))
+                Text("Nothing ignored. Items you choose to always ignore show up here, so you can bring them back.")
+                    .foregroundStyle(.secondary)
             } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("These are left out of every scan.").foregroundStyle(.secondary)
-                    List(model.ignoredIDs.sorted(), id: \.self) { id in
-                        HStack {
-                            Text(id).font(.callout.monospaced()).lineLimit(1).truncationMode(.middle)
-                            Spacer()
-                            Button("Stop ignoring") { model.unignore(id) }.controlSize(.small)
-                        }
+                ForEach(model.ignoredIDs.sorted(), id: \.self) { id in
+                    HStack {
+                        Text(id).font(.callout.monospaced()).lineLimit(1).truncationMode(.middle)
+                        Spacer()
+                        Button("Stop ignoring") { model.unignore(id) }.controlSize(.small)
                     }
-                    .listStyle(.bordered(alternatesRowBackgrounds: true))
                 }
-                .padding(20)
             }
+        } header: {
+            Text("Ignored items")
+        } footer: {
+            if !model.ignoredIDs.isEmpty { Text("These are left out of every scan.") }
         }
     }
 }
@@ -352,7 +331,7 @@ struct PermissionSettings: View {
     @State private var granted = FullDiskAccess.isGranted
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        Section {
             HStack(spacing: 10) {
                 Image(systemName: granted ? "checkmark.shield.fill" : "lock.shield")
                     .font(.title).foregroundStyle(granted ? .green : .orange)
@@ -362,14 +341,15 @@ struct PermissionSettings: View {
                                  : "macOS asks before DevSweep looks in some folders, and a few leftovers may be missed.")
                         .foregroundStyle(.secondary)
                 }
+                Spacer()
+                Button(granted ? "Open Privacy settings" : "Turn on Full Disk Access") { FullDiskAccess.openSettings() }
             }
-            Button(granted ? "Open Privacy settings" : "Turn on Full Disk Access") { FullDiskAccess.openSettings() }
-            Divider()
+        } header: {
+            Text("Permissions and privacy")
+        } footer: {
             Text("DevSweep never sends anything about your Mac anywhere. The only network request is for public support dates from endoflife.date.")
-                .font(.callout).foregroundStyle(.secondary)
-            Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(24)
         .onAppear { granted = FullDiskAccess.isGranted }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             granted = FullDiskAccess.isGranted

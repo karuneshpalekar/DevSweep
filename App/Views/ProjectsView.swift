@@ -286,7 +286,9 @@ struct ProjectDetail: View {
             } else if s.unpushedCommits > 0 {
                 Button("Push \(s.unpushedCommits) commit\(s.unpushedCommits == 1 ? "" : "s")") { model.push(project) }.buttonStyle(.borderedProminent)
             }
-            Button("Remove from Mac…") { confirmRemove = true }
+            Button("Remove from Mac…", role: .destructive) { confirmRemove = true }
+                .buttonStyle(.bordered)
+                .tint(.red)
                 .disabled(!s.isSafeToRemove || model.busyProjectID != nil)
         }
         Text("Removing moves the folder to the Trash. DevSweep only offers it when nothing would be lost.")
