@@ -10,32 +10,32 @@ versions back, npm and Gradle caches, and files from apps you removed long
 ago. DevSweep finds them, tells you what each one is, what was checked, and
 exactly what happens if you remove it.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/cleanup-dark.png">
-  <img alt="DevSweep Clean up: items grouped by risk, with the explanation panel open for Chrome cache" src="docs/screenshots/cleanup-light.png">
-</picture>
+<p align="center">
+  <img alt="DevSweep Home in light mode" src="docs/screenshots/home-light.png" width="49%">
+  <img alt="DevSweep Home in dark mode" src="docs/screenshots/home-dark.png" width="49%">
+</p>
 
 ## Four places, nothing more
 
 DevSweep keeps the window simple: **Home**, **Clean up**, **Projects** and
 **Health**, plus History and Settings. Light and dark mode follow your Mac, or pick one
-in Settings.
+in Settings. The screenshots below are in light mode.
 
-| | Light | Dark |
-|---|---|---|
-| **Home.** Free space, what can be cleaned, what grew or appeared since last week, and the few things that need attention. | ![Home, light](docs/screenshots/home-light.png) | ![Home, dark](docs/screenshots/home-dark.png) |
-| **Clean up.** Everything that can go, filtered by kind (caches, old versions, leftovers, project dependencies) and grouped by risk. The ⓘ panel explains each item: what it is, what was checked on your Mac, what you won't lose, and a better option when there is one. | ![Clean up, light](docs/screenshots/cleanup-light.png) | ![Clean up, dark](docs/screenshots/cleanup-dark.png) |
-| **Projects.** Your repos on this Mac and on GitHub, across every account you're signed in to. Each one says whether it's safe to remove (commits not pushed, uncommitted changes, stashes) before it can leave your Mac, and anything on GitHub downloads again on demand. | ![Projects, light](docs/screenshots/projects-light.png) | ![Projects, dark](docs/screenshots/projects-dark.png) |
-| **Projects: Cleanup.** Local copies you haven't opened in a while (1 week to 3 months, you choose), with what removing them would free. Fully backed-up ones are marked safe to remove, one by one or all at once. | ![Cleanup, light](docs/screenshots/idle-light.png) | ![Cleanup, dark](docs/screenshots/idle-dark.png) |
-| **Projects: Accounts.** Every GitHub account you're signed in to, what it has on this Mac, and the name and email its commits use. Clones from accounts you're not signed in to are listed too. | ![Accounts, light](docs/screenshots/accounts-light.png) | ![Accounts, dark](docs/screenshots/accounts-dark.png) |
-| **Projects: Activity.** A running trail of downloads, removals, publishes, pushes and account changes, with timestamps. | ![Activity, light](docs/screenshots/activity-light.png) | ![Activity, dark](docs/screenshots/activity-dark.png) |
-| **Review before anything changes.** Items are grouped by what will actually happen, and apps that must quit first are flagged. | ![Review, light](docs/screenshots/review-light.png) | ![Review, dark](docs/screenshots/review-dark.png) |
-| **Health: Security.** Recovery codes, private keys, cloud keys, password exports and `.env` files that git would commit. Recognised by name and shape; the secrets themselves are never read into DevSweep. | ![Security, light](docs/screenshots/security-light.png) | ![Security, dark](docs/screenshots/security-dark.png) |
-| **Health: Tools and versions.** Every install of 12 languages and databases, which one your shell runs, whether it's still supported, and what your projects ask for, with fixes you can run in Terminal. | ![Tools and versions, light](docs/screenshots/health-light.png) | ![Tools and versions, dark](docs/screenshots/health-dark.png) |
-| **Health: Ports.** What's listening, which project it belongs to, and whether other devices on your network can reach it. | ![Ports, light](docs/screenshots/ports-light.png) | ![Ports, dark](docs/screenshots/ports-dark.png) |
-| **History and undo.** Everything DevSweep changed, with Restore for anything still in the Trash. | ![History, light](docs/screenshots/history-light.png) | ![History, dark](docs/screenshots/history-dark.png) |
-| **First launch.** What DevSweep looks at, what it never does, and the permissions macOS may ask for. | ![Welcome, light](docs/screenshots/welcome-light.png) | ![Welcome, dark](docs/screenshots/welcome-dark.png) |
-| **Settings and menu bar.** One page: appearance, open at login, scheduled scans and alerts (nothing is ever cleaned automatically), GitHub accounts, project folders, ignored items and permissions; space, alerts and recent projects at a glance from the menu bar. | <img alt="Settings" src="docs/screenshots/settings-light.png" width="420"> <img alt="Menu bar" src="docs/screenshots/menubar-light.png" width="280"> | <img alt="Settings, dark" src="docs/screenshots/settings-dark.png" width="420"> <img alt="Menu bar, dark" src="docs/screenshots/menubar-dark.png" width="280"> |
+| | |
+|---|---|
+| **Home.** Free space, what can be cleaned, what grew or appeared since last week, and the few things that need attention. | ![Home, light](docs/screenshots/home-light.png) |
+| **Clean up.** Everything that can go, filtered by kind (caches, old versions, leftovers, project dependencies) and grouped by risk. The ⓘ panel explains each item: what it is, what was checked on your Mac, what you won't lose, and a better option when there is one. | ![Clean up, light](docs/screenshots/cleanup-light.png) |
+| **Projects.** Your repos on this Mac and on GitHub, across every account you're signed in to. Each one says whether it's safe to remove (commits not pushed, uncommitted changes, stashes) before it can leave your Mac, and anything on GitHub downloads again on demand. | ![Projects, light](docs/screenshots/projects-light.png) |
+| **Projects: Cleanup.** Local copies you haven't opened in a while (1 week to 3 months, you choose), with what removing them would free. Fully backed-up ones are marked safe to remove, one by one or all at once. | ![Cleanup, light](docs/screenshots/idle-light.png) |
+| **Projects: Accounts.** Every GitHub account you're signed in to, what it has on this Mac, and the name and email its commits use. Clones from accounts you're not signed in to are listed too. | ![Accounts, light](docs/screenshots/accounts-light.png) |
+| **Projects: Activity.** A running trail of downloads, removals, publishes, pushes and account changes, with timestamps. | ![Activity, light](docs/screenshots/activity-light.png) |
+| **Review before anything changes.** Items are grouped by what will actually happen, and apps that must quit first are flagged. | ![Review, light](docs/screenshots/review-light.png) |
+| **Health: Security.** Recovery codes, private keys, cloud keys, password exports and `.env` files that git would commit. Recognised by name and shape; the secrets themselves are never read into DevSweep. | ![Security, light](docs/screenshots/security-light.png) |
+| **Health: Tools and versions.** Every install of 12 languages and databases, which one your shell runs, whether it's still supported, and what your projects ask for, with fixes you can run in Terminal. | ![Tools and versions, light](docs/screenshots/health-light.png) |
+| **Health: Ports.** What's listening, which project it belongs to, and whether other devices on your network can reach it. | ![Ports, light](docs/screenshots/ports-light.png) |
+| **History and undo.** Everything DevSweep changed, with Restore for anything still in the Trash. | ![History, light](docs/screenshots/history-light.png) |
+| **First launch.** What DevSweep looks at, what it never does, and the permissions macOS may ask for. | ![Welcome, light](docs/screenshots/welcome-light.png) |
+| **Settings and menu bar.** One page: appearance, open at login, scheduled scans and alerts (nothing is ever cleaned automatically), GitHub accounts, project folders, ignored items and permissions; space, alerts and recent projects at a glance from the menu bar. | <img alt="Settings" src="docs/screenshots/settings-light.png" width="420"> <img alt="Menu bar" src="docs/screenshots/menubar-light.png" width="280"> |
 
 ## How it behaves
 
@@ -286,7 +286,7 @@ in the keychain, the script signs with Developer ID and notarizes instead.
 
 ## Updating the screenshots
 
-Debug builds can walk through every screen in light and dark mode and save
+Debug builds can walk through every screen in light mode (plus a dark Home) and save
 the README images. The app captures only its own windows, so no screen
 recording permission is needed:
 

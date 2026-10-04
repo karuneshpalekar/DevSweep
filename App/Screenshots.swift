@@ -67,6 +67,8 @@ enum ScreenshotTour {
             model.selection = .home
             await pause(1.5)
             await saveStable(window, "home-\(mode.rawValue)", dir)
+            // Dark mode only gets the Home screen, as the one introduction to it.
+            if mode == .dark { continue }
 
             model.showWelcome = true
             await pause(1.2)
