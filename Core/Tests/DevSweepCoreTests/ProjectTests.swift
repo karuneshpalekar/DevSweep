@@ -208,3 +208,59 @@ final class ProjectTests: XCTestCase {
         XCTAssertEqual(reopened.state.identities["me"]?.name, "Me", "the import was saved")
     }
 }
+
+final class ProjectActivityTests: XCTestCase {
+    var dir: URL!
+
+    override func setUpWithError() throws {
+        dir = FileManager.default.temporaryDirectory.appendingPathComponent("devsweep-act-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    }
+
+    override func tearDownWithError() throws { try? FileManager.default.removeItem(at: dir) }
+
+    func testAnOlderFileWithoutActivityStillLoadsAndKeepsIdentities() throws {
+        // What version 0.6 wrote: no "activity" fields at all.
+        let old = """
+        {"workspaceRoot": "~/Code", "identities": {"me": {"name": "Me", "email": "me@example.com"}},
+         "strategies": {"me/app": "shallow"}, "lastOpened": {}, "known": [{"nameWithOwner": "me/app", "account": "me"}]}
+        """
+        let file = dir.appendingPathComponent("projects.json")
+        try old.write(to: file, atomically: true, encoding: .utf8)
+        let store = ProjectStore(url: file, importFrom: nil)
+        XCTAssertEqual(store.state.identities["me"]?.name, "Me", "saved identities survive the upgrade")
+        XCTAssertEqual(store.state.known.count, 1)
+        XCTAssertEqual(store.state.activity, [])
+    }
+
+    func testRepoShelfActivityIsImportedOnceAndSortedNewestFirst() throws {
+        let shelf = """
+        {"activity": [
+          {"id": "263684D8-9112-4077-B66E-8947DA6C1512", "kind": "remove", "subject": "app", "detail": "freed 4.6 MB", "date": 812735643.2},
+          {"id": "0218E0F3-7984-4970-9EE2-66E534646535", "kind": "clone", "subject": "site", "detail": "full · 3.2 MB", "date": 812732657.3},
+          {"kind": "switchAccount", "subject": "x", "detail": "", "date": 812732000.0},
+          {"kind": "publish", "subject": "new", "detail": "private", "date": 812740000.0}]}
+        """
+        let shelfFile = dir.appendingPathComponent("state.json")
+        try shelf.write(to: shelfFile, atomically: true, encoding: .utf8)
+        let projects = dir.appendingPathComponent("projects.json")
+        try #"{"identities": {"me": {"name": "Me", "email": "m@e.com"}}}"#.write(to: projects, atomically: true, encoding: .utf8)
+
+        let store = ProjectStore(url: projects, importFrom: shelfFile)
+        XCTAssertEqual(store.state.activity.map(\.kind), [.publish, .remove, .download], "account switches aren't carried over")
+        XCTAssertEqual(store.state.activity.first?.subject, "new")
+        XCTAssertEqual(store.state.identities["me"]?.email, "m@e.com", "existing data is untouched")
+
+        let again = ProjectStore(url: projects, importFrom: shelfFile)
+        XCTAssertEqual(again.state.activity.count, 3, "imported only once")
+    }
+
+    func testLoggingKeepsNewestFirstAndCapsTheTrail() {
+        let store = ProjectStore(url: dir.appendingPathComponent("p.json"), importFrom: nil)
+        for i in 0..<505 { store.log(.download, "repo\(i)", "detail") }
+        XCTAssertEqual(store.state.activity.count, 500)
+        XCTAssertEqual(store.state.activity.first?.subject, "repo504")
+        let reopened = ProjectStore(url: dir.appendingPathComponent("p.json"), importFrom: nil)
+        XCTAssertEqual(reopened.state.activity.count, 500, "the trail is saved")
+    }
+}

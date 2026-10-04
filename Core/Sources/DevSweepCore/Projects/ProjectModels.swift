@@ -158,6 +158,23 @@ public struct Project: Identifiable, Equatable, Sendable {
     public var lastUsed: Date? { [lastOpened, lastActivity].compactMap { $0 }.max() }
 }
 
+/// One line in the Activity trail: a download, removal, publish, push, or account change.
+public struct ProjectActivity: Codable, Identifiable, Equatable, Sendable {
+    public enum Kind: String, Codable, CaseIterable, Sendable {
+        case download, remove, publish, push, addRepo, addAccount, identity
+    }
+
+    public var id: UUID
+    public var date: Date
+    public var kind: Kind
+    public var subject: String
+    public var detail: String
+
+    public init(id: UUID = UUID(), date: Date = Date(), kind: Kind, subject: String, detail: String = "") {
+        self.id = id; self.date = date; self.kind = kind; self.subject = subject; self.detail = detail
+    }
+}
+
 /// Everything DevSweep remembers about projects.
 public struct ProjectsState: Codable, Sendable {
     public var workspaceRoot: String = "~/Code"
@@ -165,8 +182,25 @@ public struct ProjectsState: Codable, Sendable {
     public var strategies: [String: CloneStrategy] = [:]
     public var lastOpened: [String: Date] = [:]
     public var known: [KnownRepo] = []
+    /// Newest first.
+    public var activity: [ProjectActivity] = []
+    /// RepoShelf's activity trail has been brought over (done once).
+    public var activityImported = false
 
     public init() {}
+
+    /// Every field is optional on disk, so a file written by an older version
+    /// still loads, and nothing saved (identities, known repos) is lost.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        workspaceRoot = try c.decodeIfPresent(String.self, forKey: .workspaceRoot) ?? "~/Code"
+        identities = try c.decodeIfPresent([String: GitIdentity].self, forKey: .identities) ?? [:]
+        strategies = try c.decodeIfPresent([String: CloneStrategy].self, forKey: .strategies) ?? [:]
+        lastOpened = try c.decodeIfPresent([String: Date].self, forKey: .lastOpened) ?? [:]
+        known = try c.decodeIfPresent([KnownRepo].self, forKey: .known) ?? []
+        activity = try c.decodeIfPresent([ProjectActivity].self, forKey: .activity) ?? []
+        activityImported = try c.decodeIfPresent(Bool.self, forKey: .activityImported) ?? false
+    }
 
     public struct KnownRepo: Codable, Identifiable, Equatable, Sendable {
         public var id: String { nameWithOwner }

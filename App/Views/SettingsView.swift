@@ -208,6 +208,7 @@ struct GeneralSettings: View {
 @MainActor
 struct GitHubSettings: View {
     @Environment(AppModel.self) private var model
+    @State private var showAddAccount = false
 
     var body: some View {
         ScrollView {
@@ -217,13 +218,11 @@ struct GitHubSettings: View {
                 if model.githubAccounts.isEmpty {
                     Text(model.projectsMessage ?? "Looking for GitHub accounts…").foregroundStyle(.secondary)
                 }
-                ForEach(model.githubAccounts) { AccountRow(account: $0) }
+                ForEach(model.githubAccounts) { account in
+                    AccountCard(account: account, summary: model.accountSummaries.first { $0.login == account.login })
+                }
                 HStack {
-                    Button("Add account…") {
-                        model.runInTerminal(RuntimeStep(kind: .upgrade, title: "Sign in to GitHub",
-                                                        detail: "Opens GitHub's sign-in. Choose HTTPS and sign in through the browser.",
-                                                        commands: ["gh auth login"]))
-                    }
+                    Button("Add account…") { showAddAccount = true }
                     Button("Refresh") { model.refreshProjects() }
                 }
                 Divider()
@@ -239,6 +238,7 @@ struct GitHubSettings: View {
             .padding(24)
         }
         .task { if !model.hasLoadedProjects { model.refreshProjects() } }
+        .sheet(isPresented: $showAddAccount) { AddAccountSheet() }
     }
 
     private func chooseWorkspace() {
@@ -251,43 +251,6 @@ struct GitHubSettings: View {
         let home = NSHomeDirectory()
         model.setWorkspaceRoot(url.path.hasPrefix(home) ? "~" + url.path.dropFirst(home.count) : url.path)
     }
-}
-
-@MainActor
-struct AccountRow: View {
-    @Environment(AppModel.self) private var model
-    let account: GitHubAccount
-    @State private var name = ""
-    @State private var email = ""
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(account.login).fontWeight(.semibold)
-                if account.isActive { StatusTag(text: "Active in Terminal", color: .secondary) }
-            }
-            HStack {
-                TextField("Name for commits", text: $name).textFieldStyle(.roundedBorder)
-                TextField("Email for commits", text: $email).textFieldStyle(.roundedBorder)
-            }
-            if name.isEmpty && email.isEmpty {
-                Text("Not set. Projects downloaded with this account use your global Git identity.")
-                    .font(.caption).foregroundStyle(.orange)
-            }
-        }
-        .padding(12)
-        .background(.background, in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(.separator))
-        .onAppear {
-            let i = model.identity(for: account.login)
-            name = i?.name ?? ""
-            email = i?.email ?? ""
-        }
-        .onChange(of: name) { _, _ in save() }
-        .onChange(of: email) { _, _ in save() }
-    }
-
-    private func save() { model.setIdentity(GitIdentity(name: name, email: email), for: account.login) }
 }
 
 @MainActor

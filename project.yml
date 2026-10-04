@@ -37,8 +37,8 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: DevSweep
-        CFBundleShortVersionString: "0.7.0"
-        CFBundleVersion: "7"
+        CFBundleShortVersionString: "0.8.0"
+        CFBundleVersion: "8"
         LSApplicationCategoryType: public.app-category.developer-tools
         NSHumanReadableCopyright: "MIT License"
 

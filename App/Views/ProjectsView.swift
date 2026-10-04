@@ -1,29 +1,34 @@
 import DevSweepCore
 import SwiftUI
 
-/// Your projects on this Mac and on GitHub, and whether each is safe to remove.
+/// Projects, with RepoShelf's other tabs: Cleanup, Accounts and Activity.
 @MainActor
 struct ProjectsView: View {
     @Environment(AppModel.self) private var model
-    @State private var search = ""
-    @State private var confirmRemoveAll = false
-
-    private var items: [Project] {
-        model.visibleProjects.filter {
-            search.isEmpty || $0.nameWithOwner.localizedCaseInsensitiveContains(search)
-                || $0.description.localizedCaseInsensitiveContains(search)
-        }
-    }
 
     var body: some View {
         @Bindable var model = model
         VStack(spacing: 0) {
-            controls
+            HStack(spacing: 12) {
+                Picker("Projects area", selection: $model.projectsTab) {
+                    ForEach(ProjectsTab.allCases) { Text(label($0)).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+                Spacer()
+                SettingsLink { Image(systemName: "gearshape") }
+                    .buttonStyle(.borderless)
+                    .help("Project folders, accounts and downloads in Settings")
+                    .simultaneousGesture(TapGesture().onEnded { UserDefaults.standard.set("github", forKey: "settingsTab") })
+            }
+            .padding(.horizontal, 16).padding(.vertical, 8)
             Divider()
-            SidePanelLayout(selected: model.selectedProjectID, width: 360) {
-                listArea
-            } panel: { id in
-                if let p = model.projects.first(where: { $0.id == id }) { ProjectDetail(project: p) }
+            switch model.projectsTab {
+            case .projects: ProjectListTab()
+            case .cleanup: CleanupTab()
+            case .accounts: AccountsTab()
+            case .activity: ActivityTab()
             }
         }
         .navigationTitle("Projects")
@@ -33,14 +38,21 @@ struct ProjectsView: View {
             case .clone(let id): if let p = model.projects.first(where: { $0.id == id }) { CloneSheet(project: p) }
             case .publish: PublishSheet()
             case .addByURL: AddByURLSheet()
+            case .addAccount: AddAccountSheet()
             }
         }
-        .confirmationDialog("Remove \(model.safeIdleProjects.count) projects from this Mac?", isPresented: $confirmRemoveAll) {
-            Button("Move to Trash", role: .destructive) { model.removeAllSafeIdle() }
-        } message: {
-            Text("Each one is fully pushed to GitHub, with no uncommitted changes or stashes. They go to the Trash, and you can download them again.")
-        }
         .task { if !model.hasLoadedProjects { model.refreshProjects() } }
+    }
+
+    private func label(_ tab: ProjectsTab) -> String {
+        let n: Int
+        switch tab {
+        case .projects: n = model.projects.filter(\.onDisk).count
+        case .cleanup: n = model.idleProjects.count
+        case .accounts: n = model.githubAccounts.count
+        case .activity: n = 0
+        }
+        return n > 0 ? "\(tab.title) · \(n)" : tab.title
     }
 
     private var subtitle: String {
@@ -49,8 +61,32 @@ struct ProjectsView: View {
         let size = onMac.reduce(0) { $0 + $1.localSize }
         return "\(onMac.count) on this Mac · \(SizeFormat.string(size))" + (model.isLoadingProjects ? " · refreshing" : "")
     }
+}
 
-    // MARK: - Controls
+/// The project list: every repo on this Mac and on GitHub.
+@MainActor
+struct ProjectListTab: View {
+    @Environment(AppModel.self) private var model
+    @State private var search = ""
+
+    private var items: [Project] {
+        model.visibleProjects.filter {
+            search.isEmpty || $0.nameWithOwner.localizedCaseInsensitiveContains(search)
+                || $0.description.localizedCaseInsensitiveContains(search)
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            controls
+            Divider()
+            SidePanelLayout(selected: model.selectedProjectID, width: 360) {
+                listArea
+            } panel: { id in
+                if let p = model.projects.first(where: { $0.id == id }) { ProjectDetail(project: p) }
+            }
+        }
+    }
 
     private var controls: some View {
         @Bindable var model = model
@@ -93,13 +129,11 @@ struct ProjectsView: View {
         let n: Int
         switch f {
         case .onMac: n = model.projects.filter(\.onDisk).count
-        case .idle: n = model.projects.filter { $0.onDisk && ($0.lastUsed ?? .distantPast) < Date().addingTimeInterval(-21 * 86_400) }.count
         case .onGitHub: n = model.projects.filter { !$0.onDisk }.count
+        case .all: n = model.projects.count
         }
         return n > 0 ? "\(f.title) · \(n)" : f.title
     }
-
-    // MARK: - List
 
     @ViewBuilder
     private var listArea: some View {
@@ -114,25 +148,12 @@ struct ProjectsView: View {
                 .padding(.horizontal, 16).padding(.vertical, 8)
                 .background(Color.orange.opacity(0.1))
             }
-            if model.projectFilter == .idle, model.safeIdleProjects.count > 0 {
-                HStack {
-                    Text("\(model.safeIdleProjects.count) of these are fully on GitHub and take \(SizeFormat.string(model.safeIdleProjects.reduce(0) { $0 + $1.localSize })).")
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Remove them…") { confirmRemoveAll = true }
-                        .disabled(model.busyProjectID != nil)
-                }
-                .padding(.horizontal, 16).padding(.vertical, 8)
-                Divider()
-            }
             if items.isEmpty {
                 ContentUnavailableView(emptyTitle, systemImage: "folder", description: Text(emptyDetail))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List {
-                    ForEach(items) { row($0) }
-                }
-                .listStyle(.inset)
+                List { ForEach(items) { row($0) } }
+                    .listStyle(.inset)
             }
         }
     }
@@ -141,16 +162,16 @@ struct ProjectsView: View {
         if model.isLoadingProjects { return "Looking…" }
         switch model.projectFilter {
         case .onMac: return "No projects found"
-        case .idle: return "Nothing idle"
         case .onGitHub: return "Everything on GitHub is here"
+        case .all: return "No projects yet"
         }
     }
 
     private var emptyDetail: String {
         switch model.projectFilter {
         case .onMac: return "DevSweep looks in the project folders listed in Settings."
-        case .idle: return "Every project here was opened or changed in the last three weeks."
         case .onGitHub: return "Repos you haven't downloaded appear here, ready to download."
+        case .all: return "Sign in to GitHub in Accounts, or download or publish a project."
         }
     }
 

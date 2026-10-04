@@ -13,27 +13,61 @@ enum SidebarItem: Hashable {
     case history
 }
 
+/// The four parts of Projects, like RepoShelf's tabs.
+enum ProjectsTab: String, CaseIterable, Identifiable {
+    case projects, cleanup, accounts, activity
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .projects: return "Projects"
+        case .cleanup: return "Cleanup"
+        case .accounts: return "Accounts"
+        case .activity: return "Activity"
+        }
+    }
+}
+
 enum ProjectFilter: String, CaseIterable, Identifiable {
-    case onMac, idle, onGitHub
+    case onMac, onGitHub, all
     var id: String { rawValue }
     var title: String {
         switch self {
         case .onMac: return "On this Mac"
-        case .idle: return "Not opened lately"
         case .onGitHub: return "Only on GitHub"
+        case .all: return "All"
         }
     }
+}
+
+/// One signed-in GitHub account and what it has on this Mac.
+struct AccountSummary: Identifiable {
+    var id: String { login }
+    var login: String
+    var isActive: Bool
+    var repos: Int
+    var onDisk: Int
+    var bytes: Int64
+}
+
+/// Owners whose clones are here but who aren't a signed-in account.
+struct OutsideOwner: Identifiable {
+    var id: String { owner }
+    var owner: String
+    var projects: Int
+    var bytes: Int64
 }
 
 enum ProjectSheet: Identifiable {
     case clone(String)
     case publish
     case addByURL
+    case addAccount
     var id: String {
         switch self {
         case .clone(let id): return "clone:" + id
         case .publish: return "publish"
         case .addByURL: return "add"
+        case .addAccount: return "account"
         }
     }
 }
@@ -90,6 +124,12 @@ enum AppSettings {
         set { save(newValue, "alertSettings") }
     }
 
+    /// Days without opening a project before Cleanup suggests removing it.
+    static var idleDays: Int {
+        get { defaults.object(forKey: "idleDays") as? Int ?? 21 }
+        set { defaults.set(newValue, forKey: "idleDays") }
+    }
+
     static var welcomeDone: Bool {
         get { defaults.bool(forKey: "welcomeDone") }
         set { defaults.set(newValue, forKey: "welcomeDone") }
@@ -134,6 +174,8 @@ final class AppModel {
     var isLoadingProjects = false
     var hasLoadedProjects = false
     var projectsMessage: String?
+    var projectsTab: ProjectsTab = .projects
+    var idleDays = AppSettings.idleDays
     var projectFilter: ProjectFilter = .onMac
     var accountFilter: String?
     var selectedProjectID: String?
@@ -373,6 +415,7 @@ final class AppModel {
     func open(_ alert: HealthAlert) {
         if let id = alert.projectID {
             selection = .projects
+            projectsTab = .projects
             projectFilter = .onMac
             selectedProjectID = id
             return
@@ -606,15 +649,51 @@ final class AppModel {
     }
 
     var visibleProjects: [Project] {
-        let idleBefore = Date().addingTimeInterval(-21 * 86_400)
-        return projects.filter { p in
+        projects.filter { p in
             if let a = accountFilter, (p.account ?? p.owner) != a { return false }
             switch projectFilter {
             case .onMac: return p.onDisk
-            case .idle: return p.onDisk && (p.lastUsed ?? .distantPast) < idleBefore
             case .onGitHub: return !p.onDisk
+            case .all: return true
             }
         }
+    }
+
+    /// Projects on this Mac that haven't been opened or changed for `idleDays`.
+    var idleProjects: [Project] {
+        let cutoff = Date().addingTimeInterval(-Double(idleDays) * 86_400)
+        return projects.filter { $0.onDisk && ($0.lastUsed ?? .distantPast) < cutoff }
+            .sorted { $0.localSize > $1.localSize }
+    }
+
+    func setIdleDays(_ days: Int) {
+        idleDays = days
+        AppSettings.idleDays = days
+    }
+
+    var accountSummaries: [AccountSummary] {
+        githubAccounts.map { a in
+            let mine = projects.filter { $0.account == a.login }
+            return AccountSummary(login: a.login, isActive: a.isActive, repos: mine.filter(\.onGitHub).count,
+                                  onDisk: mine.filter(\.onDisk).count, bytes: mine.reduce(0) { $0 + $1.localSize })
+        }
+    }
+
+    /// Clones from organisations or accounts you aren't signed in to.
+    var outsideOwners: [OutsideOwner] {
+        let signedIn = Set(githubAccounts.map(\.login))
+        let outside = projects.filter { $0.onDisk && $0.onGitHub && !signedIn.contains($0.account ?? $0.owner) && $0.account == nil }
+        return Dictionary(grouping: outside, by: \.owner).map {
+            OutsideOwner(owner: $0.key, projects: $0.value.count, bytes: $0.value.reduce(0) { $0 + $1.localSize })
+        }.sorted { $0.bytes > $1.bytes }
+    }
+
+    var activity: [ProjectActivity] { projectsState.activity }
+
+    /// Adds a line to the Activity trail.
+    func logProject(_ kind: ProjectActivity.Kind, _ subject: String, _ detail: String = "") {
+        projectStore.log(kind, subject, detail)
+        projectsState = projectStore.state
     }
 
     func openInEditor(_ p: Project) {
@@ -637,6 +716,8 @@ final class AppModel {
     /// Pushing uses your normal git setup, so it runs where you can see it.
     func push(_ p: Project) {
         guard let path = p.localPath else { return }
+        let n = p.safety?.unpushedCommits ?? 0
+        logProject(.push, p.nameWithOwner, "Started pushing \(n) commit\(n == 1 ? "" : "s")")
         runInTerminal(RuntimeStep(kind: .upgrade, title: "Push \(p.name)",
                                   detail: "Pushes the current branch to GitHub. Other branches aren't pushed.",
                                   commands: ["cd \(shellQuote(path))", "git push || git push -u origin HEAD"]))
@@ -655,6 +736,7 @@ final class AppModel {
         Task {
             let results = await Task.detached { Cleaner(history: history).run([PlannedAction(finding: finding, action: CleanAction(kind: .trash))]) }.value
             if let r = results.first, !r.succeeded { errorMessage = r.message }
+            else { logProject(.remove, p.nameWithOwner, "Freed \(SizeFormat.string(p.localSize)). In the Trash; restore from History.") }
             historyEntries = history.entries
             disk = DiskInfo.current()
             busyProjectID = nil
@@ -664,7 +746,7 @@ final class AppModel {
     }
 
     /// Removes every project that's fully backed up and idle.
-    var safeIdleProjects: [Project] { visibleProjects.filter { $0.onDisk && $0.safety?.isSafeToRemove == true } }
+    var safeIdleProjects: [Project] { idleProjects.filter { $0.safety?.isSafeToRemove == true } }
 
     func removeAllSafeIdle() {
         let list = safeIdleProjects
@@ -682,6 +764,9 @@ final class AppModel {
                 Cleaner(history: history).run(findings.map { PlannedAction(finding: $0, action: CleanAction(kind: .trash)) })
             }.value
             if let bad = results.first(where: { !$0.succeeded }) { errorMessage = bad.message }
+            for r in results where r.succeeded {
+                logProject(.remove, r.finding.title, "Freed \(SizeFormat.string(r.freed)). In the Trash; restore from History.")
+            }
             historyEntries = history.entries
             disk = DiskInfo.current()
             busyProjectID = nil
@@ -696,15 +781,26 @@ final class AppModel {
         projectsState = projectStore.state
     }
 
+    /// Saves from an account's Save button, and records it.
+    func saveIdentity(_ identity: GitIdentity, for account: String) {
+        setIdentity(identity, for: account)
+        logProject(.identity, account, identity.isBlank ? "Cleared the commit identity"
+                   : "Commits are now made as \(identity.name) <\(identity.email)>")
+    }
+
+    /// Opens GitHub's sign-in in Terminal. The identity can be saved before the account exists.
+    func startSignIn(username: String, identity: GitIdentity) {
+        let login = username.trimmingCharacters(in: .whitespaces)
+        if !login.isEmpty, !identity.isBlank { setIdentity(identity, for: login) }
+        logProject(.addAccount, login.isEmpty ? "GitHub" : login, "Started signing in")
+        runInTerminal(RuntimeStep(kind: .upgrade, title: "Sign in to GitHub",
+                                  detail: "Choose GitHub.com and HTTPS, then sign in through the browser. When you're done, come back and press Refresh.",
+                                  commands: ["gh auth login"]))
+    }
+
     func setWorkspaceRoot(_ path: String) {
         projectStore.update { $0.workspaceRoot = path }
         projectsState = projectStore.state
-    }
-
-    /// Records a clone or publish in History, so it shows up next to cleanups.
-    private func logActivity(_ title: String, _ label: String, size: Int64 = 0) {
-        history.append(HistoryEntry(title: title, actionKind: .manual, actionLabel: label, size: size))
-        historyEntries = history.entries
     }
 
     func download(_ p: Project, strategy: CloneStrategy, to destination: URL, completion: @escaping (String?) -> Void) {
@@ -728,7 +824,7 @@ final class AppModel {
                     s.lastOpened[p.nameWithOwner] = Date()
                 }
                 projectsState = projectStore.state
-                logActivity("Downloaded \(p.nameWithOwner)", "Downloaded (\(strategy.title.lowercased()))", size: FS_size(destination.path))
+                logProject(.download, p.nameWithOwner, "\(strategy.title) clone · \(SizeFormat.string(FS_size(destination.path))) · \(FS_abbreviate(destination.path))")
                 refreshProjects()
             }
             completion(error)
@@ -749,7 +845,7 @@ final class AppModel {
             }.value
             busyProjectID = nil
             if error == nil {
-                logActivity("Published \(account)/\(name)", isPrivate ? "Published (private)" : "Published (public)")
+                logProject(.publish, "\(account)/\(name)", isPrivate ? "Private repository" : "Public repository")
                 refreshProjects()
             }
             completion(error)
@@ -780,6 +876,7 @@ final class AppModel {
                 }
             }
             projectsState = projectStore.state
+            logProject(.addRepo, repo.nameWithOwner, "Added by URL")
             projectFilter = .onGitHub
             refreshProjects()
             completion(nil)

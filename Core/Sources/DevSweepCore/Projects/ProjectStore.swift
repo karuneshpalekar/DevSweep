@@ -20,7 +20,39 @@ public final class ProjectStore: @unchecked Sendable {
             state = s
         } else if let repoShelf, let imported = Self.importRepoShelf(repoShelf) {
             state = imported
+            state.activityImported = true
             save()
+        }
+        // Bring RepoShelf's activity trail over once, even if the rest was imported earlier.
+        if let repoShelf, !state.activityImported {
+            state.activity = (state.activity + Self.importRepoShelfActivity(repoShelf))
+                .sorted { $0.date > $1.date }
+            state.activityImported = true
+            save()
+        }
+    }
+
+    /// RepoShelf's clones, removals, publishes and account additions. Dates there
+    /// are seconds since 2001.
+    public static func importRepoShelfActivity(_ file: URL) -> [ProjectActivity] {
+        guard let data = try? Data(contentsOf: file),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let events = obj["activity"] as? [[String: Any]] else { return [] }
+        let kinds: [String: ProjectActivity.Kind] = ["clone": .download, "remove": .remove, "publish": .publish, "addAccount": .addAccount]
+        return events.compactMap { e in
+            guard let raw = e["kind"] as? String, let kind = kinds[raw], let t = e["date"] as? Double,
+                  let subject = e["subject"] as? String else { return nil }
+            return ProjectActivity(id: (e["id"] as? String).flatMap(UUID.init) ?? UUID(),
+                                   date: Date(timeIntervalSinceReferenceDate: t), kind: kind, subject: subject,
+                                   detail: e["detail"] as? String ?? "")
+        }
+    }
+
+    /// Adds a line to the Activity trail (newest first, the last 500 kept).
+    public func log(_ kind: ProjectActivity.Kind, _ subject: String, _ detail: String = "") {
+        update { s in
+            s.activity.insert(ProjectActivity(kind: kind, subject: subject, detail: detail), at: 0)
+            if s.activity.count > 500 { s.activity.removeLast(s.activity.count - 500) }
         }
     }
 

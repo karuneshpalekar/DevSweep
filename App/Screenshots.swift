@@ -31,7 +31,8 @@ enum ScreenshotTour {
         model.security = SampleData.security
         model.ports = SampleData.ports
         model.projects = SampleData.projects
-        model.githubAccounts = [GitHubAccount(login: "sample-dev", isActive: true)]
+        model.githubAccounts = [GitHubAccount(login: "sample-dev", isActive: true), GitHubAccount(login: "sample-team", isActive: false)]
+        model.projectsState = SampleData.projectsState
         model.hasLoadedProjects = true
         // Show scheduled scans as switched on, in memory only.
         model.schedule = ScanSchedule(enabled: true, frequency: .weekly, weekday: 2, hour: 9)
@@ -45,7 +46,7 @@ enum ScreenshotTour {
             model.inspectedID = nil
             model.selection = .home
             await pause(1.5)
-            save(window, "home-\(mode.rawValue)", dir)
+            await saveStable(window, "home-\(mode.rawValue)", dir)
 
             model.showWelcome = true
             await pause(1.2)
@@ -57,7 +58,7 @@ enum ScreenshotTour {
             await pause(1)
             model.inspectedID = panelItem?.id
             await pause(1.2)
-            save(window, "cleanup-\(mode.rawValue)", dir)
+            await saveStable(window, "cleanup-\(mode.rawValue)", dir)
 
             model.inspectedID = nil
             model.selection = .projects
@@ -65,22 +66,34 @@ enum ScreenshotTour {
             await pause(0.8)
             model.selectedProjectID = model.projects.first { ($0.safety?.unpushedCommits ?? 0) > 0 }?.id
             await pause(1.4)
-            save(window, "projects-\(mode.rawValue)", dir)
+            await saveStable(window, "projects-\(mode.rawValue)", dir)
             model.selectedProjectID = nil
+
+            for (tab, name) in [(ProjectsTab.cleanup, "idle"), (.accounts, "accounts"), (.activity, "activity")] {
+                model.projectsTab = tab
+                await pause(1.0)
+                if tab == .cleanup {
+                    model.selectedProjectID = model.idleProjects.first { $0.safety?.isSafeToRemove != true }?.id
+                    await pause(1.2)
+                }
+                await saveStable(window, "\(name)-\(mode.rawValue)", dir)
+                model.selectedProjectID = nil
+            }
+            model.projectsTab = .projects
 
             model.selection = .health
             model.healthTab = .security
             await pause(0.8)
             model.selectedSecurityID = model.visibleSecurity.first { $0.level == .critical }?.id
             await pause(1.4)
-            save(window, "security-\(mode.rawValue)", dir)
+            await saveStable(window, "security-\(mode.rawValue)", dir)
             model.selectedSecurityID = nil
 
             model.healthTab = .ports
             await pause(0.8)
             model.selectedPortID = model.ports.first { $0.isDevelopment && $0.reachableFromNetwork }?.id
             await pause(1.4)
-            save(window, "ports-\(mode.rawValue)", dir)
+            await saveStable(window, "ports-\(mode.rawValue)", dir)
             model.selectedPortID = nil
 
             model.healthTab = .tools
@@ -88,12 +101,12 @@ enum ScreenshotTour {
             model.selectedRuntimeID = model.versions?.runtimes.first { $0.steps.contains { $0.kind == .guided } }?.id
                 ?? model.versions?.runtimes.first?.id
             await pause(1.4)
-            save(window, "health-\(mode.rawValue)", dir)
+            await saveStable(window, "health-\(mode.rawValue)", dir)
             model.selectedRuntimeID = nil
 
             model.selection = .history
             await pause(1)
-            save(window, "history-\(mode.rawValue)", dir)
+            await saveStable(window, "history-\(mode.rawValue)", dir)
 
             model.selection = .cleanUp
             model.checked = reviewIDs
@@ -161,6 +174,23 @@ enum ScreenshotTour {
         guard let data = rep.representation(using: .png, properties: [:]) else { return }
         try? data.write(to: dir.appendingPathComponent("\(name).png"))
         print("shots: \(name).png \(image.width)x\(image.height)")
+    }
+
+    /// A window caught mid-redraw is half drawn and changes between captures. Keep
+    /// capturing until two in a row are identical, so only a finished window is saved.
+    private static func saveStable(_ window: NSWindow, _ name: String, _ dir: URL) async {
+        var previous: Data?
+        var last: CGImage?
+        for _ in 0..<8 {
+            guard let img = image(of: window), let data = NSBitmapImageRep(cgImage: img).representation(using: .png, properties: [:]) else {
+                await pause(0.6); continue
+            }
+            last = img
+            if data == previous { break }
+            previous = data
+            await pause(0.6)
+        }
+        if let last { write(last, name, dir) } else { print("shots: failed \(name)") }
     }
 
     private static func save(_ window: NSWindow, _ name: String, _ dir: URL) {
@@ -257,11 +287,40 @@ enum SampleData {
             Project(id: "local:scratch-notes", name: "scratch-notes", nameWithOwner: "scratch-notes", owner: "", description: "",
                     isPrivate: nil, localPath: h + "/Code/scratch-notes", localSize: 2_000_000, onGitHub: false,
                     safety: GitSafety(unpushedCommits: 0, changedFiles: 0, stashes: 0, hasRemote: false), lastActivity: ago(3)),
+            Project(id: "sample-dev/prototype", name: "prototype", nameWithOwner: "sample-dev/prototype", owner: "sample-dev",
+                    description: "", isPrivate: true, localPath: h + "/Code/sample-dev/prototype", localSize: 310_000_000,
+                    remoteKB: 70_000, onGitHub: true, account: "sample-dev",
+                    safety: GitSafety(unpushedCommits: 2, changedFiles: 0, stashes: 0), lastOpened: ago(60), lastActivity: ago(62), strategy: .blobless),
+            Project(id: "sample-team/team-site", name: "team-site", nameWithOwner: "sample-team/team-site", owner: "sample-team",
+                    description: "", isPrivate: true, localPath: h + "/Code/sample-team/team-site", localSize: 205_000_000,
+                    remoteKB: 60_000, onGitHub: true, account: "sample-team", safety: GitSafety(), lastOpened: ago(3), lastActivity: ago(4), strategy: .blobless),
+            Project(id: "client-org/landing-page", name: "landing-page", nameWithOwner: "client-org/landing-page", owner: "client-org",
+                    description: "", isPrivate: nil, localPath: h + "/Code/client-org/landing-page", localSize: 150_000_000,
+                    onGitHub: true, safety: GitSafety(), lastOpened: ago(48), lastActivity: ago(50)),
             Project(id: "sample-dev/mobile-app", name: "mobile-app", nameWithOwner: "sample-dev/mobile-app", owner: "sample-dev",
                     description: "iOS and Android client", isPrivate: true, remoteKB: 520_000, onGitHub: true, account: "sample-dev", lastActivity: ago(14)),
             Project(id: "sample-dev/docs-site", name: "docs-site", nameWithOwner: "sample-dev/docs-site", owner: "sample-dev",
                     description: "Documentation", isPrivate: false, remoteKB: 31_000, onGitHub: true, account: "sample-dev", lastActivity: ago(40)),
         ]
+    }
+
+    /// Accounts, commit identity and a short activity trail for the Accounts and Activity tabs.
+    static var projectsState: ProjectsState {
+        var s = ProjectsState()
+        s.identities["sample-dev"] = GitIdentity(name: "Sample Dev", email: "dev@example.com")
+        let now = Date()
+        func at(_ hours: Double) -> Date { now.addingTimeInterval(-hours * 3600) }
+        s.activity = [
+            ProjectActivity(date: at(1), kind: .download, subject: "sample-dev/web-app", detail: "Blobless clone · 92 MB · ~/Code/sample-dev/web-app"),
+            ProjectActivity(date: at(3), kind: .push, subject: "sample-dev/demo-api", detail: "Started pushing 3 commits"),
+            ProjectActivity(date: at(5), kind: .remove, subject: "sample-dev/old-demo", detail: "Freed 480 MB. In the Trash; restore from History."),
+            ProjectActivity(date: at(26), kind: .publish, subject: "sample-dev/scratch-notes", detail: "Private repository"),
+            ProjectActivity(date: at(27), kind: .identity, subject: "sample-dev", detail: "Commits are now made as Sample Dev <dev@example.com>"),
+            ProjectActivity(date: at(29), kind: .addAccount, subject: "sample-dev", detail: "Started signing in"),
+            ProjectActivity(date: at(52), kind: .addRepo, subject: "client-org/landing-page", detail: "Added by URL"),
+            ProjectActivity(date: at(53), kind: .download, subject: "client-org/landing-page", detail: "Shallow clone · 18 MB · ~/Code/client-org/landing-page"),
+        ]
+        return s
     }
 
     static let ports: [ListeningPort] = [
