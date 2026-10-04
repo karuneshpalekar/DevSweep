@@ -267,7 +267,7 @@ struct SidebarView: View {
     private var needsYou: some View {
         let alerts = Array(model.healthAlerts.prefix(2))
         if model.hasCheckedHealth, !alerts.isEmpty {
-            Text("NEEDS YOU").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 10)
+            Text("NEEDS YOUR ATTENTION").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 10)
             ForEach(Array(alerts.enumerated()), id: \.offset) { _, alert in
                 Button { model.open(alert) } label: {
                     HStack(alignment: .top, spacing: 7) {
