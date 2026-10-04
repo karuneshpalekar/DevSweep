@@ -9,7 +9,7 @@ struct ContentView: View {
         @Bindable var model = model
         NavigationSplitView {
             SidebarView()
-                .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 260)
+                .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
         } detail: {
             // Each screen fades in when it appears. A removal transition or an
             // animated container here puts NavigationSplitView into a
@@ -66,19 +66,40 @@ struct SidebarView: View {
         @Bindable var model = model
         List(selection: $model.selection) {
             Label("Home", systemImage: "house").tag(SidebarItem.home)
+
             Label("Clean up", systemImage: "wand.and.stars")
-                .badge(model.hasScanned ? model.findings.count : 0)
+                .badge(Text(model.hasScanned && cleanable > 0 ? SizeFormat.string(cleanable) : ""))
                 .tag(SidebarItem.cleanUp)
+            if model.selection == .cleanUp && model.hasScanned {
+                subRow("All", count: "\(model.findings.count)", selected: model.cleanupKind == nil) { model.cleanupKind = nil }
+                ForEach(CleanupKind.allCases.filter { k in model.findings.contains { CleanupKind.of($0) == k } }) { k in
+                    subRow(k.title, count: SizeFormat.string(size(of: k)), selected: model.cleanupKind == k) { model.cleanupKind = k }
+                }
+            }
+
             Label("Projects", systemImage: "folder")
                 .badge(model.projectsNeedingPush.count)
                 .tag(SidebarItem.projects)
+            if model.selection == .projects {
+                ForEach(ProjectsTab.allCases) { t in
+                    subRow(t.title, count: projectCount(t), selected: model.projectsTab == t) { model.projectsTab = t }
+                }
+            }
+
             Label("Health", systemImage: "checkmark.shield")
                 .badge(model.hasCheckedHealth ? model.healthAttentionCount : 0)
                 .tag(SidebarItem.health)
+            if model.selection == .health {
+                ForEach(HealthTab.allCases) { t in
+                    subRow(t.title, count: healthCount(t), selected: model.healthTab == t) { model.healthTab = t }
+                }
+            }
         }
         .listStyle(.sidebar)
-        .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 2) {
+        .safeAreaInset(edge: .top, spacing: 0) { diskCard.padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 6) }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(alignment: .leading, spacing: 2) {
+                needsYou
                 SidebarFooterRow(title: "History", symbol: "clock.arrow.circlepath",
                                  selected: model.selection == .history) { model.selection = .history }
                 SettingsLink {
@@ -88,10 +109,115 @@ struct SidebarView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                Text(statusLine)
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .padding(.horizontal, 10).padding(.top, 2)
             }
             .padding(.horizontal, 10)
-            .padding(.bottom, 12)
+            .padding(.bottom, 10)
         }
+    }
+
+    // MARK: - Pieces
+
+    private var cleanable: Int64 { model.findings.reduce(0) { $0 + $1.size } }
+
+    private func size(of kind: CleanupKind) -> Int64 {
+        model.findings.filter { CleanupKind.of($0) == kind }.reduce(0) { $0 + $1.size }
+    }
+
+    private func projectCount(_ t: ProjectsTab) -> String {
+        let n: Int
+        switch t {
+        case .projects: n = model.projects.filter(\.onDisk).count
+        case .cleanup: n = model.idleProjects.count
+        case .accounts: n = model.githubAccounts.count
+        case .activity: n = 0
+        }
+        return n > 0 ? "\(n)" : ""
+    }
+
+    private func healthCount(_ t: HealthTab) -> String {
+        switch t {
+        case .security: return model.hasCheckedSecurity ? count(model.visibleSecurity.filter { $0.level != .ok }.count) : ""
+        case .tools: return model.hasCheckedHealth ? count(model.versions?.attentionCount ?? 0) : ""
+        case .ports: return model.hasLoadedPorts ? count(model.ports.filter(\.isDevelopment).count) : ""
+        }
+    }
+
+    private func count(_ n: Int) -> String { n > 0 ? "\(n)" : "" }
+
+    private func subRow(_ title: String, count: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(title).fontWeight(selected ? .semibold : .regular)
+                Spacer(minLength: 4)
+                Text(count).font(.caption).foregroundStyle(.secondary)
+            }
+            .font(.callout)
+            .padding(.leading, 26).padding(.trailing, 6)
+            .frame(height: 24)
+            .background(selected ? Color.primary.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 6))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowSeparator(.hidden)
+    }
+
+    @ViewBuilder
+    private var diskCard: some View {
+        if let disk = model.disk {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Text(SizeFormat.string(disk.free)).font(.title3.weight(.semibold)).monospacedDigit()
+                    Text("free").font(.caption).foregroundStyle(.secondary)
+                }
+                DiskBar(disk: disk, cleanable: model.hasScanned ? cleanable : 0, height: 6)
+                if model.hasScanned {
+                    HStack(spacing: 4) {
+                        Text(SizeFormat.string(cleanable)).foregroundStyle(Color.accentColor).fontWeight(.semibold)
+                        Text("can be cleaned").foregroundStyle(.secondary)
+                    }
+                    .font(.caption)
+                } else {
+                    Text(model.isScanning ? "Scanning…" : "Not scanned yet").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .padding(10)
+            .background(.background, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(.separator))
+        }
+    }
+
+    @ViewBuilder
+    private var needsYou: some View {
+        let alerts = Array(model.healthAlerts.prefix(2))
+        if model.hasCheckedHealth, !alerts.isEmpty {
+            Text("NEEDS YOU").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 10)
+            ForEach(Array(alerts.enumerated()), id: \.offset) { _, alert in
+                Button { model.open(alert) } label: {
+                    HStack(alignment: .top, spacing: 7) {
+                        Circle().fill(alert.critical ? Color.red : Color.orange).frame(width: 7, height: 7).padding(.top, 4)
+                        Text(alert.text).font(.caption).multilineTextAlignment(.leading).lineLimit(2)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(.separator))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer().frame(height: 6)
+        }
+    }
+
+    private var statusLine: String {
+        if model.isScanning || model.isCheckingVersions { return "Scanning…" }
+        guard let last = model.lastScan else { return model.schedule.enabled ? "Never scanned" : "Never scanned · scheduled scans off" }
+        let ago = last.formatted(.relative(presentation: .named))
+        return model.nextScanText.map { "Last scan \(ago) · next \($0)" } ?? "Last scan \(ago)"
     }
 }
 

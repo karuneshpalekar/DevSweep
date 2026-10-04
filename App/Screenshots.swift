@@ -14,8 +14,11 @@ import SwiftUI
 enum ScreenshotTour {
     static func run(model: AppModel, to dir: URL) async {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        if let hidden = NSApp.windows.first(where: { !$0.isVisible && $0.frame.width > 600 }) {
+            hidden.deminiaturize(nil); hidden.makeKeyAndOrderFront(nil); await pause(1)
+        }
         guard let window = NSApp.windows.first(where: { $0.isVisible && $0.frame.width > 600 }) else {
-            print("shots: no main window"); exit(1)
+            print("shots: no main window", NSApp.windows.map { "\($0.title) vis=\($0.isVisible) \($0.frame)" }); exit(1)
         }
         window.setContentSize(NSSize(width: 1280, height: 800))
         window.center()

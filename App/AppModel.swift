@@ -162,6 +162,8 @@ final class AppModel {
     var selectedRuntimeID: String?
 
     var healthTab: HealthTab = .security
+    /// Which kind of cleanup the Clean up list shows; chosen in the sidebar.
+    var cleanupKind: CleanupKind?
     var security: [SecurityFinding] = []
     var isCheckingSecurity = false
     var selectedSecurityID: String?

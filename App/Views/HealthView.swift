@@ -9,21 +9,15 @@ struct HealthView: View {
     var body: some View {
         @Bindable var model = model
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Picker("Health area", selection: $model.healthTab) {
-                    ForEach(HealthTab.allCases) { tab in Text(label(tab)).tag(tab) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .fixedSize()
-                Spacer()
-                if model.healthTab == .ports {
+            if model.healthTab == .ports {
+                HStack {
+                    Spacer()
                     Button { model.refreshPorts() } label: { Label("Refresh", systemImage: "arrow.clockwise") }
                         .disabled(model.isLoadingPorts)
                 }
+                .padding(.horizontal, 16).padding(.vertical, 8)
+                Divider()
             }
-            .padding(.horizontal, 16).padding(.vertical, 8)
-            Divider()
             switch model.healthTab {
             case .security: SecurityView()
             case .tools: RuntimesView()

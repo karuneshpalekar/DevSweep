@@ -9,21 +9,6 @@ struct ProjectsView: View {
     var body: some View {
         @Bindable var model = model
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Picker("Projects area", selection: $model.projectsTab) {
-                    ForEach(ProjectsTab.allCases) { Text(label($0)).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .fixedSize()
-                Spacer()
-                SettingsLink { Image(systemName: "gearshape") }
-                    .buttonStyle(.borderless)
-                    .help("Project folders, accounts and downloads in Settings")
-                    .simultaneousGesture(TapGesture().onEnded { UserDefaults.standard.set("github", forKey: "settingsTab") })
-            }
-            .padding(.horizontal, 16).padding(.vertical, 8)
-            Divider()
             switch model.projectsTab {
             case .projects: ProjectListTab()
             case .cleanup: CleanupTab()

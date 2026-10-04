@@ -40,11 +40,10 @@ struct CleanUpView: View {
     @Environment(AppModel.self) private var model
 
     @State private var search = ""
-    @State private var kindFilter: CleanupKind?
 
     private var visible: [Finding] {
         model.findings.filter { f in
-            (kindFilter == nil || CleanupKind.of(f) == kindFilter)
+            (model.cleanupKind == nil || CleanupKind.of(f) == model.cleanupKind)
                 && (search.isEmpty || f.title.localizedCaseInsensitiveContains(search)
                     || f.subtitle.localizedCaseInsensitiveContains(search))
         }
@@ -137,18 +136,7 @@ struct CleanUpView: View {
 
     private var filterBar: some View {
         HStack(spacing: 12) {
-            // Chips scroll sideways when the window is narrow, so they never
-            // push into the search field.
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    chip("All", selected: kindFilter == nil) { withAnimation(Motion.swap) { kindFilter = nil } }
-                    ForEach(CleanupKind.allCases) { k in
-                        if model.findings.contains(where: { CleanupKind.of($0) == k }) {
-                            chip(k.title, selected: kindFilter == k) { withAnimation(Motion.swap) { kindFilter = k } }
-                        }
-                    }
-                }
-            }
+            Spacer()
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                 TextField("Search", text: $search)
