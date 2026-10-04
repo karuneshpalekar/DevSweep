@@ -33,6 +33,9 @@ enum ScreenshotTour {
         model.projects = SampleData.projects
         model.githubAccounts = [GitHubAccount(login: "sample-dev", isActive: true)]
         model.hasLoadedProjects = true
+        // Show scheduled scans as switched on, in memory only.
+        model.schedule = ScanSchedule(enabled: true, frequency: .weekly, weekday: 2, hour: 9)
+        model.lastScheduledRun = Date()
         model.useSampleData = true
         let panelItem = model.findings.first { $0.ruleID == "chrome-cache" } ?? model.findings.first
         let reviewIDs = pickReviewItems(model.findings)
@@ -103,17 +106,18 @@ enum ScreenshotTour {
             await pause(0.8)
 
             await saveMenuBar(model, mode, dir)
-            await saveSettings(mode, dir)
+            await saveSettings(mode, dir, model: model)
         }
         AppearanceMode.current.apply()
         print("SHOTS OK")
         exit(0)
     }
 
-    /// The Settings window, opened the way ⌘, opens it.
-    private static func saveSettings(_ mode: AppearanceMode, _ dir: URL) async {
+    /// The Settings window, opened the way ⌘, opens it: General, then Scans and alerts.
+    private static func saveSettings(_ mode: AppearanceMode, _ dir: URL, model: AppModel) async {
         let before = Set(NSApp.windows.map(\.windowNumber))
         NSApp.activate(ignoringOtherApps: true)
+        UserDefaults.standard.set("general", forKey: "settingsTab")
         // Same as choosing DevSweep > Settings… (⌘,).
         if let appMenu = NSApp.mainMenu?.items.first?.submenu,
            let index = appMenu.items.firstIndex(where: { $0.title.hasPrefix("Settings") }) {
@@ -125,6 +129,10 @@ enum ScreenshotTour {
             print("shots: settings window not found"); return
         }
         if let img = image(of: win) { write(img, "settings-\(mode.rawValue)", dir) }
+        UserDefaults.standard.set("scans", forKey: "settingsTab")
+        await pause(1.0)
+        if let img = image(of: win) { write(img, "scans-\(mode.rawValue)", dir) }
+        UserDefaults.standard.set("general", forKey: "settingsTab")
         win.close()
         await pause(0.5)
     }

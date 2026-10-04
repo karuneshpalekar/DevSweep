@@ -67,15 +67,114 @@ struct AppearanceToggle: View {
 /// The Settings window (⌘,). One list per tab; nothing crowded.
 @MainActor
 struct SettingsView: View {
+    /// Remembered so the screenshot tour can open a given tab.
+    @AppStorage("settingsTab") private var tab = "general"
+
     var body: some View {
-        TabView {
-            GeneralSettings().tabItem { Label("General", systemImage: "gearshape") }
-            GitHubSettings().tabItem { Label("GitHub", systemImage: "person.crop.circle") }
-            FolderSettings().tabItem { Label("Folders", systemImage: "folder") }
-            IgnoredSettings().tabItem { Label("Ignored", systemImage: "eye.slash") }
-            PermissionSettings().tabItem { Label("Permissions", systemImage: "lock") }
+        TabView(selection: $tab) {
+            GeneralSettings().tabItem { Label("General", systemImage: "gearshape") }.tag("general")
+            ScanSettings().tabItem { Label("Scans and alerts", systemImage: "clock") }.tag("scans")
+            GitHubSettings().tabItem { Label("GitHub", systemImage: "person.crop.circle") }.tag("github")
+            FolderSettings().tabItem { Label("Folders", systemImage: "folder") }.tag("folders")
+            IgnoredSettings().tabItem { Label("Ignored", systemImage: "eye.slash") }.tag("ignored")
+            PermissionSettings().tabItem { Label("Permissions", systemImage: "lock") }.tag("permissions")
         }
-        .frame(width: 620, height: 420)
+        .frame(width: 660, height: 660)
+    }
+}
+
+/// Scheduled scans, alerts and open at login.
+@MainActor
+struct ScanSettings: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Open DevSweep at login, in the menu bar", isOn: Binding(
+                    get: { model.loginState == .on || model.loginState == .needsApproval },
+                    set: { model.setLoginItem($0) }))
+                if model.loginState == .needsApproval {
+                    HStack {
+                        Text("macOS needs your approval.").foregroundStyle(.orange)
+                        Button("Open Login Items") { LoginItem.openSettings() }.controlSize(.small)
+                    }
+                    .font(.callout)
+                }
+            } footer: {
+                Text("Scheduled scans and alerts only run while DevSweep is open. Opening it at login keeps it in the menu bar.")
+            }
+
+            Section {
+                Toggle("Scan on a schedule", isOn: schedule(\.enabled))
+                if model.schedule.enabled {
+                    Picker("Repeat", selection: schedule(\.frequency)) {
+                        ForEach(ScanSchedule.Frequency.allCases) { Text($0.title).tag($0) }
+                    }
+                    if model.schedule.frequency == .weekly {
+                        Picker("Day", selection: schedule(\.weekday)) {
+                            ForEach(1...7, id: \.self) { Text(ScanSchedule.weekdayNames[$0 - 1]).tag($0) }
+                        }
+                    }
+                    Picker("Time", selection: schedule(\.hour)) {
+                        ForEach(0..<24, id: \.self) { Text(String(format: "%02d:00", $0)).tag($0) }
+                    }
+                    if let next = model.nextScanText { LabeledContent("Next scan", value: next) }
+                }
+            } footer: {
+                Text("Scans are read-only, like every scan. Nothing is cleaned automatically. A Mac that was asleep at the scheduled time scans when it wakes.")
+            }
+
+            Section("Alert me when") {
+                Toggle(isOn: alerts(\.diskEnabled)) {
+                    HStack(spacing: 4) {
+                        Text("The disk is more than")
+                        Picker("", selection: alerts(\.diskPercent)) {
+                            ForEach([70, 75, 80, 85, 90, 95], id: \.self) { Text("\($0)%").tag($0) }
+                        }
+                        .labelsHidden().fixedSize()
+                        Text("full")
+                    }
+                }
+                Toggle(isOn: alerts(\.growthEnabled)) {
+                    HStack(spacing: 4) {
+                        Text("Something grows by more than")
+                        Picker("", selection: alerts(\.growthGB)) {
+                            ForEach([1, 2, 5, 10], id: \.self) { Text("\($0) GB").tag($0) }
+                        }
+                        .labelsHidden().fixedSize()
+                        Text("in a week")
+                    }
+                }
+                Toggle("A tool I use reaches end of life", isOn: alerts(\.endOfLifeEnabled))
+                Toggle("A new file that looks like a secret appears", isOn: alerts(\.secretsEnabled))
+                HStack {
+                    Button("Send a test notification") { model.sendTestNotification() }
+                    if model.notificationsStatus == .denied {
+                        Text("Notifications are off for DevSweep.").font(.callout).foregroundStyle(.orange)
+                        Button("Open Notification settings") { Notifier.openNotificationSettings() }.controlSize(.small)
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .task { await model.refreshNotificationStatus() }
+    }
+
+    private func schedule<V>(_ key: WritableKeyPath<ScanSchedule, V>) -> Binding<V> {
+        Binding(get: { model.schedule[keyPath: key] }, set: { v in
+            var s = model.schedule
+            s[keyPath: key] = v
+            model.setSchedule(s)
+        })
+    }
+
+    private func alerts<V>(_ key: WritableKeyPath<AlertSettings, V>) -> Binding<V> {
+        Binding(get: { model.alertSettings[keyPath: key] }, set: { v in
+            var a = model.alertSettings
+            a[keyPath: key] = v
+            model.setAlertSettings(a)
+        })
     }
 }
 

@@ -32,7 +32,8 @@ in Settings.
 | **Health: Ports.** What's listening, which project it belongs to, and whether other devices on your network can reach it. | ![Ports, light](docs/screenshots/ports-light.png) | ![Ports, dark](docs/screenshots/ports-dark.png) |
 | **History and undo.** Everything DevSweep changed, with Restore for anything still in the Trash. | ![History, light](docs/screenshots/history-light.png) | ![History, dark](docs/screenshots/history-dark.png) |
 | **First launch.** What DevSweep looks at, what it never does, and the permissions macOS may ask for. | ![Welcome, light](docs/screenshots/welcome-light.png) | ![Welcome, dark](docs/screenshots/welcome-dark.png) |
-| **Settings and menu bar.** Project folders, ignored items and permissions in one window; space and alerts at a glance from the menu bar. | <img alt="Settings" src="docs/screenshots/settings-light.png" width="420"> <img alt="Menu bar" src="docs/screenshots/menubar-light.png" width="280"> | <img alt="Settings, dark" src="docs/screenshots/settings-dark.png" width="420"> <img alt="Menu bar, dark" src="docs/screenshots/menubar-dark.png" width="280"> |
+| **Scans and alerts.** Open at login, scan on a schedule, and get a notification when the disk is nearly full, something grows fast, a tool you use reaches end of life, or a new file looks like a secret. Nothing is ever cleaned automatically. | <img alt="Scans and alerts, light" src="docs/screenshots/scans-light.png" width="420"> | <img alt="Scans and alerts, dark" src="docs/screenshots/scans-dark.png" width="420"> |
+| **Settings and menu bar.** Project folders, GitHub accounts, ignored items and permissions in one window; space, alerts and recent projects at a glance from the menu bar. | <img alt="Settings" src="docs/screenshots/settings-light.png" width="420"> <img alt="Menu bar" src="docs/screenshots/menubar-light.png" width="280"> | <img alt="Settings, dark" src="docs/screenshots/settings-dark.png" width="420"> <img alt="Menu bar, dark" src="docs/screenshots/menubar-dark.png" width="280"> |
 
 ## How it behaves
 
@@ -72,6 +73,23 @@ in Settings.
 | Docker | Build cache, unused images, stopped containers and unused volumes, sized by `docker system df` and cleaned with Docker's own prune commands |
 | Large files | Old installers (.dmg, .pkg, .iso) in Downloads and Desktop, and files over 200 MB nobody has opened in 4 months, judged by Spotlight's last-opened date |
 | Backups | Old or replaced iPhone and iPad backups, and Time Machine local snapshots (run in Terminal) |
+
+## Scheduled scans and alerts
+
+DevSweep can check in on its own, and tell you only when something matters.
+
+- **Open at login** puts DevSweep in the menu bar and keeps it there after you
+  close its window. Scheduled scans and alerts only run while it's open.
+- **Scheduled scans** run every day or week at a time you pick. They're
+  read-only, like every scan. A Mac that was asleep or off at the scheduled
+  time scans when it wakes.
+- **Alerts** (each one can be switched off): the disk is more than 70 to 95%
+  full; something grew by more than 1 to 10 GB in a week; a tool you use is
+  past end of life; a new file that looks like a secret appeared. Several
+  problems become one notification, each is announced once, and a reminder
+  comes only after 3 to 7 days if it's still there. Clicking a notification
+  opens the right screen.
+- Nothing is ever cleaned, moved or deleted by a scheduled scan.
 
 ## Projects
 

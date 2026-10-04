@@ -32,7 +32,8 @@ struct HomeView: View {
     private var scanSubtitle: String {
         if model.isScanning { return "Scanning · \(model.scanStatus)" }
         guard let date = model.lastScan else { return "Not scanned yet" }
-        return "Scanned \(date.formatted(.relative(presentation: .named)))"
+        let scanned = "Scanned \(date.formatted(.relative(presentation: .named)))"
+        return model.nextScanText.map { scanned + " · next scan " + $0 } ?? scanned
     }
 
     private var fullDiskAccessHint: some View {

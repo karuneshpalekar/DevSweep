@@ -2,6 +2,7 @@ import AppKit
 import DevSweepCore
 import Observation
 import SwiftUI
+import UserNotifications
 
 /// The four places in the app. Settings is its own window.
 enum SidebarItem: Hashable {
@@ -71,6 +72,24 @@ enum AppSettings {
         set { defaults.set(newValue, forKey: "projectFolders") }
     }
 
+    private static func load<T: Decodable>(_ key: String) -> T? {
+        defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(T.self, from: $0) }
+    }
+
+    private static func save<T: Encodable>(_ value: T, _ key: String) {
+        defaults.set(try? JSONEncoder().encode(value), forKey: key)
+    }
+
+    static var schedule: ScanSchedule {
+        get { load("scanSchedule") ?? ScanSchedule() }
+        set { save(newValue, "scanSchedule") }
+    }
+
+    static var alerts: AlertSettings {
+        get { load("alertSettings") ?? AlertSettings() }
+        set { save(newValue, "alertSettings") }
+    }
+
     static var welcomeDone: Bool {
         get { defaults.bool(forKey: "welcomeDone") }
         set { defaults.set(newValue, forKey: "welcomeDone") }
@@ -122,6 +141,13 @@ final class AppModel {
     var busyProjectID: String?
     var projectsState = ProjectsState()
 
+    var schedule = AppSettings.schedule
+    var alertSettings = AppSettings.alerts
+    var loginState = LoginItem.state
+    var notificationsStatus: UNAuthorizationStatus = .notDetermined
+    var lastScheduledRun: Date?
+    @ObservationIgnored private var backgroundTask: Task<Void, Never>?
+
     var changes: ScanChanges?
     var showWelcome = !AppSettings.welcomeDone && ProcessInfo.processInfo.environment["DEVSWEEP_SHOTS"] == nil
 
@@ -134,11 +160,15 @@ final class AppModel {
     @ObservationIgnored let ignores = IgnoreStore()
     @ObservationIgnored let snapshots = ScanSnapshotStore()
     @ObservationIgnored let projectStore = ProjectStore()
+    @ObservationIgnored let alertStore = AlertStore()
 
     init() {
         historyEntries = history.entries
         ignoredIDs = ignores.ids
         projectsState = projectStore.state
+        lastScheduledRun = alertStore.data.lastScheduledRun
+        Notifier.install { [weak self] target in self?.open(target) }
+        startBackgroundLoop()
     }
 
     // MARK: - Derived
@@ -365,6 +395,147 @@ final class AppModel {
         }
         if let b = v.homebrew { out += b.issues.filter { $0.level != .info }.map { ("homebrew", $0) } }
         return out.sorted { ($0.1.level == .critical ? 0 : 1) < ($1.1.level == .critical ? 0 : 1) }
+    }
+
+    // MARK: - Scheduled scans and alerts
+
+    /// "Monday 09:00", or nil when scheduled scans are off.
+    var nextScanText: String? {
+        guard schedule.enabled, let next = schedule.nextRun(after: lastScheduledRun ?? Date()) else { return nil }
+        return next.formatted(.dateTime.weekday(.wide).hour().minute())
+    }
+
+    func setSchedule(_ new: ScanSchedule) {
+        let wasOff = !schedule.enabled
+        schedule = new
+        AppSettings.schedule = new
+        if new.enabled, wasOff || alertStore.data.lastScheduledRun == nil {
+            // The first run is the next scheduled time, not right now.
+            alertStore.update { $0.lastScheduledRun = Date() }
+            lastScheduledRun = alertStore.data.lastScheduledRun
+            Task { await Notifier.requestPermission(); await refreshNotificationStatus() }
+        }
+    }
+
+    func setAlertSettings(_ new: AlertSettings) {
+        alertSettings = new
+        AppSettings.alerts = new
+    }
+
+    func setLoginItem(_ on: Bool) {
+        do { try LoginItem.set(on) } catch { errorMessage = "Couldn't change Open at login: \(error.localizedDescription)" }
+        loginState = LoginItem.state
+    }
+
+    func refreshNotificationStatus() async {
+        notificationsStatus = await Notifier.status()
+        loginState = LoginItem.state
+    }
+
+    func sendTestNotification() {
+        Task {
+            if await Notifier.status() == .notDetermined { await Notifier.requestPermission() }
+            await refreshNotificationStatus()
+            guard Notifier.available else {
+                errorMessage = "Notifications only work when DevSweep runs as an app, for example from Applications."; return
+            }
+            await Notifier.send(title: "DevSweep alerts are working", body: "You'll see messages like this when something needs attention.",
+                                target: .cleanUp)
+        }
+    }
+
+    /// Checks every ten minutes and when the Mac wakes, and scans if a scheduled run has been missed.
+    func startBackgroundLoop() {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["DEVSWEEP_ALERT_DRYRUN"] == "1" {
+            Task { await alertDryRun() }
+            return
+        }
+        #endif
+        guard backgroundTask == nil, ProcessInfo.processInfo.environment["DEVSWEEP_SHOTS"] == nil else { return }
+        backgroundTask = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.runScheduledScanIfDue()
+                try? await Task.sleep(for: .seconds(600))
+            }
+        }
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [self] _ in
+            Task { @MainActor in await self.runScheduledScanIfDue() }
+        }
+    }
+
+    #if DEBUG
+    /// DEVSWEEP_ALERT_DRYRUN=1: a real scan, then the real alert rules with throwaway
+    /// memory and everything switched on, printed instead of sent.
+    private func alertDryRun() async {
+        await scanEverythingAndWait()
+        var settings = AlertSettings()
+        settings.diskPercent = 1
+        settings.growthGB = 0
+        var ledger = AlertLedger()
+        let input = makeAlertInputs(knownSecretIDs: [])
+        let events = AlertEvaluator.evaluate(input, settings: settings, ledger: &ledger)
+        print("dryrun: disk used \(Int(input.diskUsedPercent ?? 0))%, \(input.grew.count) grew, \(input.endOfLife.count) end-of-life, \(input.secrets.count) secret files")
+        for e in events { print("dryrun: [\(e.target.rawValue)] \(e.title) | \(e.body)") }
+        print("dryrun: DONE \(events.count) events")
+        exit(0)
+    }
+    #endif
+
+    func runScheduledScanIfDue(now: Date = Date()) async {
+        guard schedule.isDue(lastRun: alertStore.data.lastScheduledRun, now: now),
+              !isScanning, !isCheckingVersions, !isCheckingSecurity, !isLoadingProjects, !isCleaning else { return }
+        await scanEverythingAndWait()
+        await evaluateAlerts(now: Date())
+        alertStore.update { $0.lastScheduledRun = Date() }
+        lastScheduledRun = alertStore.data.lastScheduledRun
+    }
+
+    func scanEverythingAndWait() async {
+        scanEverything()
+        var waited = 0
+        while (isScanning || isCheckingVersions || isCheckingSecurity || isLoadingProjects || isLoadingPorts) && waited < 900 {
+            try? await Task.sleep(for: .seconds(1))
+            waited += 1
+        }
+    }
+
+    /// What the latest scan means for the alert rules.
+    func makeAlertInputs(knownSecretIDs: Set<String>?) -> AlertInputs {
+        let used = disk.map { Double($0.total - $0.free) / Double(max($0.total, 1)) * 100 }
+        let eol = Dictionary(grouping: versionAlerts.filter { $0.issue.level == .critical }, by: \.id)
+            .map { AlertItem(id: $0.key, text: $0.value[0].issue.text) }
+        let secrets = visibleSecurity.filter { $0.level != .ok }.map { f in
+            AlertItem(id: f.path, text: "\(f.title) in \(URL(fileURLWithPath: f.path).deletingLastPathComponent().lastPathComponent)")
+        }
+        return AlertInputs(
+            diskUsedPercent: used,
+            grew: (changes?.grew ?? []).map { AlertGrowth(title: $0.title, bytes: $0.bytes) },
+            endOfLife: eol, secrets: secrets, knownSecretIDs: knownSecretIDs)
+    }
+
+    /// Turns the latest scan into notifications, once per problem.
+    func evaluateAlerts(now: Date) async {
+        let input = makeAlertInputs(knownSecretIDs: alertStore.data.knownSecretIDs.map(Set.init))
+        var ledger = alertStore.data.ledger
+        let events = AlertEvaluator.evaluate(input, settings: alertSettings, ledger: &ledger, now: now)
+        alertStore.update { $0.ledger = ledger; $0.knownSecretIDs = input.secrets.map(\.id) }
+        for e in events { await Notifier.send(e) }
+    }
+
+    /// Opens the screen a notification is about, bringing the window back if it was closed.
+    func open(_ target: AlertTarget) {
+        switch target {
+        case .cleanUp: selection = .cleanUp
+        case .healthTools: selection = .health; healthTab = .tools
+        case .healthSecurity: selection = .health; healthTab = .security
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        if let w = NSApp.windows.first(where: { $0.identifier?.rawValue.hasPrefix("main") == true }) {
+            w.makeKeyAndOrderFront(nil)
+        } else {
+            NSWorkspace.shared.open(Bundle.main.bundleURL)
+        }
     }
 
     // MARK: - Projects
