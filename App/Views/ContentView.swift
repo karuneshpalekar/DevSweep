@@ -1,3 +1,4 @@
+import AppKit
 import DevSweepCore
 import SwiftUI
 
@@ -22,6 +23,7 @@ struct ContentView: View {
                     case .projects: ProjectsView()
                     case .health: HealthView()
                     case .history: HistoryView()
+                    case .settings: SettingsView()
                     }
                 }
                 .modifier(FadeIn())
@@ -61,54 +63,72 @@ struct ContentView: View {
 @MainActor
 struct SidebarView: View {
     @Environment(AppModel.self) private var model
+    /// The highlighted section. Mirrors model.selection but animates on its
+    /// own, so the sliding highlight never animates the detail screen
+    /// (animating NavigationSplitView's detail crashes on macOS 14).
+    @State private var shown: SidebarItem = .home
+    @Namespace private var highlight
 
     var body: some View {
         @Bindable var model = model
-        List(selection: $model.selection) {
-            Label("Home", systemImage: "house").tag(SidebarItem.home)
+        ScrollView {
+            VStack(spacing: 2) {
+                mainRow(.home, "Home", "house", badge: "")
 
-            Label("Clean up", systemImage: "wand.and.stars")
-                .badge(Text(model.hasScanned && cleanable > 0 ? SizeFormat.string(cleanable) : ""))
-                .tag(SidebarItem.cleanUp)
-            if model.selection == .cleanUp && model.hasScanned {
-                subRow("All", count: "\(model.findings.count)", selected: model.cleanupKind == nil) { model.cleanupKind = nil }
-                ForEach(CleanupKind.allCases.filter { k in model.findings.contains { CleanupKind.of($0) == k } }) { k in
-                    subRow(k.title, count: SizeFormat.string(size(of: k)), selected: model.cleanupKind == k) { model.cleanupKind = k }
+                mainRow(.cleanUp, "Clean up", "wand.and.stars",
+                        badge: model.hasScanned && cleanable > 0 ? SizeFormat.string(cleanable) : "")
+                if shown == .cleanUp && model.hasScanned {
+                    group {
+                        subRow("All", count: "\(model.findings.count)", selected: model.cleanupKind == nil, section: .cleanUp) { model.cleanupKind = nil }
+                        ForEach(CleanupKind.allCases.filter { k in model.findings.contains { CleanupKind.of($0) == k } }) { k in
+                            subRow(k.title, count: SizeFormat.string(size(of: k)), selected: model.cleanupKind == k, section: .cleanUp) { model.cleanupKind = k }
+                        }
+                    }
+                }
+
+                mainRow(.projects, "Projects", "folder", badge: count(model.projectsNeedingPush.count))
+                if shown == .projects {
+                    group {
+                        ForEach(ProjectsTab.allCases) { t in
+                            subRow(t.title, count: projectCount(t), selected: model.projectsTab == t, section: .projects) { model.projectsTab = t }
+                        }
+                    }
+                }
+
+                mainRow(.health, "Health", "checkmark.shield", badge: model.hasCheckedHealth ? count(model.healthAttentionCount) : "")
+                if shown == .health {
+                    group {
+                        ForEach(HealthTab.allCases) { t in
+                            subRow(t.title, count: healthCount(t), selected: model.healthTab == t, section: .health) { model.healthTab = t }
+                        }
+                    }
+                }
+
+                mainRow(.history, "History", "clock.arrow.circlepath", badge: "")
+
+                mainRow(.settings, "Settings", "gearshape", badge: "")
+                if shown == .settings {
+                    group {
+                        ForEach(SettingsTab.allCases) { t in
+                            subRow(t.title, count: "", selected: model.settingsTab == t, section: .settings) { model.settingsTab = t }
+                        }
+                    }
                 }
             }
-
-            Label("Projects", systemImage: "folder")
-                .badge(model.projectsNeedingPush.count)
-                .tag(SidebarItem.projects)
-            if model.selection == .projects {
-                ForEach(ProjectsTab.allCases) { t in
-                    subRow(t.title, count: projectCount(t), selected: model.projectsTab == t) { model.projectsTab = t }
-                }
-            }
-
-            Label("Health", systemImage: "checkmark.shield")
-                .badge(model.hasCheckedHealth ? model.healthAttentionCount : 0)
-                .tag(SidebarItem.health)
-            if model.selection == .health {
-                ForEach(HealthTab.allCases) { t in
-                    subRow(t.title, count: healthCount(t), selected: model.healthTab == t) { model.healthTab = t }
-                }
-            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
         }
-        .listStyle(.sidebar)
+        .background(SidebarMaterial())
+        .onAppear { shown = model.selection ?? .home }
+        // Keeps the highlight in step when something else changes the section
+        // (an alert, the menu bar, ⌘,).
+        .onChange(of: model.selection) { _, new in
+            if let new, new != shown { withAnimation(Motion.slide) { shown = new } }
+        }
         .safeAreaInset(edge: .top, spacing: 0) { diskCard.padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 6) }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
                 needsYou
-                SidebarFooterRow(title: "History", symbol: "clock.arrow.circlepath",
-                                 selected: model.selection == .history) { model.selection = .history }
-                SettingsLink {
-                    Label("Settings", systemImage: "gearshape")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 10).frame(height: 28)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
                 Text(statusLine)
                     .font(.caption2).foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -148,21 +168,62 @@ struct SidebarView: View {
 
     private func count(_ n: Int) -> String { n > 0 ? "\(n)" : "" }
 
-    private func subRow(_ title: String, count: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func mainRow(_ item: SidebarItem, _ title: String, _ symbol: String, badge: String) -> some View {
+        let on = shown == item
+        return Button {
+            withAnimation(Motion.slide) { shown = item }
+            model.selection = item
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: symbol).frame(width: 18)
+                Text(title).fontWeight(on ? .medium : .regular)
+                Spacer(minLength: 4)
+                if !badge.isEmpty {
+                    Text(badge).font(.caption).foregroundStyle(on ? Color.white.opacity(0.85) : .secondary)
+                }
+            }
+            .foregroundStyle(on ? Color.white : Color.primary)
+            .padding(.horizontal, 10).frame(height: 30)
+            .background {
+                if on {
+                    RoundedRectangle(cornerRadius: 7).fill(Color.accentColor)
+                        .matchedGeometryEffect(id: "mainHighlight", in: highlight)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    private func group<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(spacing: 1) { content() }
+            .padding(.leading, 12).padding(.bottom, 3)
+            .transition(.opacity)
+    }
+
+    private func subRow(_ title: String, count: String, selected: Bool, section: SidebarItem, action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(Motion.slide) { action() }
+        } label: {
             HStack {
                 Text(title).fontWeight(selected ? .semibold : .regular)
                 Spacer(minLength: 4)
                 Text(count).font(.caption).foregroundStyle(.secondary)
             }
             .font(.callout)
-            .padding(.leading, 26).padding(.trailing, 6)
-            .frame(height: 24)
-            .background(selected ? Color.primary.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 6))
+            .padding(.horizontal, 10)
+            .frame(height: 26)
+            .background {
+                if selected {
+                    RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.1))
+                        .matchedGeometryEffect(id: "subHighlight-\(section)", in: highlight)
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .listRowSeparator(.hidden)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     @ViewBuilder
@@ -221,27 +282,6 @@ struct SidebarView: View {
     }
 }
 
-/// History and Settings sit at the bottom of the sidebar, apart from the
-/// three main sections.
-@MainActor
-struct SidebarFooterRow: View {
-    let title: String
-    let symbol: String
-    let selected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label(title, systemImage: symbol)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 10).frame(height: 28)
-                .background(selected ? Color.primary.opacity(0.1) : .clear, in: RoundedRectangle(cornerRadius: 6))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 extension DevSweepCore.Category {
     var symbol: String {
         switch self {
@@ -260,4 +300,17 @@ extension DevSweepCore.Category {
         case .backups: return "externaldrive"
         }
     }
+}
+
+
+/// The translucent sidebar background SwiftUI's List would have given.
+struct SidebarMaterial: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let v = NSVisualEffectView()
+        v.material = .sidebar
+        v.blendingMode = .behindWindow
+        v.state = .followsWindowActiveState
+        return v
+    }
+    func updateNSView(_ v: NSVisualEffectView, context: Context) {}
 }

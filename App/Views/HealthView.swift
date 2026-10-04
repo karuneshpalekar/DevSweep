@@ -18,10 +18,16 @@ struct HealthView: View {
                 .padding(.horizontal, 16).padding(.vertical, 8)
                 Divider()
             }
-            switch model.healthTab {
-            case .security: SecurityView()
-            case .tools: RuntimesView()
-            case .ports: PortsView()
+            ZStack {
+                Group {
+                    switch model.healthTab {
+                    case .security: SecurityView()
+                    case .tools: RuntimesView()
+                    case .ports: PortsView()
+                    }
+                }
+                .modifier(FadeIn())
+                .id(model.healthTab)
             }
         }
         .navigationTitle("Health")

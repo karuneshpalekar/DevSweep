@@ -4,13 +4,29 @@ import Observation
 import SwiftUI
 import UserNotifications
 
-/// The four places in the app. Settings is its own window.
+/// The places in the app. Settings is inline, not a separate window.
 enum SidebarItem: Hashable {
     case home
     case cleanUp
     case projects
     case health
     case history
+    case settings
+}
+
+enum SettingsTab: String, CaseIterable, Identifiable {
+    case general, scans, github, folders, ignored, permissions
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .general: return "General"
+        case .scans: return "Scans and alerts"
+        case .github: return "GitHub"
+        case .folders: return "Folders"
+        case .ignored: return "Ignored"
+        case .permissions: return "Permissions"
+        }
+    }
 }
 
 /// The four parts of Projects, like RepoShelf's tabs.
@@ -162,6 +178,7 @@ final class AppModel {
     var selectedRuntimeID: String?
 
     var healthTab: HealthTab = .security
+    var settingsTab: SettingsTab = .general
     /// Which kind of cleanup the Clean up list shows; chosen in the sidebar.
     var cleanupKind: CleanupKind?
     var security: [SecurityFinding] = []
@@ -425,6 +442,13 @@ final class AppModel {
 
     var healthAttentionCount: Int {
         (versions?.attentionCount ?? 0) + visibleSecurity.filter { $0.level != .ok }.count
+    }
+
+    /// Settings opens inside the main window, on the given tab.
+    func openSettings(_ tab: SettingsTab = .general) {
+        projectSheet = nil
+        settingsTab = tab
+        selection = .settings
     }
 
     func open(_ alert: HealthAlert) {

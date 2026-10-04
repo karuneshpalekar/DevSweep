@@ -39,6 +39,11 @@ enum ScreenshotTour {
                 await pause(1.5)
                 await saveStable(window, "state-\(name)", dir)
             }
+            for tab in SettingsTab.allCases {
+                model.openSettings(tab)
+                await pause(2)
+                await saveStable(window, "state-settings-\(tab.rawValue)", dir)
+            }
             exit(0)
         }
         // Security and Ports would show where your own secret files are, so
@@ -136,38 +141,26 @@ enum ScreenshotTour {
             await pause(0.8)
 
             await saveMenuBar(model, mode, dir)
-            await saveSettings(mode, dir, model: model)
+            await saveSettings(mode, dir, model: model, window: window)
         }
         AppearanceMode.current.apply()
         print("SHOTS OK")
         exit(0)
     }
 
-    /// The Settings window, opened the way ⌘, opens it: General, then Scans and alerts.
-    private static func saveSettings(_ mode: AppearanceMode, _ dir: URL, model: AppModel) async {
-        let before = Set(NSApp.windows.map(\.windowNumber))
-        NSApp.activate(ignoringOtherApps: true)
-        UserDefaults.standard.set("general", forKey: "settingsTab")
-        // Same as choosing DevSweep > Settings… (⌘,).
-        if let appMenu = NSApp.mainMenu?.items.first?.submenu,
-           let index = appMenu.items.firstIndex(where: { $0.title.hasPrefix("Settings") }) {
-            appMenu.performActionForItem(at: index)
-        }
-        await pause(1.5)
-        guard let win = NSApp.windows.first(where: { !before.contains($0.windowNumber) && $0.isVisible })
-            ?? NSApp.windows.first(where: { $0.isVisible && $0.frame.width < 700 && $0.frame.width > 400 }) else {
-            print("shots: settings window not found"); return
-        }
-        if let img = image(of: win) { write(img, "settings-\(mode.rawValue)", dir) }
-        UserDefaults.standard.set("scans", forKey: "settingsTab")
-        await pause(1.0)
-        if let img = image(of: win) { write(img, "scans-\(mode.rawValue)", dir) }
-        UserDefaults.standard.set("general", forKey: "settingsTab")
-        win.close()
+    /// Settings, inline: General, then Scans and alerts.
+    private static func saveSettings(_ mode: AppearanceMode, _ dir: URL, model: AppModel, window: NSWindow) async {
+        model.openSettings(.general)
+        await pause(1.2)
+        await saveStable(window, "settings-\(mode.rawValue)", dir)
+        model.openSettings(.scans)
+        await pause(1.2)
+        await saveStable(window, "scans-\(mode.rawValue)", dir)
+        model.openSettings(.general)
+        model.selection = .home
         await pause(0.5)
     }
 
-    /// One item per kind of action, so the review sheet shows every group.
     private static func pickReviewItems(_ findings: [Finding]) -> Set<String> {
         var picked: [Finding] = []
         for kind in [CleanAction.Kind.command, .delete, .trash] {

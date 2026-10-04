@@ -9,11 +9,17 @@ struct ProjectsView: View {
     var body: some View {
         @Bindable var model = model
         VStack(spacing: 0) {
-            switch model.projectsTab {
-            case .projects: ProjectListTab()
-            case .cleanup: CleanupTab()
-            case .accounts: AccountsTab()
-            case .activity: ActivityTab()
+            ZStack {
+                Group {
+                    switch model.projectsTab {
+                    case .projects: ProjectListTab()
+                    case .cleanup: CleanupTab()
+                    case .accounts: AccountsTab()
+                    case .activity: ActivityTab()
+                    }
+                }
+                .modifier(FadeIn())
+                .id(model.projectsTab)
             }
         }
         .navigationTitle("Projects")

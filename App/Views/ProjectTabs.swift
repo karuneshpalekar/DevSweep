@@ -133,9 +133,8 @@ struct AccountsTab: View {
                     Button("Add account…") { model.projectSheet = .addAccount }.buttonStyle(.borderedProminent)
                     Button("Refresh") { model.refreshProjects() }.disabled(model.isLoadingProjects)
                     Spacer()
-                    SettingsLink { Text("Downloads and folders in Settings") }
+                    Button("Downloads and folders in Settings") { model.openSettings(.folders) }
                         .buttonStyle(.link)
-                        .simultaneousGesture(TapGesture().onEnded { UserDefaults.standard.set("github", forKey: "settingsTab") })
                 }
             }
             .padding(20)

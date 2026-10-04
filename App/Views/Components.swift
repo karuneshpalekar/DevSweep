@@ -9,6 +9,8 @@ enum Motion {
     static let swap = Animation.easeInOut(duration: 0.2)
     /// Moving between sidebar screens.
     static let screen = Animation.easeInOut(duration: 0.22)
+    /// The sidebar highlight sliding between rows.
+    static let slide = Animation.spring(response: 0.35, dampingFraction: 0.82)
 }
 
 extension Risk {
@@ -96,7 +98,7 @@ struct FadeIn: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .opacity(shown ? 1 : 0)
+            .opacity(shown ? 1 : 0.25)
             .onAppear { withAnimation(Motion.screen) { shown = true } }
     }
 }

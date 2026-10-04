@@ -14,10 +14,10 @@ struct DevSweepApp: App {
                 .onAppear { AppearanceMode.current.apply() }
         }
         .defaultSize(width: 1280, height: 800)
-
-        Settings {
-            SettingsView()
-                .environment(model)
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { model.openSettings() }.keyboardShortcut(",")
+            }
         }
 
         MenuBarExtra {

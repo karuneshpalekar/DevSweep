@@ -64,22 +64,28 @@ struct AppearanceToggle: View {
     }
 }
 
-/// The Settings window (⌘,). One list per tab; nothing crowded.
+/// Settings, inline in the main window. The sidebar picks the tab.
 @MainActor
 struct SettingsView: View {
-    /// Remembered so the screenshot tour can open a given tab.
-    @AppStorage("settingsTab") private var tab = "general"
+    @Environment(AppModel.self) private var model
 
     var body: some View {
-        TabView(selection: $tab) {
-            GeneralSettings().tabItem { Label("General", systemImage: "gearshape") }.tag("general")
-            ScanSettings().tabItem { Label("Scans and alerts", systemImage: "clock") }.tag("scans")
-            GitHubSettings().tabItem { Label("GitHub", systemImage: "person.crop.circle") }.tag("github")
-            FolderSettings().tabItem { Label("Folders", systemImage: "folder") }.tag("folders")
-            IgnoredSettings().tabItem { Label("Ignored", systemImage: "eye.slash") }.tag("ignored")
-            PermissionSettings().tabItem { Label("Permissions", systemImage: "lock") }.tag("permissions")
+        ZStack {
+            Group {
+                switch model.settingsTab {
+                case .general: GeneralSettings()
+                case .scans: ScanSettings()
+                case .github: GitHubSettings()
+                case .folders: FolderSettings()
+                case .ignored: IgnoredSettings()
+                case .permissions: PermissionSettings()
+                }
+            }
+            .modifier(FadeIn())
+            .id(model.settingsTab)
         }
-        .frame(width: 660, height: 660)
+        .navigationTitle("Settings")
+        .navigationSubtitle(model.settingsTab.title)
     }
 }
 
@@ -214,7 +220,7 @@ struct GitHubSettings: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Each account's name and email are written into the projects you download with it, so commits are attributed correctly whatever your global Git identity is.")
-                    .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    .foregroundStyle(.secondary)
                 if model.githubAccounts.isEmpty { GitHubSetupCard { showAddAccount = true } }
                 ForEach(model.githubAccounts) { account in
                     AccountCard(account: account, summary: model.accountSummaries.first { $0.login == account.login })
@@ -261,7 +267,7 @@ struct FolderSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("DevSweep looks for idle projects in these folders. Only node_modules, virtual environments and Pods are suggested, and only in projects untouched for 30 days.")
                 .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(3)
             List(selection: $selection) {
                 ForEach(folders, id: \.self) { f in
                     HStack {
@@ -361,7 +367,6 @@ struct PermissionSettings: View {
             Divider()
             Text("DevSweep never sends anything about your Mac anywhere. The only network request is for public support dates from endoflife.date.")
                 .font(.callout).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
             Spacer()
         }
         .padding(24)

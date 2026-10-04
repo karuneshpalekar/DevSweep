@@ -15,7 +15,7 @@ struct MenuBarView: View {
                 if let d = model.disk {
                     Text("\(SizeFormat.string(d.free)) free").font(.caption).foregroundStyle(.secondary)
                 }
-                SettingsLink { Image(systemName: "gearshape") }
+                Button { show(.settings) } label: { Image(systemName: "gearshape") }
                     .buttonStyle(.borderless)
                     .help("Settings")
                 Button { NSApp.terminate(nil) } label: { Image(systemName: "power") }
