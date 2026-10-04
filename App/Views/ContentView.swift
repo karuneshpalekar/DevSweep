@@ -67,6 +67,10 @@ struct SidebarView: View {
     /// own, so the sliding highlight never animates the detail screen
     /// (animating NavigationSplitView's detail crashes on macOS 14).
     @State private var shown: SidebarItem = .home
+    /// The section whose sub-rows are open. Lags `shown` so the old section
+    /// closes before the next one opens.
+    @State private var expanded: SidebarItem?
+    @State private var moveID = 0
     @Namespace private var highlight
 
     var body: some View {
@@ -77,7 +81,7 @@ struct SidebarView: View {
 
                 mainRow(.cleanUp, "Clean up", "wand.and.stars",
                         badge: model.hasScanned && cleanable > 0 ? SizeFormat.string(cleanable) : "")
-                if shown == .cleanUp && model.hasScanned {
+                if expanded == .cleanUp && model.hasScanned {
                     group {
                         subRow("All", count: "\(model.findings.count)", selected: model.cleanupKind == nil, section: .cleanUp) { model.cleanupKind = nil }
                         ForEach(CleanupKind.allCases.filter { k in model.findings.contains { CleanupKind.of($0) == k } }) { k in
@@ -87,7 +91,7 @@ struct SidebarView: View {
                 }
 
                 mainRow(.projects, "Projects", "folder", badge: count(model.projectsNeedingPush.count))
-                if shown == .projects {
+                if expanded == .projects {
                     group {
                         ForEach(ProjectsTab.allCases) { t in
                             subRow(t.title, count: projectCount(t), selected: model.projectsTab == t, section: .projects) { model.projectsTab = t }
@@ -96,7 +100,7 @@ struct SidebarView: View {
                 }
 
                 mainRow(.health, "Health", "checkmark.shield", badge: model.hasCheckedHealth ? count(model.healthAttentionCount) : "")
-                if shown == .health {
+                if expanded == .health {
                     group {
                         ForEach(HealthTab.allCases) { t in
                             subRow(t.title, count: healthCount(t), selected: model.healthTab == t, section: .health) { model.healthTab = t }
@@ -107,7 +111,7 @@ struct SidebarView: View {
                 mainRow(.history, "History", "clock.arrow.circlepath", badge: "")
 
                 mainRow(.settings, "Settings", "gearshape", badge: "")
-                if shown == .settings {
+                if expanded == .settings {
                     group {
                         ForEach(SettingsTab.allCases) { t in
                             subRow(t.title, count: "", selected: model.settingsTab == t, section: .settings) { model.settingsTab = t }
@@ -119,11 +123,11 @@ struct SidebarView: View {
             .padding(.vertical, 4)
         }
         .background(SidebarMaterial())
-        .onAppear { shown = model.selection ?? .home }
+        .onAppear { shown = model.selection ?? .home; expanded = shown }
         // Keeps the highlight in step when something else changes the section
         // (an alert, the menu bar, ⌘,).
         .onChange(of: model.selection) { _, new in
-            if let new, new != shown { withAnimation(Motion.slide) { shown = new } }
+            if let new, new != shown { go(to: new, selecting: false) }
         }
         .safeAreaInset(edge: .top, spacing: 0) { diskCard.padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 6) }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -168,11 +172,26 @@ struct SidebarView: View {
 
     private func count(_ n: Int) -> String { n > 0 ? "\(n)" : "" }
 
+    /// Closes the open section first, then moves the highlight, opens the new
+    /// section and switches the screen.
+    private func go(to item: SidebarItem, selecting: Bool) {
+        guard item != shown else { return }
+        moveID += 1
+        let id = moveID
+        let closing = expanded != nil
+        if closing { withAnimation(Motion.swap) { expanded = nil } }
+        Task { @MainActor in
+            if closing { try? await Task.sleep(nanoseconds: 230_000_000) }
+            guard id == moveID else { return }
+            if selecting { model.selection = item }
+            withAnimation(Motion.slide) { shown = item; expanded = item }
+        }
+    }
+
     private func mainRow(_ item: SidebarItem, _ title: String, _ symbol: String, badge: String) -> some View {
         let on = shown == item
         return Button {
-            withAnimation(Motion.slide) { shown = item }
-            model.selection = item
+            go(to: item, selecting: true)
         } label: {
             HStack(spacing: 9) {
                 Image(systemName: symbol).frame(width: 18)
