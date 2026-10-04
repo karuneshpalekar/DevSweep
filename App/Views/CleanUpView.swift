@@ -92,13 +92,15 @@ struct CleanUpView: View {
     private func listColumn(_ items: [Finding]) -> some View {
         @Bindable var model = model
         return VStack(spacing: 0) {
-            filterBar
-            Divider()
-            if model.isScanning && model.findings.isEmpty {
-                ProgressView("Scanning · \(model.scanStatus)").frame(maxWidth: .infinity, maxHeight: .infinity)
+            if model.hasScanned { filterBar; Divider() }
+            if !model.hasScanned {
+                NotScannedView(title: "Not scanned yet", detail: "Scan to see what's safe to clean on this Mac. Nothing changes until you review and confirm.",
+                               isWorking: model.isScanning, status: model.scanStatus) { model.scanEverything() }
             } else if items.isEmpty {
-                ContentUnavailableView("Nothing to clean here", systemImage: "checkmark.seal",
-                                       description: Text("DevSweep didn't find anything in this section."))
+                ContentUnavailableView(model.findings.isEmpty ? "Nothing to clean" : "Nothing matches",
+                                       systemImage: model.findings.isEmpty ? "checkmark.seal" : "line.3.horizontal.decrease.circle",
+                                       description: Text(model.findings.isEmpty ? "DevSweep didn't find anything to clean. Nice."
+                                                                                  : "Try another filter or search."))
             } else {
                 List {
                     ForEach(Risk.allCases, id: \.self) { risk in
@@ -122,15 +124,15 @@ struct CleanUpView: View {
                 .listStyle(.inset)
             }
         }
-        .safeAreaInset(edge: .bottom) { selectionBar }
+        .safeAreaInset(edge: .bottom) { if model.hasScanned && !model.findings.isEmpty { selectionBar } }
     }
 
     private var subtitle: String {
+        guard model.hasScanned else { return model.isScanning ? "Scanning · \(model.scanStatus)" : "Not scanned yet" }
         let list = model.findings
+        if list.isEmpty { return model.isScanning ? "Scanning again…" : "Nothing to clean" }
         let size = list.reduce(0) { $0 + $1.size }
-        var s = "\(list.count) items · \(SizeFormat.string(size)) can be cleaned"
-        if model.isScanning { s += " · scanning" }
-        return s
+        return "\(list.count) item\(list.count == 1 ? "" : "s") · \(SizeFormat.string(size)) can be cleaned" + (model.isScanning ? " · scanning again" : "")
     }
 
     private var filterBar: some View {

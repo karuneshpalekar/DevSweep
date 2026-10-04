@@ -56,8 +56,9 @@ struct ProjectsView: View {
     }
 
     private var subtitle: String {
-        if model.isLoadingProjects && model.projects.isEmpty { return "Looking…" }
+        if !model.hasLoadedProjects { return model.isLoadingProjects ? "Looking…" : "Not loaded yet" }
         let onMac = model.projects.filter(\.onDisk)
+        if onMac.isEmpty { return "No projects on this Mac" + (model.isLoadingProjects ? " · refreshing" : "") }
         let size = onMac.reduce(0) { $0 + $1.localSize }
         return "\(onMac.count) on this Mac · \(SizeFormat.string(size))" + (model.isLoadingProjects ? " · refreshing" : "")
     }
@@ -138,6 +139,10 @@ struct ProjectListTab: View {
     @ViewBuilder
     private var listArea: some View {
         VStack(spacing: 0) {
+            if model.githubStatus != nil || model.isLoadingProjects, !githubReady {
+                GitHubSetupCard { model.projectSheet = .addAccount }.padding(14)
+                Divider()
+            }
             if let message = model.projectsMessage {
                 HStack(spacing: 10) {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
@@ -158,8 +163,12 @@ struct ProjectListTab: View {
         }
     }
 
+    /// Signed in to at least one account.
+    private var githubReady: Bool { if case .signedIn = model.githubStatus { return true } else { return false } }
+
     private var emptyTitle: String {
-        if model.isLoadingProjects { return "Looking…" }
+        if !model.hasLoadedProjects || model.isLoadingProjects && model.projects.isEmpty { return "Looking…" }
+        if !githubReady, model.projectFilter != .onMac { return "GitHub isn't connected" }
         switch model.projectFilter {
         case .onMac: return "No projects found"
         case .onGitHub: return "Everything on GitHub is here"
@@ -168,6 +177,7 @@ struct ProjectListTab: View {
     }
 
     private var emptyDetail: String {
+        if !githubReady, model.projectFilter != .onMac { return "Connect GitHub above to list your repositories and download them." }
         switch model.projectFilter {
         case .onMac: return "DevSweep looks in the project folders listed in Settings."
         case .onGitHub: return "Repos you haven't downloaded appear here, ready to download."

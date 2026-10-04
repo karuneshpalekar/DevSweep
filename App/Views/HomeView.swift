@@ -56,24 +56,44 @@ struct HomeView: View {
                         SizeText(bytes: d.free).font(.system(size: 34, weight: .semibold))
                         Text("free").foregroundStyle(.secondary)
                     }
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        SizeText(bytes: model.totalSize).font(.system(size: 34, weight: .semibold)).foregroundStyle(Color.accentColor)
-                        Text("can be cleaned").foregroundStyle(.secondary)
-                    }
+                    cleanableSummary
                     Spacer()
-                    Button("Review \(model.findings.count) item\(model.findings.count == 1 ? "" : "s")") {
-                        model.selection = .cleanUp
+                    if model.hasScanned, !model.findings.isEmpty {
+                        Button("Review \(model.findings.count) item\(model.findings.count == 1 ? "" : "s")") { model.selection = .cleanUp }
+                            .buttonStyle(.borderedProminent).controlSize(.large)
+                    } else if !model.hasScanned, !model.isScanning {
+                        Button("Scan now") { model.scanEverything() }.buttonStyle(.borderedProminent).controlSize(.large)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(model.findings.isEmpty)
                 }
-                DiskBar(disk: d, cleanable: model.totalSize, height: 12)
+                DiskBar(disk: d, cleanable: model.hasScanned ? model.totalSize : 0, height: 12)
                 Text("Macintosh HD · \(SizeFormat.string(d.total))").font(.caption).foregroundStyle(.secondary)
             }
             .padding(20)
             .background(.background, in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(.separator))
+        }
+    }
+
+    /// How much can be cleaned, or why that isn't known yet.
+    @ViewBuilder
+    private var cleanableSummary: some View {
+        if model.hasScanned {
+            if model.findings.isEmpty {
+                Label("Nothing to clean", systemImage: "checkmark.circle.fill")
+                    .font(.title2.weight(.semibold)).foregroundStyle(.green)
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    SizeText(bytes: model.totalSize).font(.system(size: 34, weight: .semibold)).foregroundStyle(Color.accentColor)
+                    Text("can be cleaned").foregroundStyle(.secondary)
+                }
+            }
+        } else if model.isScanning {
+            HStack(spacing: 10) {
+                ProgressView().controlSize(.small)
+                Text("Scanning · \(model.scanStatus)").foregroundStyle(.secondary)
+            }
+        } else {
+            Text("Not scanned yet").font(.title2.weight(.semibold)).foregroundStyle(.secondary)
         }
     }
 
@@ -123,8 +143,13 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Needs attention").font(.headline).foregroundStyle(.secondary)
             if alerts.isEmpty {
-                Label(model.isCheckingVersions ? "Checking…" : "Nothing needs attention right now.",
-                      systemImage: "checkmark.circle").foregroundStyle(.secondary).padding(.vertical, 8)
+                if model.hasCheckedHealth {
+                    Label("Nothing needs attention right now.", systemImage: "checkmark.circle").foregroundStyle(.secondary).padding(.vertical, 8)
+                } else if model.isCheckingHealth {
+                    Label("Checking your tools and files…", systemImage: "arrow.triangle.2.circlepath").foregroundStyle(.secondary).padding(.vertical, 8)
+                } else {
+                    Label("Not checked yet", systemImage: "questionmark.circle").foregroundStyle(.secondary).padding(.vertical, 8)
+                }
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(alerts.enumerated()), id: \.offset) { i, alert in

@@ -25,13 +25,26 @@ struct MenuBarView: View {
 
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    SizeText(bytes: model.totalSize).font(.title2.weight(.semibold)).foregroundStyle(Color.accentColor)
-                    Text(model.isScanning ? "scanning…" : "can be cleaned").font(.caption).foregroundStyle(.secondary)
+                    if model.hasScanned && !model.findings.isEmpty {
+                        SizeText(bytes: model.totalSize).font(.title2.weight(.semibold)).foregroundStyle(Color.accentColor)
+                        Text(model.isScanning ? "scanning again…" : "can be cleaned").font(.caption).foregroundStyle(.secondary)
+                    } else if model.hasScanned {
+                        Text("Nothing to clean").font(.headline).foregroundStyle(.green)
+                        Text(model.isScanning ? "scanning again…" : "all clear").font(.caption).foregroundStyle(.secondary)
+                    } else if model.isScanning {
+                        HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Scanning…").font(.headline) }
+                        Text(model.scanStatus).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    } else {
+                        Text("Not scanned yet").font(.headline)
+                        Text("Scan to see what can be cleaned").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
                 Spacer()
-                Button("Review") { show(.cleanUp) }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(model.findings.isEmpty)
+                if model.hasScanned && !model.findings.isEmpty {
+                    Button("Review") { show(.cleanUp) }.buttonStyle(.borderedProminent)
+                } else if !model.hasScanned && !model.isScanning {
+                    Button("Scan now") { model.scanEverything() }.buttonStyle(.borderedProminent)
+                }
             }
             .padding(12)
             .background(.background, in: RoundedRectangle(cornerRadius: 10))

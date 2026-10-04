@@ -45,6 +45,22 @@ public enum GitHubClient {
         return accounts
     }
 
+    public enum Status: Equatable, Sendable {
+        /// The GitHub command-line tool (gh) isn't on this Mac.
+        case notInstalled
+        /// gh is installed, but no account is signed in.
+        case notSignedIn
+        case signedIn([GitHubAccount])
+    }
+
+    /// Whether GitHub features can work, and why not when they can't.
+    public static func status() -> Status {
+        guard Shell.locate("gh") != nil else { return .notInstalled }
+        let r = Shell.run(["gh", "auth", "status"], timeout: 30)
+        let accounts = parseAccounts(r.stdout + "\n" + r.stderr)
+        return accounts.isEmpty ? .notSignedIn : .signedIn(accounts)
+    }
+
     public static func accounts() throws -> [GitHubAccount] {
         guard Shell.locate("gh") != nil else { throw fail("The GitHub CLI isn't installed. Install it with: brew install gh") }
         let r = Shell.run(["gh", "auth", "status"], timeout: 30)

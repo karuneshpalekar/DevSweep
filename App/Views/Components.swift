@@ -162,3 +162,88 @@ struct StatusTag: View {
             .background(color.opacity(0.13), in: RoundedRectangle(cornerRadius: 5))
     }
 }
+
+/// Shown wherever GitHub features need something: the GitHub CLI isn't installed,
+/// or it is but no account is signed in. Says which, and what to do.
+@MainActor
+struct GitHubSetupCard: View {
+    @Environment(AppModel.self) private var model
+    /// Opens the sign-in sheet in whichever window this card is in.
+    var addAccount: () -> Void
+
+    var body: some View {
+        switch model.githubStatus {
+        case .none:
+            card(symbol: "arrow.triangle.2.circlepath", title: "Checking GitHub…",
+                 detail: "Looking for the GitHub command-line tool and your accounts.") {
+                ProgressView().controlSize(.small)
+            }
+        case .some(.notInstalled):
+            card(symbol: "terminal", title: "Connect GitHub",
+                 detail: "DevSweep uses GitHub's command-line tool, gh, to list your repositories and download them. It isn't installed on this Mac. Projects already on your Mac still show below.") {
+                if Shell.locate("brew") != nil {
+                    Button("Install with Homebrew") {
+                        model.runInTerminal(RuntimeStep(kind: .upgrade, title: "Install the GitHub CLI",
+                                                        detail: "Installs gh with Homebrew. When it's done, come back and press Check again.",
+                                                        commands: ["brew install gh"]))
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                Button("Get it from cli.github.com") {
+                    if let url = URL(string: "https://cli.github.com") { NSWorkspace.shared.open(url) }
+                }
+                Button("Check again") { model.refreshProjects() }.disabled(model.isLoadingProjects)
+            }
+        case .some(.notSignedIn):
+            card(symbol: "person.crop.circle.badge.plus", title: "Sign in to GitHub",
+                 detail: "The GitHub command-line tool is installed, but no account is signed in yet. Sign in to see your repositories, download them, and publish folders. Projects already on your Mac still show below.") {
+                Button("Sign in…", action: addAccount).buttonStyle(.borderedProminent)
+                Button("Check again") { model.refreshProjects() }.disabled(model.isLoadingProjects)
+            }
+        case .some(.signedIn):
+            EmptyView()
+        }
+    }
+
+    private func card<Actions: View>(symbol: String, title: String, detail: String, @ViewBuilder actions: () -> Actions) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: symbol).font(.title).foregroundStyle(Color.accentColor).frame(width: 34)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title).font(.headline)
+                Text(detail).font(.callout).foregroundStyle(.secondary).lineLimit(5)
+                HStack(spacing: 8) { actions() }.padding(.top, 4)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .background(.background, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.separator))
+        .layoutPriority(1)
+    }
+}
+
+/// A screen that has nothing to show because nothing has been scanned yet.
+@MainActor
+struct NotScannedView: View {
+    let title: String
+    let detail: String
+    let isWorking: Bool
+    let status: String
+    let action: () -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
+            if isWorking {
+                ProgressView().controlSize(.large)
+                Text("Scanning…").font(.title3.weight(.semibold))
+                Text(status).foregroundStyle(.secondary)
+            } else {
+                Image(systemName: "magnifyingglass").font(.system(size: 34)).foregroundStyle(.secondary)
+                Text(title).font(.title3.weight(.semibold))
+                Text(detail).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 340)
+                Button("Scan now", action: action).buttonStyle(.borderedProminent).controlSize(.large)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}

@@ -171,6 +171,10 @@ final class AppModel {
 
     var projects: [Project] = []
     var githubAccounts: [GitHubAccount] = []
+    /// nil until the first check finishes.
+    var githubStatus: GitHubClient.Status?
+    var hasCheckedSecurity = false
+    var hasLoadedPorts = false
     var isLoadingProjects = false
     var hasLoadedProjects = false
     var projectsMessage: String?
@@ -216,6 +220,13 @@ final class AppModel {
     // MARK: - Derived
 
     var totalSize: Int64 { findings.reduce(0) { $0 + $1.size } }
+
+    /// A scan has finished at least once, so sizes and counts mean something.
+    var hasScanned: Bool { lastScan != nil }
+
+    /// Security, versions and ports have all been looked at.
+    var hasCheckedHealth: Bool { versions != nil && hasCheckedSecurity }
+    var isCheckingHealth: Bool { isCheckingVersions || isCheckingSecurity }
 
     /// What was cleaned in the last 7 days, from History.
     var cleanedThisWeek: (count: Int, bytes: Int64) {
@@ -326,6 +337,7 @@ final class AppModel {
         Task {
             security = await Task.detached { SecurityScanner.scan(projectRoots: roots) }.value
             if let id = selectedSecurityID, !security.contains(where: { $0.id == id }) { selectedSecurityID = nil }
+            hasCheckedSecurity = true
             isCheckingSecurity = false
         }
     }
@@ -340,6 +352,7 @@ final class AppModel {
         Task {
             ports = await Task.detached { PortScanner.scan(installs: installs) }.value
             if let id = selectedPortID, !ports.contains(where: { $0.id == id }) { selectedPortID = nil }
+            hasLoadedPorts = true
             isLoadingPorts = false
         }
     }
@@ -596,17 +609,18 @@ final class AppModel {
         let roots = projectScanRoots
         let store = projectStore
         Task {
-            let result = await Task.detached { () -> ([Project], [GitHubAccount], String?) in
+            let result = await Task.detached { () -> ([Project], [GitHubAccount], String?, GitHubClient.Status) in
                 var message: String?
                 var remote: [RemoteRepo] = []
                 var accounts: [GitHubAccount] = []
-                do {
-                    accounts = try GitHubClient.accounts()
+                let status = GitHubClient.status()
+                if case .signedIn(let found) = status {
+                    accounts = found
                     for a in accounts {
                         do { remote += try GitHubClient.repos(for: a.login, token: try GitHubClient.token(for: a.login)) }
                         catch { message = "Couldn't list \(a.login)'s repositories: \(error.localizedDescription)" }
                     }
-                } catch { message = error.localizedDescription }
+                }
                 let local = ProjectScanner.scanLocal(roots: roots)
                 // Remember where each clone lives, so a removed one comes back to the same folder.
                 store.update { s in
@@ -625,12 +639,13 @@ final class AppModel {
                 }
                 let merged = ProjectScanner.merge(local: local, remote: remote, state: store.state,
                                                   home: FileManager.default.homeDirectoryForCurrentUser)
-                return (merged, accounts, message)
+                return (merged, accounts, message, status)
             }.value
             // Screenshots use sample data; a real scan finishing late must not replace it.
             guard !useSampleData else { isLoadingProjects = false; return }
             projects = result.0
             githubAccounts = result.1
+            githubStatus = result.3
             projectsMessage = result.2
             projectsState = projectStore.state
             hasLoadedProjects = true

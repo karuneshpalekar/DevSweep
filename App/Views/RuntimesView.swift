@@ -103,8 +103,9 @@ struct RuntimesView: View {
                 .listStyle(.inset)
             }
         } else {
-            ProgressView("Checking installed versions · \(model.versionsStatus)")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            NotScannedView(title: "Not checked yet",
+                           detail: "DevSweep finds every Node, Python, Java and database on this Mac, and whether each is still supported.",
+                           isWorking: model.isCheckingVersions, status: model.versionsStatus) { model.checkVersions() }
         }
     }
 

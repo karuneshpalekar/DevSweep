@@ -215,9 +215,7 @@ struct GitHubSettings: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Each account's name and email are written into the projects you download with it, so commits are attributed correctly whatever your global Git identity is.")
                     .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                if model.githubAccounts.isEmpty {
-                    Text(model.projectsMessage ?? "Looking for GitHub accounts…").foregroundStyle(.secondary)
-                }
+                if model.githubAccounts.isEmpty { GitHubSetupCard { showAddAccount = true } }
                 ForEach(model.githubAccounts) { account in
                     AccountCard(account: account, summary: model.accountSummaries.first { $0.login == account.login })
                 }

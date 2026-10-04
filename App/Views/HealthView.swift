@@ -40,9 +40,9 @@ struct HealthView: View {
     private func label(_ tab: HealthTab) -> String {
         let n: Int
         switch tab {
-        case .security: n = model.visibleSecurity.filter { $0.level != .ok }.count
+        case .security: n = model.hasCheckedSecurity ? model.visibleSecurity.filter { $0.level != .ok }.count : 0
         case .tools: n = model.versions?.attentionCount ?? 0
-        case .ports: n = model.ports.filter(\.isDevelopment).count
+        case .ports: n = model.hasLoadedPorts ? model.ports.filter(\.isDevelopment).count : 0
         }
         return n > 0 ? "\(tab.title) · \(n)" : tab.title
     }
@@ -50,7 +50,8 @@ struct HealthView: View {
     private var subtitle: String {
         switch model.healthTab {
         case .security:
-            return model.isCheckingSecurity ? "Checking for secrets…" : "Secrets in Downloads, Desktop, Documents and your project folders"
+            if !model.hasCheckedSecurity { return model.isCheckingSecurity ? "Checking for secrets…" : "Not checked yet" }
+            return "Secrets in Downloads, Desktop, Documents and your project folders"
         case .tools:
             if model.isCheckingVersions { return "Checking · \(model.versionsStatus)" }
             guard let v = model.versions else { return "Not checked yet" }
@@ -58,7 +59,8 @@ struct HealthView: View {
             return v.eolOffline ? "Checked \(when) · support dates may be out of date (offline)"
                                 : "Checked \(when) · support dates from endoflife.date"
         case .ports:
-            return model.isLoadingPorts ? "Looking…" : "What's listening on this Mac, started by you"
+            if !model.hasLoadedPorts { return model.isLoadingPorts ? "Looking…" : "Not checked yet" }
+            return "What's listening on this Mac, started by you"
         }
     }
 }
@@ -72,10 +74,13 @@ struct SecurityView: View {
     var body: some View {
         let items = model.visibleSecurity
         SidePanelLayout(selected: model.selectedSecurityID) {
-            if items.isEmpty {
-                ContentUnavailableView(model.isCheckingSecurity ? "Checking…" : "No secrets lying around",
-                                       systemImage: "checkmark.shield",
-                                       description: Text("DevSweep looks for recovery codes, private keys, cloud keys, password exports and .env files."))
+            if !model.hasCheckedSecurity {
+                NotScannedView(title: "Not checked yet",
+                               detail: "DevSweep looks in Downloads, Desktop, Documents and your project folders for recovery codes, private keys, cloud keys, password exports and .env files.",
+                               isWorking: model.isCheckingSecurity, status: "Looking for secrets") { model.checkSecurity() }
+            } else if items.isEmpty {
+                ContentUnavailableView("No secrets lying around", systemImage: "checkmark.shield",
+                                       description: Text("DevSweep looked for recovery codes, private keys, cloud keys, password exports and .env files, and found none."))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List {
@@ -200,9 +205,11 @@ struct PortsView: View {
 
     var body: some View {
         SidePanelLayout(selected: model.selectedPortID, width: 340) {
-            if model.ports.isEmpty {
-                ContentUnavailableView(model.isLoadingPorts ? "Looking…" : "Nothing is listening",
-                                       systemImage: "network",
+            if !model.hasLoadedPorts {
+                NotScannedView(title: "Not checked yet", detail: "See what's listening on this Mac: dev servers, databases and more.",
+                               isWorking: model.isLoadingPorts, status: "Looking at open ports") { model.refreshPorts() }
+            } else if model.ports.isEmpty {
+                ContentUnavailableView("Nothing is listening", systemImage: "network",
                                        description: Text("Dev servers and databases you start show up here."))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {

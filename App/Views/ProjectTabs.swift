@@ -101,10 +101,11 @@ struct AccountsTab: View {
                 Text("Each account's name and email are written into every project you download with it, so commits are attributed correctly whatever your global Git identity is. DevSweep uses each account's own token, so the account active in your terminal never changes.")
                     .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 if model.githubAccounts.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(model.projectsMessage ?? (model.isLoadingProjects ? "Looking for GitHub accounts…" : "No GitHub accounts yet.")).foregroundStyle(.secondary)
+                    if model.githubStatus == nil && !model.isLoadingProjects {
+                        Text("Not checked yet.").foregroundStyle(.secondary)
+                    } else {
+                        GitHubSetupCard { model.projectSheet = .addAccount }
                     }
-                    .padding(.vertical, 8)
                 }
                 let summaries = Dictionary(uniqueKeysWithValues: model.accountSummaries.map { ($0.login, $0) })
                 ForEach(model.githubAccounts) { a in AccountCard(account: a, summary: summaries[a.login]) }

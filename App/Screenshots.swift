@@ -26,10 +26,24 @@ enum ScreenshotTour {
         for _ in 0..<120 where model.versions == nil || model.isCheckingVersions || model.isCheckingSecurity || model.isLoadingProjects {
             await pause(0.5)
         }
+        if ProcessInfo.processInfo.environment["DEVSWEEP_STATES"] != nil {
+            model.lastScan = nil; model.hasCheckedSecurity = false; model.hasLoadedPorts = false
+            model.githubAccounts = []; model.githubStatus = .notSignedIn; model.projects = []; model.hasLoadedProjects = true
+            AppearanceMode.light.apply()
+            for (name, item) in [("home", SidebarItem.home), ("cleanup", .cleanUp), ("projects", .projects), ("health", .health)] {
+                model.selection = item
+                model.githubAccounts = []; model.githubStatus = .notSignedIn; model.projects = []
+                await pause(1.5)
+                await saveStable(window, "state-\(name)", dir)
+            }
+            exit(0)
+        }
         // Security and Ports would show where your own secret files are, so
         // the README shows made-up examples instead. Nothing touches disk.
         model.security = SampleData.security
         model.ports = SampleData.ports
+        model.hasLoadedPorts = true
+        model.hasCheckedSecurity = true
         model.projects = SampleData.projects
         model.githubAccounts = [GitHubAccount(login: "sample-dev", isActive: true), GitHubAccount(login: "sample-team", isActive: false)]
         model.projectsState = SampleData.projectsState

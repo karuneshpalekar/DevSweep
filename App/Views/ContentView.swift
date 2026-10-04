@@ -67,13 +67,13 @@ struct SidebarView: View {
         List(selection: $model.selection) {
             Label("Home", systemImage: "house").tag(SidebarItem.home)
             Label("Clean up", systemImage: "wand.and.stars")
-                .badge(model.findings.count)
+                .badge(model.hasScanned ? model.findings.count : 0)
                 .tag(SidebarItem.cleanUp)
             Label("Projects", systemImage: "folder")
                 .badge(model.projectsNeedingPush.count)
                 .tag(SidebarItem.projects)
             Label("Health", systemImage: "checkmark.shield")
-                .badge(model.healthAttentionCount)
+                .badge(model.hasCheckedHealth ? model.healthAttentionCount : 0)
                 .tag(SidebarItem.health)
         }
         .listStyle(.sidebar)
