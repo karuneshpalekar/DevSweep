@@ -4,8 +4,7 @@
     python3 scripts/make-icon.py
 
 Needs Pillow (pip install pillow). A rounded square in macOS's icon shape with
-a before-and-after pair of storage bars: the red segment on top is gone below,
-leaving freed space outlined in cyan.
+a disk-usage ring with a grey used part and a cyan freed part.
 """
 import json, math, os
 from PIL import Image, ImageDraw, ImageFilter
@@ -16,12 +15,12 @@ OUT = os.path.join(os.path.dirname(__file__), "..", "App", "Assets.xcassets", "A
 def lerp(a, b, t): return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 def gradient():
-    top, bottom = (44, 46, 66), (24, 25, 38)
+    top, bottom = (46, 44, 90), (22, 24, 44)
     img = Image.new("RGB", (S, S))
     px = img.load()
     for y in range(S):
         for x in range(S):
-            px[x, y] = lerp(top, bottom, min(1, (0.8 * y + 0.2 * x) / S))
+            px[x, y] = lerp(top, bottom, min(1, (0.5 * y + 0.5 * x) / S))
     return img
 
 def squircle_mask():
@@ -30,35 +29,25 @@ def squircle_mask():
     ImageDraw.Draw(m).rounded_rectangle([margin, margin, margin + body, margin + body], radius=int(body * 0.225), fill=255)
     return m
 
+def ring(layer, cx, cy, R, thick, start, end, fill):
+    """A donut slice from `start` to `end` degrees (0 = 3 o'clock, clockwise)."""
+    t = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    ImageDraw.Draw(t).pieslice([cx - R, cy - R, cx + R, cy + R], start, end, fill=fill)
+    hole = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(hole).ellipse([cx - R + thick, cy - R + thick, cx + R - thick, cy + R - thick], fill=255)
+    a = t.split()[3]
+    a = Image.composite(Image.new("L", (S, S), 0), a, hole)
+    t.putalpha(a)
+    return Image.alpha_composite(layer, t)
+
 def art():
+    """A disk-usage ring: free (dark), used (grey) and the freed part (cyan)."""
     layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    d = ImageDraw.Draw(layer)
-    W, H = S * 0.60, S * 0.125
-    x0 = (S - W) / 2
-    gap, rad = S * 0.012, S * 0.028
-    RED, GREY, FREE, CYAN = (240, 85, 60, 255), (142, 142, 147, 255), (74, 74, 94, 255), (40, 210, 220, 255)
-
-    def blocks(y, parts):
-        """parts: (share of the bar, fill, outline) left to right, as separate rounded blocks."""
-        x = x0
-        for share, fill, outline in parts:
-            w = W * share - gap
-            box = [x, y, x + w, y + H]
-            if fill: d.rounded_rectangle(box, radius=rad, fill=fill)
-            if outline: d.rounded_rectangle(box, radius=rad, outline=outline, width=int(S * 0.009))
-            x += W * share
-
-    # Before: used space with a big red part, a little free space
-    yb = S * 0.285
-    blocks(yb, [(0.26, RED, None), (0.50, GREY, None), (0.24, FREE, None)])
-    # Arrow: the red part is gone
-    cx, ay = S * 0.5, S * 0.505
-    aw = S * 0.045
-    d.rectangle([cx - aw, ay - S * 0.045, cx + aw, ay + S * 0.012], fill=(255, 255, 255, 255))
-    d.polygon([(cx - S * 0.1, ay + S * 0.006), (cx + S * 0.1, ay + S * 0.006), (cx, ay + S * 0.10)], fill=(255, 255, 255, 255))
-    # After: same grey, the freed space shown as a bright outlined block
-    ya = S * 0.625
-    blocks(ya, [(0.26, (40, 210, 220, 60), CYAN), (0.50, GREY, None), (0.24, FREE, None)])
+    cx = cy = S / 2
+    R, th = S * 0.30, S * 0.095
+    layer = ring(layer, cx, cy, R, th, -90, 270, (74, 74, 100, 255))   # whole ring: free
+    layer = ring(layer, cx, cy, R, th, -90, 130, (150, 150, 158, 255))  # used
+    layer = ring(layer, cx, cy, R, th, 130, 200, (36, 214, 224, 255))   # freed
     return layer
 
 def main():
