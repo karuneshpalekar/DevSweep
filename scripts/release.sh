@@ -26,7 +26,7 @@ fail() { echo "error: $*" >&2; exit 1; }
 git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null && fail "tag v$VERSION already exists"
 
 NOTARIZE=false
-TEAM=$(sed -n 's/^DEVELOPMENT_TEAM *= *//p' Config/Local.xcconfig 2>/dev/null | tr -d ' ')
+TEAM=$(sed -n 's/^DEVELOPMENT_TEAM *= *//p' Config/Local.xcconfig 2>/dev/null | tr -d ' ' || true)
 if security find-identity -v -p codesigning | grep -q "Developer ID Application" \
    && xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1; then
   NOTARIZE=true
