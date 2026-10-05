@@ -104,12 +104,23 @@ public struct GitSafety: Codable, Equatable, Sendable {
         self.untrackedSample = untrackedSample
     }
 
-    /// Everything is on GitHub except files git doesn't track. Removal is allowed
-    /// but needs an explicit warning, because those files can't be downloaded back.
-    public var onlyUntrackedBlocks: Bool { hasRemote && unpushedCommits == 0 && changedFiles == 0 && stashes == 0 && untrackedFiles > 0 }
+    /// A project can always be removed; when it isn't safe, the app warns first
+    /// and lists `lossSummary`.
+    public var canRemove: Bool { true }
 
-    /// Can be removed, with or without a warning.
-    public var canRemove: Bool { isSafeToRemove || onlyUntrackedBlocks }
+    /// What would be lost with the folder, one line each. Empty when it's safe.
+    public var lossSummary: [String] {
+        var lines: [String] = []
+        if !hasRemote { lines.append("There's no copy on GitHub, so this folder is the only copy") }
+        if unpushedCommits > 0 { lines.append(unpushedCommits == 1 ? "1 commit that isn't on GitHub" : "\(unpushedCommits) commits that aren't on GitHub") }
+        if changedFiles > 0 { lines.append("\(changedFiles) file\(changedFiles == 1 ? "" : "s") with changes that aren't committed") }
+        if untrackedFiles > 0 {
+            let names = untrackedSample.joined(separator: ", ") + (untrackedFiles > untrackedSample.count ? " and more" : "")
+            lines.append("\(untrackedFiles) file\(untrackedFiles == 1 ? "" : "s") git doesn't track: \(names)")
+        }
+        if stashes > 0 { lines.append("\(stashes) stash\(stashes == 1 ? "" : "es")") }
+        return lines
+    }
 
     public var isSafeToRemove: Bool { hasRemote && unpushedCommits == 0 && changedFiles == 0 && untrackedFiles == 0 && stashes == 0 }
 }

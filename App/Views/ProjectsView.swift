@@ -280,11 +280,9 @@ struct ProjectDetail: View {
         if s.isSafeToRemove {
             callout("Safe to remove. It stays in this list with a Download button.", color: .green)
         } else if !s.hasRemote {
-            callout("Publish it to GitHub first, then it can be removed safely.", color: .orange)
-        } else if s.unpushedCommits == 0 && s.changedFiles == 0 && s.stashes == 0 {
-            callout("Only files that git doesn't track are left. You can still remove the folder, but those files are lost for good, so DevSweep warns you first. Committing them avoids that.", color: .orange)
+            callout("Nothing on GitHub keeps a copy of this folder. Publish it first, or remove it anyway after DevSweep warns you.", color: .orange)
         } else {
-            callout("Push your work first. Then this project can be removed and downloaded again any time.", color: .orange)
+            callout("Not everything is saved on GitHub. You can still remove it, and DevSweep warns you first about what would be lost. Pushing your work avoids that.", color: .orange)
         }
 
         FlowLayout(spacing: 8) {
@@ -294,12 +292,12 @@ struct ProjectDetail: View {
                 Button("Push \(s.unpushedCommits) commit\(s.unpushedCommits == 1 ? "" : "s")") { model.push(project) }.buttonStyle(.borderedProminent)
             }
             Button("Remove from Mac…", role: .destructive) {
-                if s.untrackedFiles > 0 { model.pendingUntrackedRemoval = project } else { confirmRemove = true }
+                if s.isSafeToRemove { confirmRemove = true } else { model.pendingRiskyRemoval = project }
             }
             .buttonStyle(DestructiveButtonStyle())
-            .disabled(!s.canRemove || model.busyProjectID != nil)
+            .disabled(model.busyProjectID != nil)
         }
-        Text("Removing moves the folder to the Trash. If anything in it can't be downloaded back from GitHub, DevSweep warns you first.")
+        Text("Removing moves the folder to the Trash. If anything in it isn't on GitHub, DevSweep warns you first.")
             .font(.caption).foregroundStyle(.secondary)
     }
 

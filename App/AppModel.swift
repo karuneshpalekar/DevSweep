@@ -856,11 +856,11 @@ final class AppModel {
     }
 
     /// Moves the folder to the Trash (restorable from History). Only when nothing would be lost.
-    /// A project whose only unsaved files are untracked ones. Removing it asks first, every time.
-    var pendingUntrackedRemoval: Project?
+    /// A project with work that exists nowhere else. Removing it asks first, every time.
+    var pendingRiskyRemoval: Project?
 
     func removeFromMac(_ p: Project) {
-        guard let path = p.localPath, p.safety?.canRemove == true else { return }
+        guard let path = p.localPath else { return }
         let finding = Finding(id: "project:" + p.id, ruleID: "projects", title: p.nameWithOwner, subtitle: path, category: .projects,
                               risk: .holdsData, paths: [path], size: p.localSize,
                               explanation: Explanation(what: "A project folder.", why: "", ifDeleted: "Download it again from GitHub.",

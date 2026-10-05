@@ -81,7 +81,7 @@ struct CleanupTab: View {
                 Button("Remove", role: .destructive) { model.removeFromMac(p) }.buttonStyle(DestructiveButtonStyle()).controlSize(.small)
             } else if s.canRemove {
                 StatusTag(text: p.status.text, color: .orange)
-                Button("Remove…", role: .destructive) { model.pendingUntrackedRemoval = p }.buttonStyle(DestructiveButtonStyle()).controlSize(.small)
+                Button("Remove…", role: .destructive) { model.pendingRiskyRemoval = p }.buttonStyle(DestructiveButtonStyle()).controlSize(.small)
             } else {
                 StatusTag(text: p.status.text, color: .orange)
             }

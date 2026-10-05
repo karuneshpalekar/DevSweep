@@ -41,18 +41,17 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $model.showReview) { ReviewSheet() }
-        .alert(untrackedTitle, isPresented: Binding(
-            get: { model.pendingUntrackedRemoval != nil }, set: { if !$0 { model.pendingUntrackedRemoval = nil } }
-        ), presenting: model.pendingUntrackedRemoval) { p in
-            Button("Remove and lose \(p.safety?.untrackedFiles ?? 0) file\(p.safety?.untrackedFiles == 1 ? "" : "s")", role: .destructive) {
+        .alert(riskTitle, isPresented: Binding(
+            get: { model.pendingRiskyRemoval != nil }, set: { if !$0 { model.pendingRiskyRemoval = nil } }
+        ), presenting: model.pendingRiskyRemoval) { p in
+            Button("Remove anyway", role: .destructive) {
                 model.removeFromMac(p)
-                model.pendingUntrackedRemoval = nil
+                model.pendingRiskyRemoval = nil
             }
-            Button("Cancel", role: .cancel) { model.pendingUntrackedRemoval = nil }
+            Button("Cancel", role: .cancel) { model.pendingRiskyRemoval = nil }
         } message: { p in
-            let s = p.safety ?? GitSafety()
-            let names = s.untrackedSample.joined(separator: ", ") + (s.untrackedFiles > s.untrackedSample.count ? " and more" : "")
-            Text("\(names)\n\nGit doesn't track these, so they aren't on GitHub and downloading \(p.name) again won't bring them back. The folder goes to the Trash, so you can still restore it from History until you empty the Trash.")
+            let lines = (p.safety ?? GitSafety(hasRemote: false)).lossSummary.map { "• " + $0 }.joined(separator: "\n")
+            Text("\(lines)\n\nDownloading \(p.name) again won't bring this back. The folder goes to the Trash, so you can still restore it from History until you empty the Trash.")
         }
         .alert("Something went wrong", isPresented: Binding(
             get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } }
@@ -75,9 +74,9 @@ struct ContentView: View {
 }
 
 extension ContentView {
-    fileprivate var untrackedTitle: String {
-        guard let p = model.pendingUntrackedRemoval, let n = p.safety?.untrackedFiles else { return "Remove project?" }
-        return "\(p.name) has \(n) file\(n == 1 ? "" : "s") that aren't saved anywhere else"
+    fileprivate var riskTitle: String {
+        guard let p = model.pendingRiskyRemoval else { return "Remove project?" }
+        return "\(p.name) has work that isn't saved anywhere else"
     }
 }
 

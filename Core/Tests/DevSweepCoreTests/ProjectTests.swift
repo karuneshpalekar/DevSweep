@@ -47,11 +47,11 @@ final class ProjectTests: XCTestCase {
         var s = ProjectScanner.safety(of: work)
         XCTAssertEqual(s.unpushedCommits, 1)
         XCTAssertFalse(s.isSafeToRemove)
-        XCTAssertFalse(s.canRemove, "a tracked change still blocks removal")
-        XCTAssertTrue(GitSafety(untrackedFiles: 2).onlyUntrackedBlocks)
-        XCTAssertTrue(GitSafety(untrackedFiles: 2).canRemove)
-        XCTAssertFalse(GitSafety(unpushedCommits: 1, untrackedFiles: 2).canRemove)
-        XCTAssertFalse(GitSafety(hasRemote: false, untrackedFiles: 2).canRemove)
+        XCTAssertTrue(s.canRemove, "any project can be removed; unsafe ones are warned about")
+        XCTAssertEqual(s.lossSummary, ["1 commit that isn't on GitHub"])
+        XCTAssertEqual(GitSafety().lossSummary, [])
+        XCTAssertTrue(GitSafety(hasRemote: false).lossSummary[0].contains("only copy"))
+        XCTAssertEqual(GitSafety(stashes: 2).lossSummary, ["2 stashes"])
 
         // Commits on another local branch count too.
         git(work, "checkout", "-q", "-b", "feature")
@@ -65,6 +65,7 @@ final class ProjectTests: XCTestCase {
         XCTAssertEqual(s.changedFiles, 1, "only files git already tracks count as changed")
         XCTAssertEqual(s.untrackedFiles, 1)
         XCTAssertEqual(s.untrackedSample, ["untracked.txt"])
+        XCTAssertEqual(s.lossSummary.count, 3, "unpushed commits, a changed file and an untracked file are all listed")
         XCTAssertFalse(s.isSafeToRemove)
 
         git(work, "stash", "-q", "--include-untracked")
