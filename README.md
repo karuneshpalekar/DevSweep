@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/icon.png" alt="DevSweep app icon" width="128"></p>
+
 # DevSweep
 
 A Mac app that finds what's safe to clean on a developer's machine, and
