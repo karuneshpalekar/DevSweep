@@ -4,8 +4,8 @@
     python3 scripts/make-icon.py
 
 Needs Pillow (pip install pillow). A rounded square in macOS's icon shape with
-a simple storage bar, like the one in System Settings: a coloured used segment,
-a grey segment and a dark free segment.
+a before-and-after pair of storage bars: the red segment on top is gone below,
+leaving freed space outlined in cyan.
 """
 import json, math, os
 from PIL import Image, ImageDraw, ImageFilter
@@ -33,23 +33,32 @@ def squircle_mask():
 def art():
     layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    w, h = S * 0.64, S * 0.23
-    x0, y0 = (S - w) / 2, (S - h) / 2
-    r = h / 2
-    # whole bar = the free (dark) part, then the used parts on top, clipped to the bar's shape
-    bar = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    bd = ImageDraw.Draw(bar)
-    bd.rectangle([x0, y0, x0 + w, y0 + h], fill=(86, 86, 106, 255))                       # free
-    bd.rectangle([x0, y0, x0 + w * 0.72, y0 + h], fill=(142, 142, 147, 255))              # used
-    bd.rectangle([x0, y0, x0 + w * 0.17, y0 + h], fill=(240, 85, 60, 255))                # the part you can act on
-    bd.line([(x0 + w * 0.17, y0), (x0 + w * 0.17, y0 + h)], fill=(30, 30, 40, 255), width=int(S * 0.006))
-    mask = Image.new("L", (S, S), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([x0, y0, x0 + w, y0 + h], radius=r, fill=255)
-    layer.paste(bar, (0, 0), mask)
-    # a soft highlight along the top edge of the bar
-    hl = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    ImageDraw.Draw(hl).rounded_rectangle([x0 + r * 0.4, y0 + h * 0.08, x0 + w - r * 0.4, y0 + h * 0.34], radius=h * 0.13, fill=(255, 255, 255, 40))
-    layer = Image.alpha_composite(layer, hl)
+    W, H = S * 0.60, S * 0.125
+    x0 = (S - W) / 2
+    gap, rad = S * 0.012, S * 0.028
+    RED, GREY, FREE, CYAN = (240, 85, 60, 255), (142, 142, 147, 255), (74, 74, 94, 255), (40, 210, 220, 255)
+
+    def blocks(y, parts):
+        """parts: (share of the bar, fill, outline) left to right, as separate rounded blocks."""
+        x = x0
+        for share, fill, outline in parts:
+            w = W * share - gap
+            box = [x, y, x + w, y + H]
+            if fill: d.rounded_rectangle(box, radius=rad, fill=fill)
+            if outline: d.rounded_rectangle(box, radius=rad, outline=outline, width=int(S * 0.009))
+            x += W * share
+
+    # Before: used space with a big red part, a little free space
+    yb = S * 0.285
+    blocks(yb, [(0.26, RED, None), (0.50, GREY, None), (0.24, FREE, None)])
+    # Arrow: the red part is gone
+    cx, ay = S * 0.5, S * 0.505
+    aw = S * 0.045
+    d.rectangle([cx - aw, ay - S * 0.045, cx + aw, ay + S * 0.012], fill=(255, 255, 255, 255))
+    d.polygon([(cx - S * 0.1, ay + S * 0.006), (cx + S * 0.1, ay + S * 0.006), (cx, ay + S * 0.10)], fill=(255, 255, 255, 255))
+    # After: same grey, the freed space shown as a bright outlined block
+    ya = S * 0.625
+    blocks(ya, [(0.26, (40, 210, 220, 60), CYAN), (0.50, GREY, None), (0.24, FREE, None)])
     return layer
 
 def main():
