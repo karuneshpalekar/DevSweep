@@ -3,8 +3,9 @@
 
     python3 scripts/make-icon.py
 
-Needs Pillow (pip install pillow). A rounded square in macOS's icon shape, a
-blue-to-teal gradient, a white sweeping broom and three sparkles.
+Needs Pillow (pip install pillow). A rounded square in macOS's icon shape with
+a simple storage bar, like the one in System Settings: a coloured used segment,
+a grey segment and a dark free segment.
 """
 import json, math, os
 from PIL import Image, ImageDraw, ImageFilter
@@ -15,13 +16,12 @@ OUT = os.path.join(os.path.dirname(__file__), "..", "App", "Assets.xcassets", "A
 def lerp(a, b, t): return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 def gradient():
-    top, bottom = (58, 112, 255), (20, 190, 190)
+    top, bottom = (44, 46, 66), (24, 25, 38)
     img = Image.new("RGB", (S, S))
     px = img.load()
     for y in range(S):
         for x in range(S):
-            t = (0.65 * y + 0.35 * x) / S
-            px[x, y] = lerp(top, bottom, min(1, t))
+            px[x, y] = lerp(top, bottom, min(1, (0.8 * y + 0.2 * x) / S))
     return img
 
 def squircle_mask():
@@ -30,45 +30,26 @@ def squircle_mask():
     ImageDraw.Draw(m).rounded_rectangle([margin, margin, margin + body, margin + body], radius=int(body * 0.225), fill=255)
     return m
 
-def star(d, cx, cy, r, fill):
-    pts = []
-    for i in range(8):
-        ang = math.pi / 4 * i - math.pi / 2
-        rad = r if i % 2 == 0 else r * 0.28
-        pts.append((cx + rad * math.cos(ang), cy + rad * math.sin(ang)))
-    d.polygon(pts, fill=fill)
-
-def rot(points, cx, cy, deg):
-    a = math.radians(deg)
-    return [(cx + (x - cx) * math.cos(a) - (y - cy) * math.sin(a), cy + (x - cx) * math.sin(a) + (y - cy) * math.cos(a)) for x, y in points]
-
 def art():
     layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    cx, cy = S * 0.5, S * 0.52
-    # Handle: a long rounded bar, tilted
-    hw = S * 0.032
-    handle = [(cx - hw, cy - S * 0.33), (cx + hw, cy - S * 0.33), (cx + hw, cy + S * 0.02), (cx - hw, cy + S * 0.02)]
-    d.polygon(rot(handle, cx, cy, 32), fill=(255, 255, 255, 255))
-    for ex, ey in rot([(cx, cy - S * 0.33), (cx, cy + S * 0.02)], cx, cy, 32):
-        d.ellipse([ex - hw, ey - hw, ex + hw, ey + hw], fill=(255, 255, 255, 255))
-    # Bristles: a wide trapezoid with a soft comb of lines
-    bx, by = cx, cy + S * 0.02
-    head = [(bx - S * 0.075, by), (bx + S * 0.075, by), (bx + S * 0.15, by + S * 0.245), (bx - S * 0.15, by + S * 0.245)]
-    d.polygon(rot(head, cx, cy, 32), fill=(255, 255, 255, 255))
-    # tie band
-    band = [(bx - S * 0.082, by + S * 0.005), (bx + S * 0.082, by + S * 0.005), (bx + S * 0.088, by + S * 0.045), (bx - S * 0.088, by + S * 0.045)]
-    d.polygon(rot(band, cx, cy, 32), fill=(255, 200, 70, 255))
-    comb = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    cd = ImageDraw.Draw(comb)
-    for i in range(-4, 5):
-        x0 = bx + i * S * 0.0175
-        cd.line(rot([(x0, by + S * 0.07), (x0 * 1.0 + i * S * 0.0075, by + S * 0.245)], cx, cy, 32), fill=(20, 120, 190, 150), width=int(S * 0.006))
-    layer = Image.alpha_composite(layer, comb)
-    d = ImageDraw.Draw(layer)
-    # Sparkles
-    for (x, y, r) in [(S * 0.775, S * 0.30, S * 0.085), (S * 0.30, S * 0.30, S * 0.05), (S * 0.71, S * 0.52, S * 0.04)]:
-        star(d, x, y, r, (255, 255, 255, 255))
+    w, h = S * 0.64, S * 0.23
+    x0, y0 = (S - w) / 2, (S - h) / 2
+    r = h / 2
+    # whole bar = the free (dark) part, then the used parts on top, clipped to the bar's shape
+    bar = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(bar)
+    bd.rectangle([x0, y0, x0 + w, y0 + h], fill=(86, 86, 106, 255))                       # free
+    bd.rectangle([x0, y0, x0 + w * 0.72, y0 + h], fill=(142, 142, 147, 255))              # used
+    bd.rectangle([x0, y0, x0 + w * 0.17, y0 + h], fill=(240, 85, 60, 255))                # the part you can act on
+    bd.line([(x0 + w * 0.17, y0), (x0 + w * 0.17, y0 + h)], fill=(30, 30, 40, 255), width=int(S * 0.006))
+    mask = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([x0, y0, x0 + w, y0 + h], radius=r, fill=255)
+    layer.paste(bar, (0, 0), mask)
+    # a soft highlight along the top edge of the bar
+    hl = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    ImageDraw.Draw(hl).rounded_rectangle([x0 + r * 0.4, y0 + h * 0.08, x0 + w - r * 0.4, y0 + h * 0.34], radius=h * 0.13, fill=(255, 255, 255, 40))
+    layer = Image.alpha_composite(layer, hl)
     return layer
 
 def main():
@@ -76,7 +57,7 @@ def main():
     mask = squircle_mask()
     # soft top highlight
     hi = Image.new("RGBA", (S, S), (255, 255, 255, 0))
-    ImageDraw.Draw(hi).ellipse([-S * 0.2, -S * 0.55, S * 1.2, S * 0.45], fill=(255, 255, 255, 46))
+    ImageDraw.Draw(hi).ellipse([-S * 0.2, -S * 0.55, S * 1.2, S * 0.45], fill=(255, 255, 255, 0))
     base = Image.alpha_composite(base, hi)
     layer = art()
     shadow = layer.split()[3].filter(ImageFilter.GaussianBlur(S * 0.012)).point(lambda v: int(v * 0.28))
