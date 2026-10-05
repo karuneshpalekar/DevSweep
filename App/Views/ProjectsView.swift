@@ -282,7 +282,7 @@ struct ProjectDetail: View {
         } else if !s.hasRemote {
             callout("Publish it to GitHub first, then it can be removed safely.", color: .orange)
         } else if s.unpushedCommits == 0 && s.changedFiles == 0 && s.stashes == 0 {
-            callout("Only files that git doesn't track are left. Removing the folder would lose them, so commit them or delete them first.", color: .orange)
+            callout("Only files that git doesn't track are left. You can still remove the folder, but those files are lost for good, so DevSweep warns you first. Committing them avoids that.", color: .orange)
         } else {
             callout("Push your work first. Then this project can be removed and downloaded again any time.", color: .orange)
         }
@@ -293,12 +293,13 @@ struct ProjectDetail: View {
             } else if s.unpushedCommits > 0 {
                 Button("Push \(s.unpushedCommits) commit\(s.unpushedCommits == 1 ? "" : "s")") { model.push(project) }.buttonStyle(.borderedProminent)
             }
-            Button("Remove from Mac…", role: .destructive) { confirmRemove = true }
-                .buttonStyle(.bordered)
-                .tint(.red)
-                .disabled(!s.isSafeToRemove || model.busyProjectID != nil)
+            Button("Remove from Mac…", role: .destructive) {
+                if s.untrackedFiles > 0 { model.pendingUntrackedRemoval = project } else { confirmRemove = true }
+            }
+            .buttonStyle(DestructiveButtonStyle())
+            .disabled(!s.canRemove || model.busyProjectID != nil)
         }
-        Text("Removing moves the folder to the Trash. DevSweep only offers it when nothing would be lost.")
+        Text("Removing moves the folder to the Trash. If anything in it can't be downloaded back from GitHub, DevSweep warns you first.")
             .font(.caption).foregroundStyle(.secondary)
     }
 

@@ -78,7 +78,10 @@ struct CleanupTab: View {
                 ProgressView().controlSize(.small)
             } else if s.isSafeToRemove {
                 StatusTag(text: "Safe to remove", color: .green)
-                Button("Remove", role: .destructive) { model.removeFromMac(p) }.buttonStyle(.bordered).tint(.red).controlSize(.small)
+                Button("Remove", role: .destructive) { model.removeFromMac(p) }.buttonStyle(DestructiveButtonStyle()).controlSize(.small)
+            } else if s.canRemove {
+                StatusTag(text: p.status.text, color: .orange)
+                Button("Remove…", role: .destructive) { model.pendingUntrackedRemoval = p }.buttonStyle(DestructiveButtonStyle()).controlSize(.small)
             } else {
                 StatusTag(text: p.status.text, color: .orange)
             }

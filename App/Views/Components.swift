@@ -249,3 +249,24 @@ struct NotScannedView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
+
+
+/// The look of a delete action: red text on a light red fill. macOS ignores
+/// foreground colour on its own bordered buttons, so this draws the button.
+struct DestructiveButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlSize) private var controlSize
+
+    func makeBody(configuration: Configuration) -> some View {
+        let small = controlSize == .small || controlSize == .mini
+        configuration.label
+            .font(small ? .caption : .body)
+            .foregroundStyle(Color.red)
+            .padding(.horizontal, small ? 9 : 12)
+            .frame(height: small ? 22 : 28)
+            .background(Color.red.opacity(configuration.isPressed ? 0.22 : 0.1), in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.red.opacity(0.45)))
+            .opacity(isEnabled ? 1 : 0.45)
+            .contentShape(Rectangle())
+    }
+}

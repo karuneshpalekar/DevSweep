@@ -42,6 +42,20 @@ enum ScreenshotTour {
             model.openSettings()
             await pause(2)
             await saveStable(window, "state-settings", dir)
+            var demo = Project(id: "sample/marketing-site", name: "marketing-site", nameWithOwner: "sample/marketing-site", owner: "sample",
+                               description: "", isPrivate: true, localPath: "/Users/me/Code/marketing-site", localSize: 244_000_000, onGitHub: true,
+                               safety: GitSafety(untrackedFiles: 2, untrackedSample: ["scripts/.migration-map.json", "scripts/.migration-preview/"]))
+            demo.account = "sample"
+            model.projects = [demo]
+            model.selection = .projects
+            model.projectsTab = .projects
+            model.selectedProjectID = demo.id
+            await pause(1.5)
+            await saveStable(window, "state-untracked-panel", dir)
+            model.pendingUntrackedRemoval = demo
+            await pause(1.5)
+            saveWithSheet(window, "state-untracked-warning", dir)
+            model.pendingUntrackedRemoval = nil
             model.checkForUpdate(manual: true)
             for _ in 0..<20 where model.update == nil && model.updateStatus == nil { await pause(0.5) }
             await pause(1)

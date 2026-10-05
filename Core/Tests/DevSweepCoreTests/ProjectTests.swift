@@ -47,6 +47,11 @@ final class ProjectTests: XCTestCase {
         var s = ProjectScanner.safety(of: work)
         XCTAssertEqual(s.unpushedCommits, 1)
         XCTAssertFalse(s.isSafeToRemove)
+        XCTAssertFalse(s.canRemove, "a tracked change still blocks removal")
+        XCTAssertTrue(GitSafety(untrackedFiles: 2).onlyUntrackedBlocks)
+        XCTAssertTrue(GitSafety(untrackedFiles: 2).canRemove)
+        XCTAssertFalse(GitSafety(unpushedCommits: 1, untrackedFiles: 2).canRemove)
+        XCTAssertFalse(GitSafety(hasRemote: false, untrackedFiles: 2).canRemove)
 
         // Commits on another local branch count too.
         git(work, "checkout", "-q", "-b", "feature")

@@ -104,6 +104,13 @@ public struct GitSafety: Codable, Equatable, Sendable {
         self.untrackedSample = untrackedSample
     }
 
+    /// Everything is on GitHub except files git doesn't track. Removal is allowed
+    /// but needs an explicit warning, because those files can't be downloaded back.
+    public var onlyUntrackedBlocks: Bool { hasRemote && unpushedCommits == 0 && changedFiles == 0 && stashes == 0 && untrackedFiles > 0 }
+
+    /// Can be removed, with or without a warning.
+    public var canRemove: Bool { isSafeToRemove || onlyUntrackedBlocks }
+
     public var isSafeToRemove: Bool { hasRemote && unpushedCommits == 0 && changedFiles == 0 && untrackedFiles == 0 && stashes == 0 }
 }
 
