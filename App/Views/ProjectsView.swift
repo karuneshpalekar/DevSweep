@@ -159,6 +159,7 @@ struct ProjectListTab: View {
 
     private var emptyTitle: String {
         if !model.hasLoadedProjects || model.isLoadingProjects && model.projects.isEmpty { return "Looking…" }
+        if model.githubStatus == nil, model.projectFilter != .onMac { return "Looking…" }
         if !githubReady, model.projectFilter != .onMac { return "GitHub isn't connected" }
         switch model.projectFilter {
         case .onMac: return "No projects found"
@@ -168,6 +169,7 @@ struct ProjectListTab: View {
     }
 
     private var emptyDetail: String {
+        if model.githubStatus == nil, model.projectFilter != .onMac { return "Checking your GitHub accounts." }
         if !githubReady, model.projectFilter != .onMac { return "Connect GitHub above to list your repositories and download them." }
         switch model.projectFilter {
         case .onMac: return "DevSweep looks in the project folders listed in Settings."
@@ -266,6 +268,9 @@ struct ProjectDetail: View {
                          : .warning("\(s.unpushedCommits) commit\(s.unpushedCommits == 1 ? "" : "s") aren't on GitHub yet"))
                 CheckRow(check: s.changedFiles == 0 ? .passed("No uncommitted changes")
                          : .warning("\(s.changedFiles) file\(s.changedFiles == 1 ? " has" : "s have") changes that aren't committed"))
+                CheckRow(check: s.untrackedFiles == 0 ? .passed("No files outside git")
+                         : .warning("\(s.untrackedFiles) file\(s.untrackedFiles == 1 ? " isn't" : "s aren't") in git: "
+                                    + s.untrackedSample.joined(separator: ", ") + (s.untrackedFiles > s.untrackedSample.count ? "…" : "")))
                 CheckRow(check: s.stashes == 0 ? .passed("No stashes")
                          : .warning("\(s.stashes) stash\(s.stashes == 1 ? "" : "es") would be lost"))
                 Text("Compared with GitHub as of this Mac's last fetch.").font(.caption).foregroundStyle(.secondary)
@@ -276,6 +281,8 @@ struct ProjectDetail: View {
             callout("Safe to remove. It stays in this list with a Download button.", color: .green)
         } else if !s.hasRemote {
             callout("Publish it to GitHub first, then it can be removed safely.", color: .orange)
+        } else if s.unpushedCommits == 0 && s.changedFiles == 0 && s.stashes == 0 {
+            callout("Only files that git doesn't track are left. Removing the folder would lose them, so commit them or delete them first.", color: .orange)
         } else {
             callout("Push your work first. Then this project can be removed and downloaded again any time.", color: .orange)
         }

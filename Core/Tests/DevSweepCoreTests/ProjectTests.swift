@@ -57,7 +57,10 @@ final class ProjectTests: XCTestCase {
         try "changed".write(to: work.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
         try "new".write(to: work.appendingPathComponent("untracked.txt"), atomically: true, encoding: .utf8)
         s = ProjectScanner.safety(of: work)
-        XCTAssertEqual(s.changedFiles, 2, "modified and untracked files both count")
+        XCTAssertEqual(s.changedFiles, 1, "only files git already tracks count as changed")
+        XCTAssertEqual(s.untrackedFiles, 1)
+        XCTAssertEqual(s.untrackedSample, ["untracked.txt"])
+        XCTAssertFalse(s.isSafeToRemove)
 
         git(work, "stash", "-q", "--include-untracked")
         s = ProjectScanner.safety(of: work)
@@ -124,6 +127,11 @@ final class ProjectTests: XCTestCase {
         func p(_ id: String) -> Project? { projects.first { $0.nameWithOwner == id } }
 
         XCTAssertEqual(projects.count, 5)
+        XCTAssertEqual(ProjectScanner.merge(local: [clone], remote: remote, state: {
+            var st = ProjectsState()
+            st.known = [.init(nameWithOwner: "oldorg/widget", account: "oldorg")]
+            return st
+        }(), home: root).filter { $0.name.lowercased() == "widget" }.count, 1, "a stale entry under an old owner is dropped when the repo is on this Mac")
         XCTAssertEqual(p("Octo/Widget")?.localPath, "/x/widget", "case-insensitive match to the repo list")
         XCTAssertEqual(p("Octo/Widget")?.status.text, "2 commits not pushed")
         XCTAssertEqual(p("Octo/Widget")?.lastOpened, Date(timeIntervalSince1970: 1_000))

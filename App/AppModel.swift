@@ -705,6 +705,35 @@ final class AppModel {
         let roots = projectScanRoots
         let store = projectStore
         Task {
+            // Stage 1: what's on this Mac. Shown right away on the first load, so
+            // the list isn't empty while GitHub answers.
+            let (local, firstPass) = await Task.detached { () -> ([LocalClone], [Project]) in
+                let local = ProjectScanner.scanLocal(roots: roots)
+                // Remember where each clone lives, so a removed one comes back to the same folder.
+                store.update { s in
+                    for c in local {
+                        guard let slug = c.slug else { continue }
+                        let account = s.known.first { $0.nameWithOwner.lowercased() == slug.lowercased() }?.account
+                            ?? String(slug.split(separator: "/")[0])
+                        let parent = FS_abbreviate(c.path.deletingLastPathComponent().path)
+                        if let i = s.known.firstIndex(where: { $0.nameWithOwner.lowercased() == slug.lowercased() }) {
+                            s.known[i].lastParent = parent
+                        } else {
+                            s.known.append(.init(nameWithOwner: slug, account: account, lastParent: parent))
+                        }
+                    }
+                }
+                let merged = ProjectScanner.merge(local: local, remote: [], state: store.state,
+                                                  home: FileManager.default.homeDirectoryForCurrentUser)
+                return (local, merged)
+            }.value
+            if !useSampleData, !hasLoadedProjects {
+                projects = firstPass
+                projectsState = projectStore.state
+                hasLoadedProjects = true
+            }
+
+            // Stage 2: GitHub accounts and their repositories.
             let result = await Task.detached { () -> ([Project], [GitHubAccount], String?, GitHubClient.Status) in
                 var message: String?
                 var remote: [RemoteRepo] = []
@@ -717,19 +746,11 @@ final class AppModel {
                         catch { message = "Couldn't list \(a.login)'s repositories: \(error.localizedDescription)" }
                     }
                 }
-                let local = ProjectScanner.scanLocal(roots: roots)
-                // Remember where each clone lives, so a removed one comes back to the same folder.
+                // Clones found earlier may belong to an account only GitHub can name.
                 store.update { s in
-                    for c in local {
-                        guard let slug = c.slug else { continue }
-                        let account = remote.first { $0.nameWithOwner.lowercased() == slug.lowercased() }?.account
-                            ?? s.known.first { $0.nameWithOwner.lowercased() == slug.lowercased() }?.account
-                            ?? String(slug.split(separator: "/")[0])
-                        let parent = FS_abbreviate(c.path.deletingLastPathComponent().path)
-                        if let i = s.known.firstIndex(where: { $0.nameWithOwner.lowercased() == slug.lowercased() }) {
-                            s.known[i].lastParent = parent
-                        } else {
-                            s.known.append(.init(nameWithOwner: slug, account: account, lastParent: parent))
+                    for r in remote {
+                        if let i = s.known.firstIndex(where: { $0.nameWithOwner.lowercased() == r.nameWithOwner.lowercased() }) {
+                            s.known[i].account = r.account
                         }
                     }
                 }

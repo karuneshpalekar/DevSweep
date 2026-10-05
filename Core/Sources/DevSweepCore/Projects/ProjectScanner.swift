@@ -21,9 +21,13 @@ public enum ProjectScanner {
         let hasRemote = !origin.isEmpty || !git(dir, "remote").stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let unpushed = Int(git(dir, "rev-list", "--branches", "--not", "--remotes", "--count").stdout
             .trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
-        let changed = git(dir, "status", "--porcelain").stdout.split(separator: "\n").count
+        let lines = git(dir, "status", "--porcelain").stdout.split(separator: "\n")
+        let untracked = lines.filter { $0.hasPrefix("??") }
+        let changed = lines.count - untracked.count
+        let sample = untracked.prefix(5).map { String($0.dropFirst(3)) }
         let stashes = git(dir, "stash", "list").stdout.split(separator: "\n").count
-        return GitSafety(unpushedCommits: hasRemote ? unpushed : 0, changedFiles: changed, stashes: stashes, hasRemote: hasRemote)
+        return GitSafety(unpushedCommits: hasRemote ? unpushed : 0, changedFiles: changed, stashes: stashes, hasRemote: hasRemote,
+                         untrackedFiles: untracked.count, untrackedSample: sample)
     }
 
     // MARK: - Local scan
@@ -83,6 +87,7 @@ public enum ProjectScanner {
                 lastActivity: r.pushedAt, strategy: nil)
             projects[key(r.nameWithOwner)]?.remoteKB = r.diskUsageKB
         }
+        var knownOnly = Set<String>()
         for k in state.known where projects[key(k.nameWithOwner)] == nil {
             let parts = k.nameWithOwner.split(separator: "/").map(String.init)
             guard parts.count == 2 else { continue }
@@ -90,6 +95,7 @@ public enum ProjectScanner {
                             isPrivate: k.isPrivate, onGitHub: true, account: k.account)
             p.remoteKB = k.remoteKB ?? 0
             projects[key(k.nameWithOwner)] = p
+            knownOnly.insert(key(k.nameWithOwner))
         }
         for c in local {
             let attach = { (p: inout Project) in
@@ -116,6 +122,13 @@ public enum ProjectScanner {
                 attach(&p)
                 projects["local:" + c.path.path] = p
             }
+        }
+        // A repo that moved to another owner or org leaves its old name in the
+        // remembered list. If a clone with the same repo name is on this Mac,
+        // the old entry isn't a second project that needs downloading.
+        let onDiskNames = Set(projects.values.filter(\.onDisk).map { $0.name.lowercased() })
+        for k in knownOnly {
+            if let p = projects[k], !p.onDisk, onDiskNames.contains(p.name.lowercased()) { projects[k] = nil }
         }
         return projects.values.map { p in
             var p = p

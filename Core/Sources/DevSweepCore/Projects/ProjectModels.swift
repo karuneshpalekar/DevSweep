@@ -85,19 +85,26 @@ public struct RemoteRepo: Identifiable, Equatable, Sendable {
 public struct GitSafety: Codable, Equatable, Sendable {
     /// Commits on any local branch that exist on no remote branch.
     public var unpushedCommits: Int
-    /// Modified, staged or untracked files.
+    /// Modified or staged files that git already tracks.
     public var changedFiles: Int
     public var stashes: Int
     public var hasRemote: Bool
+    /// Files git doesn't track yet and doesn't ignore. A removed folder takes them along.
+    public var untrackedFiles: Int
+    /// The first few untracked paths, so the panel can name them.
+    public var untrackedSample: [String]
 
-    public init(unpushedCommits: Int = 0, changedFiles: Int = 0, stashes: Int = 0, hasRemote: Bool = true) {
+    public init(unpushedCommits: Int = 0, changedFiles: Int = 0, stashes: Int = 0, hasRemote: Bool = true,
+                untrackedFiles: Int = 0, untrackedSample: [String] = []) {
         self.unpushedCommits = unpushedCommits
         self.changedFiles = changedFiles
         self.stashes = stashes
         self.hasRemote = hasRemote
+        self.untrackedFiles = untrackedFiles
+        self.untrackedSample = untrackedSample
     }
 
-    public var isSafeToRemove: Bool { hasRemote && unpushedCommits == 0 && changedFiles == 0 && stashes == 0 }
+    public var isSafeToRemove: Bool { hasRemote && unpushedCommits == 0 && changedFiles == 0 && untrackedFiles == 0 && stashes == 0 }
 }
 
 /// A git working copy found on this Mac.
@@ -150,6 +157,7 @@ public struct Project: Identifiable, Equatable, Sendable {
         var parts: [String] = []
         if s.unpushedCommits > 0 { parts.append("\(s.unpushedCommits) commit\(s.unpushedCommits == 1 ? "" : "s") not pushed") }
         if s.changedFiles > 0 { parts.append("\(s.changedFiles) changed file\(s.changedFiles == 1 ? "" : "s")") }
+        if s.untrackedFiles > 0 { parts.append("\(s.untrackedFiles) untracked file\(s.untrackedFiles == 1 ? "" : "s")") }
         if s.stashes > 0 && parts.isEmpty { parts.append("\(s.stashes) stash\(s.stashes == 1 ? "" : "es")") }
         return parts.isEmpty ? ("Up to date", .ok) : (parts.joined(separator: " · "), .attention)
     }
