@@ -196,6 +196,8 @@ final class AppModel {
     var isLoadingProjects = false
     var hasLoadedProjects = false
     var projectsMessage: String?
+    /// Folders DevSweep is scanning but macOS won't let it open.
+    var blockedProjectFolders: [String] = []
     var projectsTab: ProjectsTab = .projects
     var idleDays = AppSettings.idleDays
     var projectFilter: ProjectFilter = .onMac
@@ -727,6 +729,8 @@ final class AppModel {
                                                   home: FileManager.default.homeDirectoryForCurrentUser)
                 return (local, merged)
             }.value
+            let blocked = ProjectScanner.unreadableRoots(roots).map { FS_abbreviate($0.path) }
+            if !useSampleData { blockedProjectFolders = blocked }
             if !useSampleData, !hasLoadedProjects {
                 projects = firstPass
                 projectsState = projectStore.state
@@ -938,9 +942,22 @@ final class AppModel {
         projectsState = projectStore.state
     }
 
+    /// The signed-in account whose token and commit identity a project uses. A
+    /// repo owned by an organization (or an account you're not signed in to)
+    /// uses the active signed-in account, since that's the login with access.
+    func credentialAccount(for p: Project) -> String? {
+        if let a = p.account, githubAccounts.contains(where: { $0.login == a }) { return a }
+        return githubAccounts.first(where: { $0.isActive })?.login ?? githubAccounts.first?.login
+    }
+
     func download(_ p: Project, strategy: CloneStrategy, to destination: URL, completion: @escaping (String?) -> Void) {
-        guard let account = p.account ?? githubAccounts.first(where: { $0.isActive })?.login else {
+        guard let account = credentialAccount(for: p) else {
             completion("Sign in to GitHub first: run gh auth login in Terminal."); return
+        }
+        // Never clone into a folder that already has something in it.
+        if let existing = try? FileManager.default.contentsOfDirectory(atPath: destination.path), !existing.isEmpty {
+            completion("A folder with files already exists at \(FS_abbreviate(destination.path)). If this project is already there, DevSweep may not be allowed to read that folder; check Settings, Permissions. Otherwise choose another place.")
+            return
         }
         let identity = projectsState.identities[account]
         busyProjectID = p.id

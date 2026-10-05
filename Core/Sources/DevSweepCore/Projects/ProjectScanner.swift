@@ -32,6 +32,20 @@ public enum ProjectScanner {
 
     // MARK: - Local scan
 
+    /// Scan folders that exist but can't be opened, usually because macOS hasn't
+    /// allowed this app into them (Documents, Desktop, Downloads).
+    public static func unreadableRoots(_ roots: [URL]) -> [URL] {
+        roots.filter { root in
+            do { _ = try FileManager.default.contentsOfDirectory(atPath: root.path); return false }
+            catch {
+                let e = error as NSError
+                if e.code == NSFileReadNoSuchFileError || e.code == NSFileNoSuchFileError { return false }
+                if let posix = (e.userInfo[NSUnderlyingErrorKey] as? NSError), posix.domain == NSPOSIXErrorDomain, posix.code == Int(ENOENT) { return false }
+                return true
+            }
+        }
+    }
+
     /// Finds working copies under `roots`, keyed by the owner/repo in each
     /// clone's `origin`, not by folder name. Duplicate checkouts keep the largest.
     public static func scanLocal(roots: [URL], maxDepth: Int = 4) -> [LocalClone] {

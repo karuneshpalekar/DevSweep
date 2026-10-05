@@ -134,6 +134,18 @@ struct ProjectListTab: View {
                 GitHubSetupCard { model.projectSheet = .addAccount }.padding(14)
                 Divider()
             }
+            if !model.blockedProjectFolders.isEmpty {
+                HStack(spacing: 10) {
+                    Image(systemName: "lock.fill").foregroundStyle(.orange)
+                    Text("macOS isn't letting DevSweep open \(model.blockedProjectFolders.joined(separator: ", ")), so projects there look missing. Allow DevSweep in Privacy & Security, then refresh.")
+                        .font(.callout)
+                    Spacer()
+                    Button("Open Privacy settings") { FullDiskAccess.openSettings() }.controlSize(.small)
+                    Button("Refresh") { model.refreshProjects() }.controlSize(.small)
+                }
+                .padding(.horizontal, 16).padding(.vertical, 8)
+                .background(Color.orange.opacity(0.1))
+            }
             if let message = model.projectsMessage {
                 HStack(spacing: 10) {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)

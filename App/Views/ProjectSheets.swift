@@ -39,7 +39,7 @@ struct CloneSheet: View {
     }
 
     private var identity: GitIdentity? {
-        guard let a = project.account else { return nil }
+        guard let a = model.credentialAccount(for: project) else { return nil }
         let i = model.identity(for: a)
         return (i?.isBlank ?? true) ? nil : i
     }
@@ -111,7 +111,7 @@ struct CloneSheet: View {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("No commit identity saved for \(project.account ?? "this account"), so commits here will use your global Git identity.")
+                    Text("No commit identity saved for \(model.credentialAccount(for: project) ?? "this account"), so commits here will use your global Git identity.")
                         .font(.callout).fixedSize(horizontal: false, vertical: true)
                     Button("Set one in Settings, GitHub") { model.openSettings() }.buttonStyle(.link).font(.callout)
                 }
