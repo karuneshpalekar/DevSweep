@@ -3,82 +3,90 @@
 
     python3 scripts/make-icon.py
 
-Needs Pillow (pip install pillow). A rounded square in macOS's icon shape with
-a disk-usage ring with a grey used part and a cyan freed part.
+Needs Pillow and numpy (pip install pillow numpy). A glowing disk-usage ring on
+a plain dark rounded square: the used part blue to violet, the freed part
+mint, the free part dim lavender.
 """
-import json, math, os
+import json, os
+import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-S = 2048                      # draw big, shrink for smooth edges
-OUT = os.path.join(os.path.dirname(__file__), "..", "App", "Assets.xcassets", "AppIcon.appiconset")
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "App", "Assets.xcassets", "AppIcon.appiconset")
+DOCS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "icon.png")
 
-def lerp(a, b, t): return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+S = 2048
+c = S / 2
+R, TH = S * .31, S * .105
 
-def gradient():
-    top, bottom = (46, 44, 90), (22, 24, 44)
-    img = Image.new("RGB", (S, S))
-    px = img.load()
-    for y in range(S):
-        for x in range(S):
-            px[x, y] = lerp(top, bottom, min(1, (0.5 * y + 0.5 * x) / S))
+yy, xx = np.mgrid[0:S, 0:S]
+ang = (np.degrees(np.arctan2(yy - c, xx - c)) + 90) % 360       # 0 = 12 o'clock, clockwise
+rad = np.hypot(xx - c, yy - c)
+
+def ring_mask(a0, a1, gap=1.2, round_px=S * .0055):
+    inside = (rad <= R) & (rad >= R - TH)
+    arc = (ang >= a0 + gap / 2) & (ang <= a1 - gap / 2)
+    m = Image.fromarray(((inside & arc) * 255).astype(np.uint8))
+    m = m.filter(ImageFilter.GaussianBlur(round_px)).point(lambda v: 255 if v > 140 else 0)   # softly rounded ends
+    return m.filter(ImageFilter.GaussianBlur(1.2))
+
+def conic(stops, a0, a1):
+    t = np.clip((ang - a0) / (a1 - a0), 0, 1)
+    cols = np.array(stops, dtype=float)
+    pos = np.linspace(0, 1, len(stops))
+    out = np.stack([np.interp(t, pos, cols[:, k]) for k in range(3)], axis=-1)
+    return Image.fromarray(out.astype(np.uint8)).convert("RGBA")
+
+def layer(a0, a1, stops, alpha=255):
+    img = conic(stops, a0, a1)
+    m = ring_mask(a0, a1)
+    if alpha != 255: m = m.point(lambda v: int(v * alpha / 255))
+    img.putalpha(m)
     return img
 
-def squircle_mask():
-    body, margin = int(S * 0.805), int(S * 0.0975)
-    m = Image.new("L", (S, S), 0)
-    ImageDraw.Draw(m).rounded_rectangle([margin, margin, margin + body, margin + body], radius=int(body * 0.225), fill=255)
-    return m
+# arcs, degrees clockwise from 12 o'clock
+USED_END, FREED_END = 220, 290          # used 0-220, freed 220-290, free 290-360
+used  = layer(0, USED_END, [(70, 205, 255), (88, 150, 255), (110, 90, 255), (178, 84, 255)])
+freed = layer(USED_END, FREED_END, [(60, 245, 205), (60, 238, 238), (70, 225, 255)])
+free  = layer(FREED_END, 360, [(78, 78, 140), (66, 66, 120)], alpha=170)
+art = Image.alpha_composite(Image.alpha_composite(free, used), freed)
 
-def ring(layer, cx, cy, R, thick, start, end, fill):
-    """A donut slice from `start` to `end` degrees (0 = 3 o'clock, clockwise)."""
-    t = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    ImageDraw.Draw(t).pieslice([cx - R, cy - R, cx + R, cy + R], start, end, fill=fill)
-    hole = Image.new("L", (S, S), 0)
-    ImageDraw.Draw(hole).ellipse([cx - R + thick, cy - R + thick, cx + R - thick, cy + R - thick], fill=255)
-    a = t.split()[3]
-    a = Image.composite(Image.new("L", (S, S), 0), a, hole)
-    t.putalpha(a)
-    return Image.alpha_composite(layer, t)
+def glow(src, radius, strength):
+    g = src.filter(ImageFilter.GaussianBlur(radius))
+    a = g.split()[3].point(lambda v: int(min(255, v * strength)))
+    g.putalpha(a); return g
+base = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+# bland background: one calm dark navy, a whisper of a gradient
+bg = Image.new("RGB", (S, S)); px = bg.load()
+for y in range(S):
+    t = y / S
+    row = (int(18 - 6 * t), int(20 - 6 * t), int(44 - 14 * t))
+    for x in range(S): px[x, y] = row
+bg = bg.convert("RGBA")
+bg = Image.alpha_composite(bg, glow(art, S * .045, 1.0))
+bg = Image.alpha_composite(bg, glow(art, S * .014, .7))
+bg = Image.alpha_composite(bg, art)
+# faint glassy sheen on the ring: a soft white wash on the upper-left of the used arc
+sheen = Image.new("RGBA", (S, S), (255, 255, 255, 0))
+ImageDraw.Draw(sheen).ellipse([c - R, c - R - S * .06, c + R * .1, c + R * .05], fill=(255, 255, 255, 22))
+sm = used.split()[3]
+sheen.putalpha(Image.composite(sheen.split()[3], Image.new("L", (S, S), 0), sm))
+bg = Image.alpha_composite(bg, sheen)
 
-def art():
-    """A disk-usage ring: free (dark), used (grey) and the freed part (cyan)."""
-    layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    cx = cy = S / 2
-    R, th = S * 0.30, S * 0.095
-    layer = ring(layer, cx, cy, R, th, -90, 270, (74, 74, 100, 255))   # whole ring: free
-    layer = ring(layer, cx, cy, R, th, -90, 130, (150, 150, 158, 255))  # used
-    layer = ring(layer, cx, cy, R, th, 130, 200, (36, 214, 224, 255))   # freed
-    return layer
+body, m = int(S * .805), int(S * .0975)
+mask = Image.new("L", (S, S), 0)
+ImageDraw.Draw(mask).rounded_rectangle([m, m, m + body, m + body], radius=int(body * .225), fill=255)
+icon = Image.new("RGBA", (S, S), (0, 0, 0, 0)); icon.paste(bg, (0, 0), mask)
+drop = Image.new("RGBA", (S, S), (0, 0, 0, 0)); drop.putalpha(mask.filter(ImageFilter.GaussianBlur(S * .01)).point(lambda v: int(v * .4)))
+drop = drop.transform(drop.size, Image.AFFINE, (1, 0, 0, 0, 1, -S * .01))
+final = Image.alpha_composite(drop, icon)
 
-def main():
-    base = gradient().convert("RGBA")
-    mask = squircle_mask()
-    # soft top highlight
-    hi = Image.new("RGBA", (S, S), (255, 255, 255, 0))
-    ImageDraw.Draw(hi).ellipse([-S * 0.2, -S * 0.55, S * 1.2, S * 0.45], fill=(255, 255, 255, 0))
-    base = Image.alpha_composite(base, hi)
-    layer = art()
-    shadow = layer.split()[3].filter(ImageFilter.GaussianBlur(S * 0.012)).point(lambda v: int(v * 0.28))
-    sh = Image.new("RGBA", (S, S), (0, 40, 90, 0)); sh.putalpha(shadow)
-    sh = sh.transform(sh.size, Image.AFFINE, (1, 0, 0, 0, 1, -S * 0.008))
-    base = Image.alpha_composite(base, sh)
-    base = Image.alpha_composite(base, layer)
-    icon = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    icon.paste(base, (0, 0), mask)
-    # drop shadow under the whole icon, like system icons
-    drop = Image.new("RGBA", (S, S), (0, 0, 0, 0)); drop.putalpha(mask.filter(ImageFilter.GaussianBlur(S * 0.01)).point(lambda v: int(v * 0.35)))
-    drop = drop.transform(drop.size, Image.AFFINE, (1, 0, 0, 0, 1, -S * 0.01))
-    final = Image.alpha_composite(drop, icon)
-
-    os.makedirs(OUT, exist_ok=True)
-    images = []
-    for pt in (16, 32, 128, 256, 512):
-        for scale in (1, 2):
-            px = pt * scale
-            name = f"icon_{pt}x{pt}{'@2x' if scale == 2 else ''}.png"
-            final.resize((px, px), Image.LANCZOS).save(os.path.join(OUT, name))
-            images.append({"idiom": "mac", "size": f"{pt}x{pt}", "scale": f"{scale}x", "filename": name})
-    json.dump({"images": images, "info": {"version": 1, "author": "xcode"}}, open(os.path.join(OUT, "Contents.json"), "w"), indent=2)
-    final.resize((1024, 1024), Image.LANCZOS).save(os.path.join(os.path.dirname(OUT), "..", "..", "docs", "icon.png"))
-
-main()
+os.makedirs(OUT, exist_ok=True)
+images = []
+for pt in (16, 32, 128, 256, 512):
+    for scale in (1, 2):
+        px = pt * scale
+        name = f"icon_{pt}x{pt}{'@2x' if scale == 2 else ''}.png"
+        final.resize((px, px), Image.LANCZOS).save(os.path.join(OUT, name))
+        images.append({"idiom": "mac", "size": f"{pt}x{pt}", "scale": f"{scale}x", "filename": name})
+json.dump({"images": images, "info": {"version": 1, "author": "xcode"}}, open(os.path.join(OUT, "Contents.json"), "w"), indent=2)
+final.resize((1024, 1024), Image.LANCZOS).save(DOCS)
