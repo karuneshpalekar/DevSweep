@@ -42,6 +42,10 @@ enum ScreenshotTour {
             model.openSettings()
             await pause(2)
             await saveStable(window, "state-settings", dir)
+            model.checkForUpdate(manual: true)
+            for _ in 0..<20 where model.update == nil && model.updateStatus == nil { await pause(0.5) }
+            await pause(1)
+            await saveStable(window, "state-update", dir)
             exit(0)
         }
         // Security and Ports would show where your own secret files are, so

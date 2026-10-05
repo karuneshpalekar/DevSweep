@@ -72,3 +72,8 @@ git tag -a "v$VERSION" -m "DevSweep $VERSION"
 git push origin "v$VERSION"
 gh release create "v$VERSION" "$DMG" "$DMG.sha256" $DRAFT \
   --title "DevSweep $VERSION" --notes-file "$NOTES"
+
+if [ -z "$DRAFT" ]; then
+  echo "==> Updating the Homebrew tap"
+  scripts/update-tap.sh "$VERSION" || echo "warning: tap not updated; run scripts/update-tap.sh $VERSION"
+fi

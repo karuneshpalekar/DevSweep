@@ -70,6 +70,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             GeneralSettings()
+            UpdateSettings()
             ScanSettings()
             GitHubSettings()
             FolderSettings()
@@ -96,6 +97,36 @@ struct GeneralSettings: View {
         }
         .onChange(of: appearance) { _, new in
             (AppearanceMode(rawValue: new) ?? .system).apply()
+        }
+    }
+}
+
+/// The update check and its one setting.
+@MainActor
+struct UpdateSettings: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Section {
+            LabeledContent("Installed", value: "DevSweep \(AppModel.currentVersion)")
+            Toggle("Check for updates automatically", isOn: Binding(
+                get: { model.autoUpdateCheck }, set: { model.setAutoUpdateCheck($0) }))
+            HStack {
+                Button("Check now") { model.checkForUpdate(manual: true) }.disabled(model.isCheckingUpdate)
+                if model.isCheckingUpdate { ProgressView().controlSize(.small) }
+                if let status = model.updateStatus { Text(status).foregroundStyle(.secondary) }
+                Spacer()
+                if model.update != nil {
+                    Button(model.installedViaHomebrew ? "Update with Homebrew" : "Get the update") { model.installUpdate() }
+                        .buttonStyle(.borderedProminent)
+                }
+            }
+        } header: {
+            Text("Updates")
+        } footer: {
+            Text("Asks GitHub for the latest release, about once a day. Nothing about your Mac is sent."
+                 + (model.installedViaHomebrew ? " Installed with Homebrew, so updates run `brew upgrade --cask devsweep`." : ""))
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
@@ -347,7 +378,7 @@ struct PermissionSettings: View {
         } header: {
             Text("Permissions and privacy")
         } footer: {
-            Text("DevSweep never sends anything about your Mac anywhere. The only network request is for public support dates from endoflife.date.")
+            Text("DevSweep never sends anything about your Mac anywhere. The only network requests are for public support dates from endoflife.date and, unless you turn it off in Updates, the latest release from GitHub. Neither sends anything about your Mac.")
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .onAppear { granted = FullDiskAccess.isGranted }

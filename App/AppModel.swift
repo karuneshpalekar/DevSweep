@@ -120,6 +120,21 @@ enum AppSettings {
         set { save(newValue, "scanSchedule") }
     }
 
+    /// Ask GitHub for new releases at launch and then about once a day.
+    static var autoUpdateCheck: Bool {
+        get { defaults.object(forKey: "autoUpdateCheck") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "autoUpdateCheck") }
+    }
+    static var lastUpdateCheck: Date? {
+        get { defaults.object(forKey: "lastUpdateCheck") as? Date }
+        set { defaults.set(newValue, forKey: "lastUpdateCheck") }
+    }
+    /// A version the user chose "Later" for; it isn't announced again.
+    static var skippedUpdate: String? {
+        get { defaults.string(forKey: "skippedUpdate") }
+        set { defaults.set(newValue, forKey: "skippedUpdate") }
+    }
+
     static var alerts: AlertSettings {
         get { load("alertSettings") ?? AlertSettings() }
         set { save(newValue, "alertSettings") }
@@ -195,6 +210,11 @@ final class AppModel {
     var loginState = LoginItem.state
     var notificationsStatus: UNAuthorizationStatus = .notDetermined
     var lastScheduledRun: Date?
+    var update: UpdateInfo?
+    var isCheckingUpdate = false
+    /// Result of the last check, for Settings: "You're up to date", or why it failed.
+    var updateStatus: String?
+    var autoUpdateCheck = AppSettings.autoUpdateCheck
     @ObservationIgnored private var backgroundTask: Task<Void, Never>?
 
     var changes: ScanChanges?
@@ -460,6 +480,73 @@ final class AppModel {
         }
         if let b = v.homebrew { out += b.issues.filter { $0.level != .info }.map { ("homebrew", $0) } }
         return out.sorted { ($0.1.level == .critical ? 0 : 1) < ($1.1.level == .critical ? 0 : 1) }
+    }
+
+    // MARK: - Updates
+
+    static var currentVersion: String {
+        #if DEBUG
+        if let fake = ProcessInfo.processInfo.environment["DEVSWEEP_FAKE_VERSION"] { return fake }
+        #endif
+        return Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+    }
+
+    /// Installed with `brew install --cask`, so Homebrew can update it.
+    var installedViaHomebrew: Bool {
+        ["/opt/homebrew/Caskroom/devsweep", "/usr/local/Caskroom/devsweep"].contains { FileManager.default.fileExists(atPath: $0) }
+    }
+
+    func setAutoUpdateCheck(_ on: Bool) {
+        autoUpdateCheck = on
+        AppSettings.autoUpdateCheck = on
+        if on { checkForUpdate(manual: false) }
+    }
+
+    /// At launch, and then at most once every 20 hours.
+    func checkForUpdateIfDue() {
+        guard autoUpdateCheck, ProcessInfo.processInfo.environment["DEVSWEEP_SHOTS"] == nil else { return }
+        if let last = AppSettings.lastUpdateCheck, Date().timeIntervalSince(last) < 20 * 3600 { return }
+        checkForUpdate(manual: false)
+    }
+
+    func checkForUpdate(manual: Bool) {
+        guard !isCheckingUpdate, !useSampleData else { return }
+        isCheckingUpdate = true
+        if manual { updateStatus = nil }
+        Task {
+            let outcome = await UpdateChecker.check(current: Self.currentVersion)
+            isCheckingUpdate = false
+            switch outcome {
+            case .available(let info):
+                AppSettings.lastUpdateCheck = Date()
+                if manual || AppSettings.skippedUpdate != info.version { update = info }
+                updateStatus = "DevSweep \(info.version) is available."
+            case .upToDate:
+                AppSettings.lastUpdateCheck = Date()
+                update = nil
+                updateStatus = "You're up to date."
+            case .failed(let message):
+                // A quiet failure in the background; only a manual check says why.
+                if manual { updateStatus = message }
+            }
+        }
+    }
+
+    /// Homebrew installs update in Terminal; everyone else gets the release page.
+    func installUpdate() {
+        guard let update else { return }
+        if installedViaHomebrew {
+            runInTerminal(RuntimeStep(kind: .upgrade, title: "Update DevSweep",
+                                      detail: "Updates DevSweep with Homebrew. Quit and reopen DevSweep when it's done.",
+                                      commands: ["brew update && brew upgrade --cask devsweep"]))
+        } else {
+            NSWorkspace.shared.open(update.pageURL)
+        }
+    }
+
+    func skipUpdate() {
+        AppSettings.skippedUpdate = update?.version
+        update = nil
     }
 
     // MARK: - Scheduled scans and alerts

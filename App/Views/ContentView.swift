@@ -56,6 +56,7 @@ struct ContentView: View {
             if model.versions == nil { model.checkVersions() }
             if model.security.isEmpty { model.checkSecurity() }
             if !model.hasLoadedProjects { model.refreshProjects() }
+            model.checkForUpdateIfDue()
         }
     }
 }
@@ -125,6 +126,7 @@ struct SidebarView: View {
         .safeAreaInset(edge: .top, spacing: 0) { diskCard.padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 6) }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
+                updateCard
                 needsYou
                 Text(statusLine)
                     .font(.caption2).foregroundStyle(.secondary)
@@ -260,6 +262,29 @@ struct SidebarView: View {
             .padding(10)
             .background(.background, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(.separator))
+        }
+    }
+
+    @ViewBuilder
+    private var updateCard: some View {
+        if let u = model.update {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.down.circle.fill").foregroundStyle(Color.accentColor)
+                    Text("DevSweep \(u.version) is available").font(.caption.weight(.semibold)).lineLimit(2)
+                }
+                HStack(spacing: 6) {
+                    Button(model.installedViaHomebrew ? "Update" : "Get it") { model.installUpdate() }
+                        .buttonStyle(.borderedProminent).controlSize(.small)
+                    Button("Later") { withAnimation(Motion.swap) { model.skipUpdate() } }
+                        .controlSize(.small)
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.background, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.accentColor.opacity(0.5)))
+            .padding(.bottom, 6)
         }
     }
 

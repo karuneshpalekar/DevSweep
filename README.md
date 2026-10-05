@@ -57,7 +57,13 @@ in Settings. The screenshots below are in light mode.
 - **A hard safety net.** Whatever a rule says, DevSweep refuses to remove
   anything outside your home folder, top-level visible folders, or
   protected folders like `~/Library` and `~/.ssh`.
-- **No AI and no network needed** for scanning and cleaning.
+- **No AI and no network needed** for scanning and cleaning. The only
+  requests are public support dates from endoflife.date and, if you leave it
+  on, one daily check of GitHub for a newer DevSweep. Neither sends anything
+  about your Mac. Turn the update check off in Settings, Updates.
+- **Tells you about updates.** A card appears in the sidebar when a new
+  release is out. Homebrew installs update with one click in Terminal; others
+  open the release page.
 
 ## What it finds (v0.1)
 
@@ -191,10 +197,18 @@ From the command line: `swift run devsweep security` and `swift run devsweep por
 
 ## Install
 
-Download the latest `.dmg` from [Releases](https://github.com/karuneshpalekar/DevSweep/releases),
+**With Homebrew** (opens normally, no Gatekeeper steps):
+
+```bash
+brew install --cask karuneshpalekar/tap/devsweep
+```
+
+Update with `brew upgrade --cask devsweep`.
+
+**Or download** the latest `.dmg` from [Releases](https://github.com/karuneshpalekar/DevSweep/releases),
 open it, and drag DevSweep to Applications.
 
-Releases aren't notarized by Apple (that needs a paid developer account), so
+Downloaded releases aren't notarized by Apple (that needs a paid developer account), so
 macOS asks you to allow DevSweep the first time:
 
 - **macOS 14:** right-click DevSweep in Applications, choose **Open**, then **Open** again.
@@ -278,7 +292,9 @@ Good rules are conservative. If you're not sure something is safe, label it
 
 Write `docs/release-notes/<version>.md`, commit, then run
 `scripts/release.sh <version>`. It builds a Release, packages a DMG with a
-checksum, tags the commit and publishes a GitHub release.
+checksum, tags the commit, publishes a GitHub release and updates the
+Homebrew cask in [karuneshpalekar/homebrew-tap](https://github.com/karuneshpalekar/homebrew-tap)
+(`scripts/update-tap.sh <version>` does that step on its own).
 
 Builds are ad-hoc signed. If a **Developer ID Application** certificate and
 notary credentials (`xcrun notarytool store-credentials devsweep ...`) are
