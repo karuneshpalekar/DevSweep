@@ -3,9 +3,9 @@
 
     python3 scripts/make-icon.py
 
-Needs Pillow and numpy (pip install pillow numpy). A glowing disk-usage ring on
-a plain dark rounded square: the used part blue to violet, the freed part
-mint, the free part dim lavender.
+Needs Pillow and numpy (pip install pillow numpy). A disk-usage ring on a white
+rounded square: the used part blue to violet, the freed part mint, the free part
+pale lavender, with a soft coloured shadow.
 """
 import json, os
 import numpy as np
@@ -45,9 +45,9 @@ def layer(a0, a1, stops, alpha=255):
 
 # arcs, degrees clockwise from 12 o'clock
 USED_END, FREED_END = 220, 290          # used 0-220, freed 220-290, free 290-360
-used  = layer(0, USED_END, [(70, 205, 255), (88, 150, 255), (110, 90, 255), (178, 84, 255)])
-freed = layer(USED_END, FREED_END, [(60, 245, 205), (60, 238, 238), (70, 225, 255)])
-free  = layer(FREED_END, 360, [(78, 78, 140), (66, 66, 120)], alpha=170)
+used  = layer(0, USED_END, [(0, 170, 250), (40, 120, 255), (88, 70, 245), (150, 60, 235)])
+freed = layer(USED_END, FREED_END, [(0, 214, 168), (0, 206, 200), (0, 192, 226)])
+free  = layer(FREED_END, 360, [(206, 208, 232), (198, 200, 226)], alpha=255)
 art = Image.alpha_composite(Image.alpha_composite(free, used), freed)
 
 def glow(src, radius, strength):
@@ -59,15 +59,14 @@ base = Image.new("RGBA", (S, S), (0, 0, 0, 0))
 bg = Image.new("RGB", (S, S)); px = bg.load()
 for y in range(S):
     t = y / S
-    row = (int(18 - 6 * t), int(20 - 6 * t), int(44 - 14 * t))
+    row = (int(255 - 9 * t), int(255 - 9 * t), int(255 - 5 * t))
     for x in range(S): px[x, y] = row
 bg = bg.convert("RGBA")
-bg = Image.alpha_composite(bg, glow(art, S * .045, 1.0))
-bg = Image.alpha_composite(bg, glow(art, S * .014, .7))
+sh = glow(art, S * .03, .55); sh = sh.transform(sh.size, Image.AFFINE, (1, 0, 0, 0, 1, -S * .018)); bg = Image.alpha_composite(bg, sh)
 bg = Image.alpha_composite(bg, art)
 # faint glassy sheen on the ring: a soft white wash on the upper-left of the used arc
 sheen = Image.new("RGBA", (S, S), (255, 255, 255, 0))
-ImageDraw.Draw(sheen).ellipse([c - R, c - R - S * .06, c + R * .1, c + R * .05], fill=(255, 255, 255, 22))
+ImageDraw.Draw(sheen).ellipse([c - R, c - R - S * .06, c + R * .1, c + R * .05], fill=(255, 255, 255, 38))
 sm = used.split()[3]
 sheen.putalpha(Image.composite(sheen.split()[3], Image.new("L", (S, S), 0), sm))
 bg = Image.alpha_composite(bg, sheen)
@@ -76,9 +75,12 @@ body, m = int(S * .805), int(S * .0975)
 mask = Image.new("L", (S, S), 0)
 ImageDraw.Draw(mask).rounded_rectangle([m, m, m + body, m + body], radius=int(body * .225), fill=255)
 icon = Image.new("RGBA", (S, S), (0, 0, 0, 0)); icon.paste(bg, (0, 0), mask)
-drop = Image.new("RGBA", (S, S), (0, 0, 0, 0)); drop.putalpha(mask.filter(ImageFilter.GaussianBlur(S * .01)).point(lambda v: int(v * .4)))
+drop = Image.new("RGBA", (S, S), (0, 0, 0, 0)); drop.putalpha(mask.filter(ImageFilter.GaussianBlur(S * .01)).point(lambda v: int(v * .28)))
 drop = drop.transform(drop.size, Image.AFFINE, (1, 0, 0, 0, 1, -S * .01))
 final = Image.alpha_composite(drop, icon)
+edge = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+ImageDraw.Draw(edge).rounded_rectangle([m, m, m + body, m + body], radius=int(body * .225), outline=(0, 0, 0, 34), width=6)
+final = Image.alpha_composite(final, edge)
 
 os.makedirs(OUT, exist_ok=True)
 images = []
