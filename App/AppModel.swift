@@ -205,6 +205,8 @@ final class AppModel {
     var selectedProjectID: String?
     var projectSheet: ProjectSheet?
     var busyProjectID: String?
+    /// Projects being moved to the Trash right now; their rows say "Removing…".
+    var removingProjectIDs: Set<String> = []
     var projectsState = ProjectsState()
 
     var schedule = AppSettings.schedule
@@ -701,8 +703,13 @@ final class AppModel {
         return FS_uniqueDirectories(paths, home: home)
     }
 
+    /// A refresh asked for while another is running; it runs right after, so a
+    /// change made mid-refresh (a removal) is never overwritten by stale results.
+    @ObservationIgnored private var refreshQueued = false
+
     func refreshProjects() {
-        guard !isLoadingProjects, !useSampleData else { return }
+        guard !useSampleData else { return }
+        guard !isLoadingProjects else { refreshQueued = true; return }
         isLoadingProjects = true
         let roots = projectScanRoots
         let store = projectStore
@@ -771,6 +778,7 @@ final class AppModel {
             projectsState = projectStore.state
             hasLoadedProjects = true
             isLoadingProjects = false
+            if refreshQueued { refreshQueued = false; refreshProjects(); return }
             if let id = selectedProjectID, !projects.contains(where: { $0.id == id }) { selectedProjectID = nil }
         }
     }
@@ -863,6 +871,18 @@ final class AppModel {
     /// A project with work that exists nowhere else. Removing it asks first, every time.
     var pendingRiskyRemoval: Project?
 
+    /// Takes projects off this Mac in the list right away, without waiting for
+    /// the slow full refresh. They stay listed as downloadable from GitHub.
+    private func markRemoved(_ ids: [String]) {
+        for i in projects.indices where ids.contains(projects[i].id) {
+            projects[i].localPath = nil
+            projects[i].localSize = 0
+            projects[i].safety = nil
+        }
+        // A clone that only existed locally has nothing to download again.
+        projects.removeAll { ids.contains($0.id) && !$0.onGitHub }
+    }
+
     func removeFromMac(_ p: Project) {
         guard let path = p.localPath else { return }
         let finding = Finding(id: "project:" + p.id, ruleID: "projects", title: p.nameWithOwner, subtitle: path, category: .projects,
@@ -871,15 +891,20 @@ final class AppModel {
                                                        undo: "Download it again from Projects, or restore it from History."),
                               checks: [], actions: [CleanAction(kind: .trash)], blockingApps: [], blockers: [])
         busyProjectID = p.id
+        removingProjectIDs.insert(p.id)
+        selectedProjectID = nil
         let history = self.history
         Task {
             let results = await Task.detached { Cleaner(history: history).run([PlannedAction(finding: finding, action: CleanAction(kind: .trash))]) }.value
             if let r = results.first, !r.succeeded { errorMessage = r.message }
-            else { logProject(.remove, p.nameWithOwner, "Freed \(SizeFormat.string(p.localSize)). In the Trash; restore from History.") }
+            else {
+                markRemoved([p.id])
+                logProject(.remove, p.nameWithOwner, "Freed \(SizeFormat.string(p.localSize)). In the Trash; restore from History.")
+            }
+            removingProjectIDs.remove(p.id)
             historyEntries = history.entries
             disk = DiskInfo.current()
             busyProjectID = nil
-            selectedProjectID = nil
             refreshProjects()
         }
     }
@@ -898,14 +923,19 @@ final class AppModel {
         }
         let history = self.history
         busyProjectID = "all"
+        let ids = list.map(\.id)
+        removingProjectIDs.formUnion(ids)
         Task {
             let results = await Task.detached {
                 Cleaner(history: history).run(findings.map { PlannedAction(finding: $0, action: CleanAction(kind: .trash)) })
             }.value
             if let bad = results.first(where: { !$0.succeeded }) { errorMessage = bad.message }
+            let done = results.filter(\.succeeded).map { $0.finding.id.replacingOccurrences(of: "project:", with: "") }
+            markRemoved(done)
             for r in results where r.succeeded {
                 logProject(.remove, r.finding.title, "Freed \(SizeFormat.string(r.freed)). In the Trash; restore from History.")
             }
+            removingProjectIDs.subtract(ids)
             historyEntries = history.entries
             disk = DiskInfo.current()
             busyProjectID = nil

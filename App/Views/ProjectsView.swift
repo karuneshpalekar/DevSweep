@@ -203,7 +203,9 @@ struct ProjectListTab: View {
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             }
             Spacer(minLength: 8)
-            if model.busyProjectID == p.id || model.busyProjectID == "all" {
+            if model.removingProjectIDs.contains(p.id) {
+                HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Removing…").font(.caption).foregroundStyle(.secondary) }
+            } else if model.busyProjectID == p.id || model.busyProjectID == "all" {
                 ProgressView().controlSize(.small)
             } else if !p.onDisk {
                 Button("Download") { model.projectSheet = .clone(p.id) }.controlSize(.small)

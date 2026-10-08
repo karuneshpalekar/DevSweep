@@ -56,6 +56,11 @@ enum ScreenshotTour {
             await pause(1.5)
             saveWithSheet(window, "state-untracked-warning", dir)
             model.pendingRiskyRemoval = nil
+            model.removingProjectIDs = [demo.id]
+            model.selectedProjectID = nil
+            await pause(1)
+            await saveStable(window, "state-removing", dir)
+            model.removingProjectIDs = []
             model.checkForUpdate(manual: true)
             for _ in 0..<20 where model.update == nil && model.updateStatus == nil { await pause(0.5) }
             await pause(1)
