@@ -2,8 +2,17 @@
 
 # DevSweep
 
-A Mac app that finds what's safe to clean on a developer's machine, and
-explains every item before you touch it.
+**A disk cleaner for developer Macs that explains every item before it goes.**
+
+```bash
+brew install --cask karuneshpalekar/tap/devsweep
+```
+
+Or download the `.dmg` from [Releases](https://github.com/karuneshpalekar/DevSweep/releases/latest). macOS 14 or later, free and open source (MIT).
+
+<p align="center">
+  <img alt="DevSweep walkthrough: scan, explain, review, projects, health" src="docs/demo.gif" width="90%">
+</p>
 
 Developer Macs fill up with things no general cleaner understands: Android
 system images no emulator uses, Kotlin/Native compilers from projects you
@@ -11,6 +20,11 @@ finished a year ago, simulator runtimes, settings from three Android Studio
 versions back, npm and Gradle caches, and files from apps you removed long
 ago. DevSweep finds them, tells you what each one is, what was checked, and
 exactly what happens if you remove it.
+
+- **Explains everything.** Every item has a panel: what it is, what was checked on your Mac, what you won't lose, and how to undo it.
+- **Reversible.** Things that matter go to the Trash and can be restored from History. Nothing is cleaned without a review step.
+- **Built for developers.** Caches, old IDE and SDK versions, Docker, simulators, project dependencies, secrets in plain text, open ports, and end-of-life tools.
+- **Private.** No account, no telemetry. The only network requests are public support dates and a daily check for a new release (you can turn it off).
 
 <p align="center">
   <img alt="DevSweep Home in light mode" src="docs/screenshots/home-light.png" width="49%">
