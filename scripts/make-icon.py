@@ -5,7 +5,7 @@
 
 Needs Pillow and numpy (pip install pillow numpy). A disk-usage ring on a white
 rounded square: the used part blue to violet, the freed part mint, the free part
-pale lavender, with a soft coloured shadow.
+pale lavender, with a slate border and a drop shadow so it stands out beside other white icons.
 """
 import json, os
 import numpy as np
@@ -75,11 +75,11 @@ body, m = int(S * .805), int(S * .0975)
 mask = Image.new("L", (S, S), 0)
 ImageDraw.Draw(mask).rounded_rectangle([m, m, m + body, m + body], radius=int(body * .225), fill=255)
 icon = Image.new("RGBA", (S, S), (0, 0, 0, 0)); icon.paste(bg, (0, 0), mask)
-drop = Image.new("RGBA", (S, S), (0, 0, 0, 0)); drop.putalpha(mask.filter(ImageFilter.GaussianBlur(S * .01)).point(lambda v: int(v * .28)))
-drop = drop.transform(drop.size, Image.AFFINE, (1, 0, 0, 0, 1, -S * .01))
+drop = Image.new("RGBA", (S, S), (0, 0, 0, 0)); drop.putalpha(mask.filter(ImageFilter.GaussianBlur(S * .018)).point(lambda v: int(v * .6)))
+drop = drop.transform(drop.size, Image.AFFINE, (1, 0, 0, 0, 1, -S * .022))
 final = Image.alpha_composite(drop, icon)
 edge = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-ImageDraw.Draw(edge).rounded_rectangle([m, m, m + body, m + body], radius=int(body * .225), outline=(0, 0, 0, 34), width=6)
+ImageDraw.Draw(edge).rounded_rectangle([m, m, m + body, m + body], radius=int(body * .225), outline=(70, 76, 128, 150), width=20)
 final = Image.alpha_composite(final, edge)
 
 os.makedirs(OUT, exist_ok=True)
