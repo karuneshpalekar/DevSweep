@@ -292,8 +292,29 @@ final class AppModel {
     func closeExplanation() { inspectedID = nil }
 
     var checkedFindings: [Finding] { findings.filter { checked.contains($0.id) } }
-    var checkedSize: Int64 { checkedFindings.reduce(0) { $0 + $1.size } }
-    var plan: [PlannedAction] { checkedFindings.map { PlannedAction(finding: $0, action: action(for: $0)) } }
+    /// What actually gets cleaned: checked items, minus any parts (browser
+    /// profiles) unticked in Review. An item with every part unticked drops out.
+    var plan: [PlannedAction] {
+        checkedFindings.compactMap { f in
+            f.restricted(excluding: excludedParts[f.id] ?? []).map { PlannedAction(finding: $0, action: action(for: f)) }
+        }
+    }
+    var checkedSize: Int64 { plan.reduce(0) { $0 + $1.finding.size } }
+
+    /// Parts unticked in Review, by finding. Everything starts ticked.
+    var excludedParts: [String: Set<String>] = [:]
+
+    func isPartIncluded(_ part: FindingPart, in f: Finding) -> Bool { !(excludedParts[f.id]?.contains(part.path) ?? false) }
+
+    func setPart(_ part: FindingPart, of f: Finding, included: Bool) {
+        var set = excludedParts[f.id] ?? []
+        if included { set.remove(part.path) } else { set.insert(part.path) }
+        excludedParts[f.id] = set.isEmpty ? nil : set
+    }
+
+    func setAllParts(of f: Finding, included: Bool) {
+        excludedParts[f.id] = included ? nil : Set((f.parts ?? []).map(\.path))
+    }
 
     // MARK: - Scanning
 
@@ -330,6 +351,11 @@ final class AppModel {
             snapshots.record(findings, diskFree: disk?.free)
             let ids = Set(findings.map(\.id))
             checked = checked.intersection(ids)
+            // Keep unticked parts only for parts that still exist.
+            excludedParts = excludedParts.compactMapValues { set in
+                let left = set.filter { p in findings.contains { $0.paths.contains(p) } }
+                return left.isEmpty ? nil : left
+            }
             if let i = inspectedID, !ids.contains(i) { inspectedID = nil }
             isScanning = false
             #if DEBUG

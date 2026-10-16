@@ -119,6 +119,39 @@ enum ScreenshotTour {
         model.schedule = ScanSchedule(enabled: true, frequency: .weekly, weekday: 2, hour: 9)
         model.lastScheduledRun = Date()
         model.useSampleData = true
+        // Browser cache profiles name real people and Google accounts; the
+        // README shows made-up ones instead.
+        let sampleProfiles = ["Personal", "Work", "Side project", "Client", "Testing", "Music", "Shopping", "School"]
+        model.findings = model.findings.map { f in
+            guard var parts = f.parts else { return f }
+            var f = f
+            for k in parts.indices {
+                let name = k < sampleProfiles.count ? sampleProfiles[k] : "Profile \(k + 1)"
+                parts[k].title = name
+                parts[k].subtitle = "\(name.lowercased().replacingOccurrences(of: " ", with: ""))@example.com · used \(k + 2) days ago"
+            }
+            f.parts = parts
+            return f
+        }
+        if ProcessInfo.processInfo.environment["DEVSWEEP_PARTS"] != nil, let chrome = model.findings.first(where: { $0.parts != nil }) {
+            AppearanceMode.light.apply()
+            model.selection = .cleanUp
+            model.inspectedID = chrome.id
+            await pause(1.5)
+            await saveStable(window, "parts-panel", dir)
+            model.inspectedID = nil
+            model.checked = [chrome.id]
+            if let ps = chrome.parts, ps.count > 2 { model.setPart(ps[1], of: chrome, included: false); model.setPart(ps[2], of: chrome, included: false) }
+            model.showReview = true
+            await pause(1.5)
+            saveWithSheet(window, "parts-review", dir)
+            print("plan:", model.plan.map { "\($0.finding.title) \($0.finding.paths.count) paths \(SizeFormat.string($0.finding.size))" })
+            model.setAllParts(of: chrome, included: false)
+            await pause(1)
+            saveWithSheet(window, "parts-review-none", dir)
+            print("plan after none:", model.plan.count)
+            exit(0)
+        }
         let panelItem = model.findings.first { $0.ruleID == "chrome-cache" } ?? model.findings.first
         let reviewIDs = pickReviewItems(model.findings)
 

@@ -187,4 +187,59 @@ extension Detectors {
             )
         }
     }
+
+    // MARK: - Browser cache, per profile
+
+    /// One item per profile folder in a Chromium browser's cache, named the way
+    /// the browser names it. Two profiles can share a name ("Karunesh"), so the
+    /// subtitle adds the folder, the account and when it was last used.
+    static func browserProfileCaches(_ rule: Rule, _ ctx: ScanContext) -> [Candidate] {
+        let spec = rule.detector
+        guard let cacheRoot = spec.cacheRoot else { return [] }
+        let browser = spec.browser ?? "Browser"
+        let caches = FS.expand(cacheRoot, home: ctx.home)
+        var info: [String: [String: Any]] = [:]
+        var lastUsedDir: String?
+        if let root = spec.profileRoot,
+           let data = try? Data(contentsOf: FS.expand(root, home: ctx.home).appendingPathComponent("Local State")),
+           let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let profile = state["profile"] as? [String: Any] {
+            info = profile["info_cache"] as? [String: [String: Any]] ?? [:]
+            lastUsedDir = profile["last_used"] as? String
+        }
+        let names = info.compactMapValues { $0["name"] as? String }
+        let nameCounts = Dictionary(grouping: names.values, by: { $0 }).mapValues(\.count)
+
+        let dirs = FS.children(caches).filter { FS.isDirectory($0) }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        guard !dirs.isEmpty else { return [] }
+        let parts: [(title: String, subtitle: String)] = dirs.map { dir in
+            let folder = dir.lastPathComponent
+            let p = info[folder]
+            let name: String
+            switch folder {
+            case "Guest Profile": name = "Guest"
+            case "System Profile": name = "System"
+            default: name = names[folder] ?? folder
+            }
+            let account = (p?["user_name"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            let active = (p?["active_time"] as? Double).map { Date(timeIntervalSince1970: $0) }
+            let ago = active.map { RelativeDateTimeFormatter().localizedString(for: $0, relativeTo: Date()) }
+            var bits: [String] = []
+            if (nameCounts[name] ?? 0) > 1 || names[folder] == nil { bits.append(folder) }
+            if let account { bits.append(account) }
+            if folder == lastUsedDir { bits.append("the profile \(browser) opens with") }
+            else if let ago { bits.append("used \(ago)") }
+            return (name, bits.joined(separator: " · "))
+        }
+        let n = dirs.count
+        return [Candidate(
+            key: "profiles", paths: dirs,
+            title: "\(browser) cache",
+            subtitle: "\(n) profile\(n == 1 ? "" : "s") · choose which in Review",
+            facts: ["browser": browser, "count": String(n)],
+            checks: [.passed("Only cache folders. Every profile's logins, bookmarks and history stay."),
+                     .passed("Each profile can be left out in Review")],
+            parts: parts, partKind: "profiles"
+        )]
+    }
 }

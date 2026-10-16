@@ -18,6 +18,7 @@ enum Detectors {
         case .iosBackups: return iosBackups(rule, ctx)
         case .timeMachineSnapshots: return timeMachineSnapshots(rule, ctx)
         case .chromeProfiles: return chromeProfiles(rule, ctx)
+        case .browserProfileCaches: return browserProfileCaches(rule, ctx)
         }
     }
 

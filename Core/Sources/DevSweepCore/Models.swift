@@ -180,16 +180,48 @@ public struct Finding: Identifiable, Hashable, Codable, Sendable {
     public var blockingApps: [String]
     /// Process names/patterns to re-check right before cleaning.
     public var blockers: [String]
+    /// Pieces that can be chosen one by one in Review, such as each browser
+    /// profile's cache. Nil for an item that is cleaned as a whole.
+    public var parts: [FindingPart]?
 
     public var defaultAction: CleanAction? { actions.first }
 
     public init(id: String, ruleID: String, title: String, subtitle: String, category: Category, risk: Risk,
                 paths: [String], size: Int64, explanation: Explanation, checks: [Check], actions: [CleanAction],
-                blockingApps: [String], blockers: [String]) {
+                blockingApps: [String], blockers: [String], parts: [FindingPart]? = nil) {
         self.id = id; self.ruleID = ruleID; self.title = title; self.subtitle = subtitle
         self.category = category; self.risk = risk; self.paths = paths; self.size = size
         self.explanation = explanation; self.checks = checks; self.actions = actions
-        self.blockingApps = blockingApps; self.blockers = blockers
+        self.blockingApps = blockingApps; self.blockers = blockers; self.parts = parts
+    }
+
+    /// The same item limited to the parts not left out, with its size and
+    /// title to match ("Chrome cache · 3 of 13 profiles"). Nil when every part is left out.
+    public func restricted(excluding excluded: Set<String>) -> Finding? {
+        guard let parts, !excluded.isEmpty else { return self }
+        let kept = parts.filter { !excluded.contains($0.path) }
+        guard !kept.isEmpty else { return nil }
+        var f = self
+        f.parts = kept
+        f.paths = kept.map(\.path)
+        f.size = kept.reduce(0) { $0 + $1.size }
+        if kept.count < parts.count { f.title = "\(title) · \(kept.count) of \(parts.count) \(parts.first?.kind ?? "parts")" }
+        return f
+    }
+}
+
+/// One choosable piece of a finding.
+public struct FindingPart: Identifiable, Hashable, Codable, Sendable {
+    public var id: String { path }
+    public var path: String
+    public var title: String
+    public var subtitle: String
+    public var size: Int64
+    /// What the pieces are called, plural ("profiles").
+    public var kind: String
+
+    public init(path: String, title: String, subtitle: String, size: Int64, kind: String) {
+        self.path = path; self.title = title; self.subtitle = subtitle; self.size = size; self.kind = kind
     }
 }
 

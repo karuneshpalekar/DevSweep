@@ -76,6 +76,17 @@ enum FS {
         return (total, files, true)
     }
 
+    /// Each folder's own size, measured side by side.
+    static func measureEach(_ urls: [URL], until deadline: Date?) -> (sizes: [Int64], files: Int, complete: Bool) {
+        let lock = NSLock()
+        var each = [Int64](repeating: 0, count: urls.count), files = 0, complete = true
+        DispatchQueue.concurrentPerform(iterations: urls.count) { k in
+            let m = measure(urls[k], until: deadline)
+            lock.lock(); each[k] = m.bytes; files += m.files; complete = complete && m.complete; lock.unlock()
+        }
+        return (each, files, complete)
+    }
+
     /// Several folders measured side by side (an app's 13 browser profiles, say).
     static func measure(_ urls: [URL], until deadline: Date?) -> (bytes: Int64, files: Int, complete: Bool) {
         if urls.count == 1 { return measure(urls[0], until: deadline) }

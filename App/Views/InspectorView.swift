@@ -19,6 +19,24 @@ struct InspectorView: View {
                         ForEach(finding.checks, id: \.self) { CheckRow(check: $0) }
                     }
                 }
+                if let parts = finding.parts, !parts.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        heading("\(parts.count) \(parts.first?.kind ?? "parts")".capitalized)
+                        ForEach(parts) { p in
+                            HStack(alignment: .firstTextBaseline) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(p.title)
+                                    if !p.subtitle.isEmpty {
+                                        Text(p.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                                    }
+                                }
+                                Spacer()
+                                SizeText(bytes: p.size).foregroundStyle(.secondary)
+                            }
+                        }
+                        Text("All are selected. Untick any you want to keep in Review.").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
                 section("If you clean it", finding.explanation.ifDeleted)
                 if let s = finding.explanation.wontLose { section("You won't lose", s) }
                 if let s = finding.explanation.before { section("Before you do", s) }

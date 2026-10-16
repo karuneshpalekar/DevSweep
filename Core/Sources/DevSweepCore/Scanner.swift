@@ -12,6 +12,10 @@ struct Candidate: Sendable {
     var checks: [Check] = []
     var actions: [CleanAction]? = nil
     var risk: Risk? = nil
+    /// Choosable pieces, one per path in the same order (title, subtitle).
+    var parts: [(title: String, subtitle: String)]? = nil
+    /// What the pieces are called, plural ("profiles").
+    var partKind: String? = nil
 }
 
 /// Facts about the machine that several detectors need, gathered once.
@@ -190,7 +194,7 @@ public final class Scanner {
         }
         let meter = Measuring()
         progress?(ScanProgress(phase: .measuring, done: 0, total: work.count, oldestStart: measureStart))
-        struct Measured: Sendable { var bytes: Int64; var files: Int; var complete: Bool; var seconds: Double }
+        struct Measured: Sendable { var bytes: Int64; var files: Int; var complete: Bool; var seconds: Double; var perPath: [Int64] = [] }
         var measured = [Measured](repeating: Measured(bytes: 0, files: 0, complete: true, seconds: 0), count: work.count)
         let items = work
         await withTaskGroup(of: (Int, Measured).self) { group in
@@ -201,10 +205,17 @@ public final class Scanner {
                     meter.start(i, item.2.title ?? item.1.displayTitle)
                     let snap = meter.snapshot()
                     progress?(ScanProgress(phase: .measuring, done: snap.0, total: items.count, running: snap.1, oldestStart: snap.2))
-                    let r = await Task.detached { FS.measure(item.2.paths, until: t0.addingTimeInterval(measureTimeout)) }.value
+                    let deadline = t0.addingTimeInterval(measureTimeout)
+                    let hasParts = item.2.parts != nil
+                    let r = await Task.detached { () -> (bytes: Int64, files: Int, complete: Bool, perPath: [Int64]) in
+                        guard hasParts else { let m = FS.measure(item.2.paths, until: deadline); return (m.bytes, m.files, m.complete, []) }
+                        // Each part needs its own size for the Review checkboxes.
+                        let m = FS.measureEach(item.2.paths, until: deadline)
+                        return (m.sizes.reduce(0, +), m.files, m.complete, m.sizes)
+                    }.value
                     let after = meter.finish(i)
                     progress?(ScanProgress(phase: .measuring, done: after.0, total: items.count, running: after.1, oldestStart: after.2))
-                    return (i, Measured(bytes: r.bytes, files: r.files, complete: r.complete, seconds: Date().timeIntervalSince(t0)))
+                    return (i, Measured(bytes: r.bytes, files: r.files, complete: r.complete, seconds: Date().timeIntervalSince(t0), perPath: r.perPath))
                 }
             }
             for await (i, m) in group { measured[i] = m }
@@ -225,7 +236,14 @@ public final class Scanner {
             if size < minBytes { continue }
             let id = "\(rule.id):\(c.key)"
             if ignored.contains(id) { continue }
-            findings.append(makeFinding(rule: rule, candidate: c, size: size, id: id))
+            var finding = makeFinding(rule: rule, candidate: c, size: size, id: id)
+            if let parts = c.parts, parts.count == c.paths.count, measured[i].perPath.count == c.paths.count {
+                finding.parts = zip(c.paths, zip(parts, measured[i].perPath)).map { url, pair in
+                    FindingPart(path: url.path, title: pair.0.title, subtitle: pair.0.subtitle, size: pair.1, kind: c.partKind ?? "parts")
+                }.sorted { $0.size > $1.size }
+                finding.paths = finding.parts?.map(\.path) ?? finding.paths
+            }
+            findings.append(finding)
             if checks[ruleIndex]?.outcome != .timedOut {
                 checks[ruleIndex]?.found += 1
                 checks[ruleIndex]?.outcome = .found

@@ -104,6 +104,58 @@ final class Phase3Tests: XCTestCase {
         XCTAssertEqual(Detectors.timeMachineSnapshotNames(text).count, 2)
     }
 
+    // MARK: - Browser cache per profile
+
+    func testChromeCacheIsOneItemWithAPartPerProfile() async throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("devsweep-chrome-\(UUID().uuidString)")
+        addTeardownBlock { try? FileManager.default.removeItem(at: home) }
+        let caches = home.appendingPathComponent("Library/Caches/Google/Chrome")
+        for d in ["Default", "Profile 3", "Profile 7", "Guest Profile"] {
+            try FileManager.default.createDirectory(at: caches.appendingPathComponent(d + "/Cache"), withIntermediateDirectories: true)
+        }
+        let profiles = home.appendingPathComponent("Library/Application Support/Google/Chrome")
+        try FileManager.default.createDirectory(at: profiles, withIntermediateDirectories: true)
+        let state = #"{"profile":{"last_used":"Default","info_cache":{"Default":{"name":"Karunesh","user_name":"me@example.com","active_time":1792158369},"Profile 3":{"name":"Work","user_name":"","active_time":1700000000},"Profile 7":{"name":"Karunesh","user_name":"other@example.com","active_time":1791000000}}}}"#
+        try Data(state.utf8).write(to: profiles.appendingPathComponent("Local State"))
+
+        var spec = DetectorSpec(kind: .browserProfileCaches)
+        spec.browser = "Chrome"; spec.cacheRoot = "~/Library/Caches/Google/Chrome"; spec.profileRoot = "~/Library/Application Support/Google/Chrome"
+        let r = Rule(id: "chrome-cache", title: "Chrome cache", category: .browsers, risk: .rebuilds, detector: spec,
+                     explain: Explanation(what: "", why: "", ifDeleted: ""), actions: [CleanAction(kind: .delete)])
+        let found = Detectors.browserProfileCaches(r, ScanContext(home: home))
+        XCTAssertEqual(found.count, 1, "one item for the browser")
+        let c = try XCTUnwrap(found.first)
+        XCTAssertEqual(c.title, "Chrome cache")
+        XCTAssertEqual(c.paths.count, 4)
+        let parts = try XCTUnwrap(c.parts)
+        let byFolder = Dictionary(uniqueKeysWithValues: zip(c.paths.map(\.lastPathComponent), parts).map { ($0, $1) })
+        XCTAssertEqual(byFolder["Profile 3"]?.title, "Work")
+        XCTAssertEqual(byFolder["Guest Profile"]?.title, "Guest")
+        XCTAssertTrue(byFolder["Default"]?.subtitle.contains("Default") == true, "two profiles named Karunesh show their folder")
+        XCTAssertTrue(byFolder["Default"]?.subtitle.contains("the profile Chrome opens with") == true)
+        XCTAssertTrue(byFolder["Profile 7"]?.subtitle.contains("other@example.com") == true)
+        XCTAssertFalse(byFolder["Profile 3"]?.subtitle.contains("Profile 3") == true, "a unique name needs no folder")
+
+        // Through the scanner: each profile gets its own measured size.
+        try Data(repeating: 1, count: 3_000_000).write(to: caches.appendingPathComponent("Profile 3/Cache/data"))
+        try Data(repeating: 1, count: 1_000_000).write(to: caches.appendingPathComponent("Default/Cache/data"))
+        var rr = r; rr.minSizeMB = 1
+        let result = await Scanner(rules: [rr], context: ScanContext(home: home)).scan()
+        let f = try XCTUnwrap(result.findings.first)
+        let fp = try XCTUnwrap(f.parts)
+        XCTAssertEqual(fp.first?.title, "Work", "parts are sorted biggest first")
+        XCTAssertEqual(fp.reduce(0) { $0 + $1.size }, f.size)
+        XCTAssertGreaterThan(fp.first?.size ?? 0, 2_900_000)
+
+        // Leaving parts out in Review.
+        let keepOne = try XCTUnwrap(f.restricted(excluding: Set(fp.dropFirst().map(\.path))))
+        XCTAssertEqual(keepOne.paths, [fp[0].path])
+        XCTAssertEqual(keepOne.size, fp[0].size)
+        XCTAssertEqual(keepOne.title, "Chrome cache · 1 of 4 profiles")
+        XCTAssertNil(f.restricted(excluding: Set(fp.map(\.path))), "nothing left means nothing to clean")
+        XCTAssertEqual(f.restricted(excluding: [])?.title, "Chrome cache")
+    }
+
     // MARK: - Chrome profiles
 
     func testFlagsUnusedChromeProfilesButNotTheCurrentOne() throws {

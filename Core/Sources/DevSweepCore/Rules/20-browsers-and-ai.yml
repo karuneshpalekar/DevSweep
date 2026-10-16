@@ -3,19 +3,21 @@ rules:
     title: Chrome cache
     category: browsers
     risk: rebuilds
-    minSizeMB: 200
+    minSizeMB: 50
     blockers: ["Google Chrome"]
     detector:
-      kind: paths
-      paths: ["~/Library/Caches/Google/Chrome/*"]
+      kind: browserProfileCaches
+      browser: Chrome
+      cacheRoot: "~/Library/Caches/Google/Chrome"
+      profileRoot: "~/Library/Application Support/Google/Chrome"
     actions:
       - kind: delete
       - kind: trash
     explain:
-      what: "Saved copies of images, scripts and fonts from sites you've visited, so pages open faster."
-      why: "{{size}} across {{count}} Chrome profiles."
-      ifDeleted: "Sites load a little slower the first time you revisit them. Chrome grows the cache back over time."
-      wontLose: "Logins, passwords, bookmarks, history or extensions. Those live in your profile, not the cache."
+      what: "Saved copies of images, scripts and fonts from sites you've visited, so pages open faster. Each Chrome profile has its own."
+      why: "{{size}} across {{count}} Chrome profiles. In Review you can untick any profile to keep its cache."
+      ifDeleted: "Sites load a little slower the first time you revisit them in the profiles you clean. Chrome grows the cache back over time."
+      wontLose: "Logins, passwords, bookmarks, history or extensions. Those live in the profile, not the cache."
       before: "Quit Chrome."
       better: "Delete Chrome profiles you no longer use (profile menu, Manage profiles). That removes their cache and data for good."
 
@@ -41,17 +43,19 @@ rules:
     title: Microsoft Edge cache
     category: browsers
     risk: rebuilds
-    minSizeMB: 200
+    minSizeMB: 50
     blockers: ["Microsoft Edge"]
     detector:
-      kind: paths
-      paths: ["~/Library/Caches/Microsoft Edge/*"]
+      kind: browserProfileCaches
+      browser: Edge
+      cacheRoot: "~/Library/Caches/Microsoft Edge"
+      profileRoot: "~/Library/Application Support/Microsoft Edge"
     actions:
       - kind: delete
     explain:
-      what: "Saved copies of pages you've visited in Edge, so they open faster."
-      why: "{{size}} across {{count}} Edge profiles."
-      ifDeleted: "Sites load a little slower the first time you revisit them."
+      what: "Saved copies of pages you've visited in Edge, so they open faster. Each profile has its own."
+      why: "{{size}} across {{count}} Edge profiles. In Review you can untick any profile to keep its cache."
+      ifDeleted: "Sites load a little slower the first time you revisit them in the profiles you clean."
       wontLose: "Logins, passwords, bookmarks or history."
       before: "Quit Microsoft Edge."
 
@@ -59,19 +63,21 @@ rules:
     title: Brave cache
     category: browsers
     risk: rebuilds
-    minSizeMB: 200
+    minSizeMB: 50
     blockers: ["Brave Browser"]
     detector:
-      kind: paths
-      paths: ["~/Library/Caches/BraveSoftware/Brave-Browser/*"]
+      kind: browserProfileCaches
+      browser: Brave
+      cacheRoot: "~/Library/Caches/BraveSoftware/Brave-Browser"
+      profileRoot: "~/Library/Application Support/BraveSoftware/Brave-Browser"
     actions:
       - kind: delete
     explain:
-      what: "Saved copies of pages you've visited in Brave, so they open faster."
-      why: "{{size}} across {{count}} Brave profiles."
-      ifDeleted: "Sites load a little slower the first time you revisit them."
+      what: "Saved copies of pages you've visited in Brave, so they open faster. Each profile has its own."
+      why: "{{size}} across {{count}} Brave profiles. In Review you can untick any profile to keep its cache."
+      ifDeleted: "Sites load a little slower the first time you revisit them in the profiles you clean."
       wontLose: "Logins, passwords, bookmarks or history."
-      before: "Quit Brave."
+      before: "Quit Brave Browser."
 
   - id: whisper-models
     title: Whisper speech models

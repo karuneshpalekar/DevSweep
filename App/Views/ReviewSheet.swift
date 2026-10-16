@@ -25,8 +25,11 @@ struct ReviewSheet: View {
 
     private var review: some View {
         let plan = model.plan
-        let deleted = plan.filter { $0.action.kind == .delete || $0.action.kind == .command }
-        let trashed = plan.filter { $0.action.kind == .trash }
+        // Rows come from the checked items themselves, so an item with every
+        // part unticked stays listed and can be ticked again.
+        let rows = model.checkedFindings.map { PlannedAction(finding: $0, action: model.action(for: $0)) }
+        let deleted = rows.filter { $0.action.kind == .delete || $0.action.kind == .command }
+        let trashed = rows.filter { $0.action.kind == .trash }
         let blocked = plan.flatMap(\.finding.blockingApps)
 
         return VStack(alignment: .leading, spacing: 0) {
@@ -92,7 +95,7 @@ struct ReviewSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title).font(.headline)
-                SizeText(bytes: items.reduce(0) { $0 + $1.finding.size }).foregroundStyle(.secondary)
+                SizeText(bytes: items.reduce(0) { $0 + chosenSize($1.finding) }).foregroundStyle(.secondary)
             }
             Text(note).font(.callout).foregroundStyle(.secondary)
             ForEach(items, id: \.finding.id) { item in
@@ -111,10 +114,18 @@ struct ReviewSheet: View {
                     ForEach(item.finding.blockingApps, id: \.self) { app in
                         Button("Quit \(app)") { model.quit(app) }.controlSize(.small)
                     }
-                    SizeText(bytes: item.finding.size)
+                    SizeText(bytes: chosenSize(item.finding))
+                }
+                if let parts = item.finding.parts, !parts.isEmpty {
+                    PartPicker(finding: item.finding, parts: parts)
                 }
             }
         }
+    }
+
+    /// The size that will actually be freed for an item, after unticked parts.
+    private func chosenSize(_ f: Finding) -> Int64 {
+        f.restricted(excluding: model.excludedParts[f.id] ?? [])?.size ?? 0
     }
 
     private func commands(_ plan: [PlannedAction]) -> String {
@@ -163,6 +174,58 @@ struct ReviewSheet: View {
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 14)
+        }
+    }
+}
+
+
+/// Ticks for each part of an item (each browser profile), all on by default.
+@MainActor
+struct PartPicker: View {
+    @Environment(AppModel.self) private var model
+    let finding: Finding
+    let parts: [FindingPart]
+    @State private var expanded = true
+
+    var body: some View {
+        let chosen = parts.filter { model.isPartIncluded($0, in: finding) }
+        let kind = parts.first?.kind ?? "parts"
+        DisclosureGroup(isExpanded: $expanded) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 12) {
+                    Button("Select all") { model.setAllParts(of: finding, included: true) }
+                        .disabled(chosen.count == parts.count)
+                    Button("Select none") { model.setAllParts(of: finding, included: false) }
+                        .disabled(chosen.isEmpty)
+                }
+                .buttonStyle(.link).font(.callout)
+                .padding(.bottom, 4)
+                ForEach(parts) { part in
+                    Toggle(isOn: Binding(get: { model.isPartIncluded(part, in: finding) },
+                                         set: { model.setPart(part, of: finding, included: $0) })) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(part.title)
+                                if !part.subtitle.isEmpty {
+                                    Text(part.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                                }
+                            }
+                            Spacer()
+                            SizeText(bytes: part.size).foregroundStyle(.secondary)
+                        }
+                    }
+                    .toggleStyle(.checkbox)
+                    .padding(.vertical, 2)
+                }
+            }
+            .padding(.leading, 4)
+            .padding(.top, 4)
+        } label: {
+            Text(chosen.count == parts.count ? "All \(parts.count) \(kind) selected"
+                 : chosen.isEmpty ? "No \(kind) selected, so nothing here is cleaned"
+                 : "\(chosen.count) of \(parts.count) \(kind) selected")
+                .font(.callout)
+                .foregroundStyle(chosen.isEmpty ? Color.orange : Color.secondary)
         }
     }
 }

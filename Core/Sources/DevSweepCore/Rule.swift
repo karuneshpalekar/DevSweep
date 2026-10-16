@@ -51,6 +51,8 @@ public struct DetectorSpec: Codable, Sendable {
         case timeMachineSnapshots
         /// Chrome profiles nobody has used in a long time.
         case chromeProfiles
+        /// A Chromium browser's cache, one item per profile (Chrome, Edge, Brave).
+        case browserProfileCaches
     }
 
     public var kind: Kind
@@ -70,6 +72,12 @@ public struct DetectorSpec: Codable, Sendable {
     public var fileMinMB: Int?
     /// File extensions to include (largeOldFiles); nil means any.
     public var extensions: [String]?
+    /// browserProfileCaches: the folder holding one cache folder per profile.
+    public var cacheRoot: String?
+    /// browserProfileCaches: the browser's profile folder, with its "Local State" file.
+    public var profileRoot: String?
+    /// browserProfileCaches: the browser's name, for titles ("Chrome").
+    public var browser: String?
 }
 
 public struct KnownApp: Codable, Sendable {
