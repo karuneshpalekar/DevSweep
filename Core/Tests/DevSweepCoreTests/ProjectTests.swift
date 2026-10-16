@@ -277,4 +277,31 @@ final class ProjectActivityTests: XCTestCase {
         let reopened = ProjectStore(url: dir.appendingPathComponent("p.json"), importFrom: nil)
         XCTAssertEqual(reopened.state.activity.count, 500, "the trail is saved")
     }
+
+    // MARK: - Repos from organizations and collaborations
+
+    func testListsOwnOrganizationAndSharedReposButNotArchived() {
+        let lines = """
+        {"name":"DevSweep","full_name":"me/DevSweep","description":"cleaner","private":false,"pushed_at":"2026-10-16T10:00:00Z","html_url":"https://github.com/me/DevSweep","size":1200,"archived":false}
+        {"name":"site","full_name":"SomeOrg/site","description":null,"private":true,"pushed_at":"2026-10-17T10:00:00Z","html_url":"https://github.com/SomeOrg/site","size":50,"archived":false}
+        {"name":"shared","full_name":"friend/shared","description":"","private":true,"pushed_at":null,"html_url":"https://github.com/friend/shared","size":0,"archived":false}
+        {"name":"old","full_name":"me/old","description":"","private":false,"pushed_at":"2020-01-01T00:00:00Z","html_url":"https://github.com/me/old","size":1,"archived":true}
+        """
+        let repos = GitHubClient.parseRESTRepos(lines, account: "me")
+        XCTAssertEqual(repos.map(\.nameWithOwner), ["SomeOrg/site", "me/DevSweep", "friend/shared"], "newest push first, archived left out")
+        XCTAssertTrue(repos.allSatisfy { $0.account == "me" }, "the signed-in account that can read them")
+        XCTAssertEqual(repos.first?.isPrivate, true)
+        XCTAssertEqual(repos[1].diskUsageKB, 1200)
+    }
+
+    func testARepoBothAccountsCanSeeIsListedOnceUnderItsOwner() {
+        func r(_ slug: String, _ account: String) -> RemoteRepo {
+            RemoteRepo(name: String(slug.split(separator: "/")[1]), nameWithOwner: slug, description: "", isPrivate: false,
+                       pushedAt: nil, url: "", diskUsageKB: 0, account: account)
+        }
+        let merged = GitHubClient.mergeAccounts([r("work/app", "me"), r("Org/site", "me"), r("work/app", "work"), r("Org/site", "work")])
+        XCTAssertEqual(merged.count, 2)
+        XCTAssertEqual(merged.first { $0.nameWithOwner == "work/app" }?.account, "work", "the owner's account wins")
+        XCTAssertEqual(merged.first { $0.nameWithOwner == "Org/site" }?.account, "me", "otherwise the first account that saw it")
+    }
 }

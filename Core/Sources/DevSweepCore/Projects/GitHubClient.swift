@@ -95,13 +95,56 @@ public enum GitHubClient {
                    diskUsageKB: r.diskUsage ?? 0, account: account)
     }
 
-    /// Repos owned by `login`, newest push first.
+    /// Every repo `login` can open: its own, its organizations' and ones shared
+    /// with it as a collaborator. Archived repos are left out. Newest push first.
     public static func repos(for login: String, token: String) throws -> [RemoteRepo] {
-        let out = try require(["gh", "repo", "list", login, "--no-archived", "--limit", "500", "--json", repoFields],
-                              env: env(token: token), timeout: 90)
-        let decoded = try JSONDecoder().decode([RepoJSON].self, from: Data(out.utf8))
-        return decoded.map { remote($0, account: login) }
-            .sorted { ($0.pushedAt ?? .distantPast) > ($1.pushedAt ?? .distantPast) }
+        // One compact JSON object per line, across every page.
+        let out = try require(["gh", "api", "--paginate",
+                               "user/repos?affiliation=owner,collaborator,organization_member&per_page=100",
+                               "--jq", ".[] | {name, full_name, description, private, pushed_at, html_url, size, archived}"],
+                              env: env(token: token), timeout: 120)
+        return parseRESTRepos(out, account: login)
+    }
+
+    private struct RESTRepo: Decodable {
+        var name: String
+        var full_name: String
+        var description: String?
+        var `private`: Bool
+        var pushed_at: String?
+        var html_url: String
+        var size: Int?
+        var archived: Bool?
+    }
+
+    /// Lines of REST repo objects -> repos, without archived ones, newest push first.
+    static func parseRESTRepos(_ text: String, account: String) -> [RemoteRepo] {
+        let d = JSONDecoder()
+        return text.split(separator: "\n").compactMap { line -> RemoteRepo? in
+            guard let r = try? d.decode(RESTRepo.self, from: Data(line.utf8)), r.archived != true else { return nil }
+            return RemoteRepo(name: r.name, nameWithOwner: r.full_name, description: r.description ?? "", isPrivate: r.private,
+                              pushedAt: r.pushed_at.flatMap { ISO8601DateFormatter().date(from: $0) }, url: r.html_url,
+                              diskUsageKB: r.size ?? 0, account: account)
+        }
+        .sorted { ($0.pushedAt ?? .distantPast) > ($1.pushedAt ?? .distantPast) }
+    }
+
+    /// A repo two signed-in accounts can both see is listed once, under the
+    /// account that owns it when there is one, else the first that saw it.
+    public static func mergeAccounts(_ repos: [RemoteRepo]) -> [RemoteRepo] {
+        var best: [String: RemoteRepo] = [:]
+        var order: [String] = []
+        for r in repos {
+            let key = r.nameWithOwner.lowercased()
+            let owner = r.nameWithOwner.split(separator: "/").first.map(String.init)?.lowercased()
+            if let existing = best[key] {
+                let existingOwns = existing.account.lowercased() == owner
+                if !existingOwns && r.account.lowercased() == owner { best[key] = r }
+            } else {
+                best[key] = r; order.append(key)
+            }
+        }
+        return order.compactMap { best[$0] }
     }
 
     /// One repo by `owner/name`, for repos outside your own list.

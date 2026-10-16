@@ -836,6 +836,7 @@ final class AppModel {
                         do { remote += try GitHubClient.repos(for: a.login, token: try GitHubClient.token(for: a.login)) }
                         catch { message = "Couldn't list \(a.login)'s repositories: \(error.localizedDescription)" }
                     }
+                    remote = GitHubClient.mergeAccounts(remote)
                 }
                 // Clones found earlier may belong to an account only GitHub can name.
                 store.update { s in

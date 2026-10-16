@@ -136,6 +136,7 @@ case "projects":
                 remote += try GitHubClient.repos(for: a.login, token: try GitHubClient.token(for: a.login))
                 print("account \(a.login)\(a.isActive ? " (active)" : ""): \(remote.filter { $0.account == a.login }.count) repos")
             }
+            remote = GitHubClient.mergeAccounts(remote)
         } catch { print("GitHub: \(error.localizedDescription)") }
     }
     let local = ProjectScanner.scanLocal(roots: roots)
