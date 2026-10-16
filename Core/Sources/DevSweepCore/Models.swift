@@ -198,6 +198,12 @@ public struct ScanResult: Sendable {
     public var errors: [String]
     public var date: Date
     public var disk: DiskInfo?
+    /// What each check did. Nil only for results built by hand.
+    public var report: ScanReport?
+
+    public init(findings: [Finding], errors: [String], date: Date, disk: DiskInfo?, report: ScanReport? = nil) {
+        self.findings = findings; self.errors = errors; self.date = date; self.disk = disk; self.report = report
+    }
 
     public var totalSize: Int64 { findings.reduce(0) { $0 + $1.size } }
 }

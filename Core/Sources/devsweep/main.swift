@@ -5,7 +5,9 @@ let usage = """
 devsweep: find what's safe to clean on a developer Mac
 
 USAGE
-  devsweep scan [--json] [--explain]   Scan (read-only) and list findings
+  devsweep scan [--json] [--explain] [--report]
+                                       Scan (read-only) and list findings;
+                                       --report adds every check's timing and result
   devsweep runtimes [--json]           Tool versions, support status, project requirements
   devsweep security                    Secrets stored where they shouldn't be
   devsweep ports                       What's listening on which port
@@ -20,7 +22,7 @@ where every item is explained before you confirm.
 
 let args = Array(CommandLine.arguments.dropFirst())
 
-func scan(json: Bool, explain: Bool) async {
+func scan(json: Bool, explain: Bool, report: Bool) async {
     let (rules, errors) = RuleLoader.loadAll()
     errors.forEach { FileHandle.standardError.write(Data("rule error: \($0)\n".utf8)) }
     let result = await Scanner(rules: rules).scan(ignored: IgnoreStore().ids)
@@ -52,11 +54,27 @@ func scan(json: Bool, explain: Bool) async {
     if let disk = result.disk {
         print("Disk: \(SizeFormat.string(disk.free)) free of \(SizeFormat.string(disk.total))")
     }
+    guard let r = result.report else { return }
+    print(r.summary)
+    for f in r.blockedFolders { print("  macOS blocked: \(f.path)") }
+    if report {
+        print("\nCHECKS (slowest first: finding + measuring)")
+        for c in r.checks.sorted(by: { $0.seconds + $0.measureSeconds > $1.seconds + $1.measureSeconds }) {
+            let result: String
+            switch c.outcome {
+            case .found: result = "\(c.found) found"
+            case .nothingFound: result = "none found"
+            case .timedOut: result = "skipped, over \(Int(r.checkTimeout)) s"
+            }
+            print("  \(String(format: "%5.1f + %5.1f s", c.seconds, c.measureSeconds))  \(c.title.padding(toLength: 40, withPad: " ", startingAt: 0)) \(result)")
+        }
+        print(String(format: "  %6.1f s  measuring sizes", r.measuringSeconds))
+    }
 }
 
 switch args.first {
 case "scan":
-    await scan(json: args.contains("--json"), explain: args.contains("--explain"))
+    await scan(json: args.contains("--json"), explain: args.contains("--explain"), report: args.contains("--report"))
 case "runtimes":
     let result = await RuntimeScanner().scan()
     if args.contains("--json") {

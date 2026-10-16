@@ -53,20 +53,39 @@ enum FS {
     }
 
     /// Space the item actually takes on disk. Does not follow symlinks.
-    static func allocatedSize(_ url: URL) -> Int64 {
+    static func allocatedSize(_ url: URL) -> Int64 { measure(url, until: nil).bytes }
+
+    /// Bytes on disk under `url`. Stops at `until`, returning what it counted so
+    /// far with `complete` false: a cache with hundreds of thousands of files can
+    /// take minutes on a slow disk, and a partial size beats no answer.
+    static func measure(_ url: URL, until deadline: Date?) -> (bytes: Int64, files: Int, complete: Bool) {
         let keys: Set<URLResourceKey> = [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey, .isSymbolicLinkKey, .isDirectoryKey]
-        guard let values = try? url.resourceValues(forKeys: keys) else { return 0 }
-        if values.isSymbolicLink == true { return 0 }
+        guard let values = try? url.resourceValues(forKeys: keys) else { return (0, 0, true) }
+        if values.isSymbolicLink == true { return (0, 0, true) }
         if values.isDirectory != true {
-            return Int64(values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? 0)
+            return (Int64(values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? 0), 1, true)
         }
-        var total: Int64 = 0
-        guard let e = fm.enumerator(at: url, includingPropertiesForKeys: Array(keys), options: [], errorHandler: { _, _ in true }) else { return 0 }
+        var total: Int64 = 0, files = 0
+        guard let e = fm.enumerator(at: url, includingPropertiesForKeys: Array(keys), options: [], errorHandler: { _, _ in true }) else { return (0, 0, true) }
         for case let child as URL in e {
             guard let v = try? child.resourceValues(forKeys: keys), v.isSymbolicLink != true else { continue }
             total += Int64(v.totalFileAllocatedSize ?? v.fileAllocatedSize ?? 0)
+            files += 1
+            if files % 2000 == 0, let deadline, Date() >= deadline { return (total, files, false) }
         }
-        return total
+        return (total, files, true)
+    }
+
+    /// Several folders measured side by side (an app's 13 browser profiles, say).
+    static func measure(_ urls: [URL], until deadline: Date?) -> (bytes: Int64, files: Int, complete: Bool) {
+        if urls.count == 1 { return measure(urls[0], until: deadline) }
+        let lock = NSLock()
+        var total: Int64 = 0, files = 0, complete = true
+        DispatchQueue.concurrentPerform(iterations: urls.count) { i in
+            let r = measure(urls[i], until: deadline)
+            lock.lock(); total += r.bytes; files += r.files; complete = complete && r.complete; lock.unlock()
+        }
+        return (total, files, complete)
     }
 
     /// Expands and de-duplicates folders. "~/Code" and "~/code" are the same
