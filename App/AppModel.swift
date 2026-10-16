@@ -158,7 +158,12 @@ final class AppModel {
     var findings: [Finding] = []
     var lastScan: Date?
     var isScanning = false
-    var scanStatus = ""
+    /// Where the current scan is; nil when not scanning.
+    var scanProgress: ScanProgress?
+    var scanStatus: String { scanProgress?.text ?? "Starting" }
+    /// What the last scan did, check by check. Kept on disk for the scan report.
+    var lastScanReport: ScanReport? = ScanReportStore.load()
+    @ObservationIgnored private var progressSeq = 0
     var disk: DiskInfo? = DiskInfo.current()
     var ruleErrors: [String] = []
 
@@ -295,16 +300,28 @@ final class AppModel {
     func scan() {
         guard !isScanning else { return }
         isScanning = true
-        scanStatus = "Starting"
+        scanProgress = nil
+        progressSeq = 0
         hasFullDiskAccess = FullDiskAccess.isGranted
         let ignored = ignores.ids
         let roots = AppSettings.projectFolders
         Task {
             let (rules, errors) = RuleLoader.loadAll()
             let context = await Task.detached { ScanContext(projectRoots: roots) }.value
-            let result = await Scanner(rules: rules, context: context).scan(ignored: ignored) { [self] status in
-                Task { @MainActor in self.scanStatus = status }
+            // Updates arrive from many threads; numbering them keeps a late,
+            // older one from overwriting a newer status.
+            let seq = SequenceCounter()
+            let result = await Scanner(rules: rules, context: context).scan(ignored: ignored) { [self] p in
+                let n = seq.next()
+                Task { @MainActor in
+                    guard self.isScanning, n > self.progressSeq else { return }
+                    self.progressSeq = n
+                    self.scanProgress = p
+                }
             }
+            lastScanReport = result.report
+            if let r = result.report { ScanReportStore.save(r) }
+            scanProgress = nil
             findings = result.findings
             disk = result.disk ?? DiskInfo.current()
             ruleErrors = errors
@@ -321,6 +338,43 @@ final class AppModel {
             }
             #endif
         }
+    }
+
+    /// Plain text to paste into an email or an issue: what the last scan did,
+    /// the Mac's permission state and folder access. No file or project names.
+    func scanReportText() -> String {
+        var lines: [String] = []
+        let info = Bundle.main.infoDictionary
+        lines.append("DevSweep \(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?"))")
+        lines.append("macOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
+        #if arch(arm64)
+        lines.append("Apple silicon")
+        #else
+        lines.append("Intel")
+        #endif
+        if let d = disk { lines.append("Disk: \(SizeFormat.string(d.free)) free of \(SizeFormat.string(d.total))") }
+        lines.append("Full Disk Access: \(FullDiskAccess.isGranted ? "on" : "off")")
+        guard let r = lastScanReport else { lines.append("No scan yet."); return lines.joined(separator: "\n") }
+        lines.append("Last scan: \(r.date.formatted(date: .abbreviated, time: .shortened))")
+        lines.append(r.summary)
+        lines.append("Found: \(findings.count) items, \(SizeFormat.string(totalSize))")
+        lines.append("")
+        lines.append("Folders:")
+        for f in r.folders { lines.append("  \(f.path): \(f.state == .ok ? "readable" : f.state == .denied ? "BLOCKED by macOS" : "not on this Mac")") }
+        lines.append("")
+        lines.append("Checks (slowest first, finding + measuring):")
+        for c in r.checks.sorted(by: { $0.seconds + $0.measureSeconds > $1.seconds + $1.measureSeconds }) {
+            let result: String
+            switch c.outcome {
+            case .found: result = "\(c.found) found"
+            case .nothingFound: result = "nothing found"
+            case .timedOut: result = "SKIPPED, over \(Int(r.checkTimeout)) s"
+            }
+            lines.append(String(format: "  %5.1f + %5.1f s  ", c.seconds, c.measureSeconds) + "\(c.title): \(result)")
+        }
+        lines.append(String(format: "Measuring: %.1f s · total: %.1f s", r.measuringSeconds, r.totalSeconds))
+        if !ruleErrors.isEmpty { lines.append(""); lines.append("Rule errors:"); lines += ruleErrors.map { "  " + $0 } }
+        return lines.joined(separator: "\n")
     }
 
     // MARK: - Runtimes and versions

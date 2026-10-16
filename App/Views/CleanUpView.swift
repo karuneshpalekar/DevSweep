@@ -95,11 +95,22 @@ struct CleanUpView: View {
             if !model.hasScanned {
                 NotScannedView(title: "Not scanned yet", detail: "Scan to see what's safe to clean on this Mac. Nothing changes until you review and confirm.",
                                isWorking: model.isScanning, status: model.scanStatus) { model.scanEverything() }
+                    .overlay(alignment: .bottom) { ScanStallHint().padding(20) }
             } else if items.isEmpty {
-                ContentUnavailableView(model.findings.isEmpty ? "Nothing to clean" : "Nothing matches",
-                                       systemImage: model.findings.isEmpty ? "checkmark.seal" : "line.3.horizontal.decrease.circle",
-                                       description: Text(model.findings.isEmpty ? "DevSweep didn't find anything to clean. Nice."
-                                                                                  : "Try another filter or search."))
+                ScrollView {
+                    VStack(spacing: 20) {
+                        ContentUnavailableView(model.findings.isEmpty ? "Nothing to clean" : "Nothing matches",
+                                               systemImage: model.findings.isEmpty ? "checkmark.seal" : "line.3.horizontal.decrease.circle",
+                                               description: Text(model.findings.isEmpty ? "DevSweep didn't find anything to clean. Every check below ran."
+                                                                                          : "Try another filter or search."))
+                            .frame(minHeight: 240)
+                        if model.findings.isEmpty, let r = model.lastScanReport {
+                            ScanSummaryView(report: r).frame(maxWidth: 560)
+                        }
+                    }
+                    .padding(24)
+                    .frame(maxWidth: .infinity)
+                }
             } else {
                 List {
                     ForEach(Risk.allCases, id: \.self) { risk in
@@ -117,6 +128,13 @@ struct CleanUpView: View {
                             } header: {
                                 groupHeader(risk, group)
                             }
+                        }
+                    }
+                    if model.cleanupKind == nil, let r = model.lastScanReport {
+                        Section {
+                            ScanSummaryView(report: r).padding(.vertical, 6)
+                        } header: {
+                            Text("About this scan")
                         }
                     }
                 }

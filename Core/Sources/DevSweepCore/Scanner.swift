@@ -110,7 +110,7 @@ public final class Scanner {
     static func watchedFolders(_ ctx: ScanContext) -> [String] {
         // Only project folders that exist; the defaults are guesses at common names.
         let projects = (ctx.projectRoots ?? RuleLoader.defaultProjectRoots).filter { FS.folderState(FS.expand($0, home: ctx.home)) != .missing }
-        return ["~/Downloads", "~/Desktop", "~/Documents", "~/Movies", "~/Library/Containers"] + projects
+        return FolderState.dedupe(["~/Downloads", "~/Desktop", "~/Documents", "~/Movies", "~/Library/Containers"] + projects, home: ctx.home)
     }
 
     public func scan(ignored: Set<String> = [], progress: (@Sendable (ScanProgress) -> Void)? = nil) async -> ScanResult {

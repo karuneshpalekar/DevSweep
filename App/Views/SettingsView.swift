@@ -76,6 +76,7 @@ struct SettingsView: View {
             FolderSettings()
             IgnoredSettings()
             PermissionSettings()
+            TroubleshootingSettings()
         }
         .formStyle(.grouped)
         .modifier(FadeIn())
@@ -286,18 +287,41 @@ struct FolderSettings: View {
     @State private var folders: [String] = AppSettings.projectFolders ?? RuleLoader.defaultProjectRoots
 
     var body: some View {
+        let states: [String: FolderState] = folderStates
+        let unique: [String] = FolderState.dedupe(folders)
+        let present: [String] = unique.filter { states[$0] != .missing }
+        let missing: [String] = unique.filter { states[$0] == .missing }
         Section {
-            ForEach(folders, id: \.self) { f in
+            if present.isEmpty {
+                Text("None of these folders are on this Mac. Add the folder you keep your projects in.")
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(present, id: \.self) { f in
+                let denied: Bool = states[f] == .denied
                 HStack {
-                    Image(systemName: "folder").foregroundStyle(.secondary)
+                    Image(systemName: denied ? "lock.fill" : "folder")
+                        .foregroundStyle(denied ? Color.orange : Color.secondary)
                     Text(f)
-                    if !FileManager.default.fileExists(atPath: (f as NSString).expandingTildeInPath) {
-                        Text("Not on this Mac").font(.caption).foregroundStyle(.secondary)
+                    if denied {
+                        Text("macOS isn't letting DevSweep look inside").font(.caption).foregroundStyle(.orange)
+                        Button("Allow access") { FullDiskAccess.openSettings() }.controlSize(.small)
                     }
                     Spacer()
-                    Button { save(folders.filter { $0 != f }, isDefault: false) } label: { Image(systemName: "minus.circle") }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Remove \(f)")
+                    removeButton(f)
+                }
+            }
+            if !missing.isEmpty {
+                DisclosureGroup(missingTitle(missing.count)) {
+                    ForEach(missing, id: \.self) { f in
+                        HStack {
+                            Image(systemName: "folder").foregroundStyle(.tertiary)
+                            Text(f).foregroundStyle(.secondary)
+                            Spacer()
+                            removeButton(f)
+                        }
+                    }
+                    Text("These are common names for project folders. DevSweep skips any that don't exist, so they do no harm.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
             HStack {
@@ -310,6 +334,22 @@ struct FolderSettings: View {
             Text("DevSweep looks for idle projects in these folders. Only node_modules, virtual environments and Pods are suggested, and only in projects untouched for 30 days.")
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private var folderStates: [String: FolderState] {
+        var out: [String: FolderState] = [:]
+        for f in folders { out[f] = FolderState.of(URL(fileURLWithPath: (f as NSString).expandingTildeInPath)) }
+        return out
+    }
+
+    private func missingTitle(_ n: Int) -> String {
+        n == 1 ? "1 suggested folder isn't on this Mac" : "\(n) suggested folders aren't on this Mac"
+    }
+
+    private func removeButton(_ f: String) -> some View {
+        Button { save(folders.filter { $0 != f }, isDefault: false) } label: { Image(systemName: "minus.circle") }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Remove \(f)")
     }
 
     private func add() {
@@ -384,6 +424,37 @@ struct PermissionSettings: View {
         .onAppear { granted = FullDiskAccess.isGranted }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             granted = FullDiskAccess.isGranted
+        }
+    }
+}
+
+
+/// Lets someone send what their last scan did, without file names.
+@MainActor
+struct TroubleshootingSettings: View {
+    @Environment(AppModel.self) private var model
+    @State private var copied = false
+
+    var body: some View {
+        Section {
+            if let r = model.lastScanReport {
+                LabeledContent("Last scan", value: r.summary)
+            }
+            HStack {
+                Button(copied ? "Copied" : "Copy scan report") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(model.scanReportText(), forType: .string)
+                    copied = true
+                    Task { try? await Task.sleep(nanoseconds: 2_000_000_000); copied = false }
+                }
+                .disabled(model.lastScanReport == nil)
+                if model.lastScanReport == nil { Text("Run a scan first.").foregroundStyle(.secondary) }
+            }
+        } header: {
+            Text("Troubleshooting")
+        } footer: {
+            Text("The report lists each check, how long it took and what it found, which folders macOS blocked, and your macOS version. It has no file or project names. Paste it into an email or a GitHub issue.")
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

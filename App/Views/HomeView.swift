@@ -88,9 +88,12 @@ struct HomeView: View {
                 }
             }
         } else if model.isScanning {
-            HStack(spacing: 10) {
-                ProgressView().controlSize(.small)
-                Text("Scanning · \(model.scanStatus)").foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    ProgressView().controlSize(.small)
+                    Text("Scanning · \(model.scanStatus)").foregroundStyle(.secondary).lineLimit(1)
+                }
+                ScanStallHint()
             }
         } else {
             Text("Not scanned yet").font(.title2.weight(.semibold)).foregroundStyle(.secondary)

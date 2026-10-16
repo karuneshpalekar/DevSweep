@@ -54,7 +54,7 @@ final class ScanReportTests: XCTestCase {
     }
 
     func testTemplatedTitlesShowTheCategory() {
-        XCTAssertEqual(rule("a", title: "{{name}}").displayTitle, "Package caches")
+        XCTAssertEqual(rule("large-old-files", title: "{{name}}").displayTitle, "Large old files")
         XCTAssertEqual(rule("a", title: "npm cache").displayTitle, "npm cache")
     }
 
@@ -82,6 +82,13 @@ final class ScanReportTests: XCTestCase {
         XCTAssertLessThan(cut.files, 4500)
         let both = FS.measure([dir, dir], until: nil)
         XCTAssertEqual(both.files, 9000, "several folders add up")
+    }
+
+    func testDuplicateSpellingsOfOneFolderCollapse() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("devsweep-home-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: home.appendingPathComponent("Code"), withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: home) }
+        XCTAssertEqual(FolderState.dedupe(["~/Code", "~/code", "~/Nope", "~/nope"], home: home), ["~/Code", "~/Nope"])
     }
 
     func testDurations() {

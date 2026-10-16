@@ -122,6 +122,33 @@ enum Deadline {
 }
 
 extension Rule {
-    /// The rule's title, unless it's a per-item template like "{{name}}".
-    public var displayTitle: String { title.contains("{{") ? category.title : title }
+    /// The rule's title, unless it's a per-item template like "{{name}}"; then
+    /// its id in words ("large-old-files" -> "Large old files").
+    public var displayTitle: String {
+        guard title.contains("{{") else { return title }
+        let words = id.split(separator: "-").joined(separator: " ")
+        return words.prefix(1).uppercased() + words.dropFirst()
+    }
+}
+
+extension FolderState {
+    /// Whether a folder exists and DevSweep may look inside, for the app's settings.
+    public static func of(_ url: URL) -> FolderState { FS.folderState(url) }
+
+    /// Drops paths that name the same folder twice ("~/Code" and "~/code" on a
+    /// case-insensitive disk), keeping the first spelling.
+    public static func dedupe(_ paths: [String], home: URL = FileManager.default.homeDirectoryForCurrentUser) -> [String] {
+        var seen: [NSObject] = []
+        var seenText = Set<String>()
+        var out: [String] = []
+        for p in paths {
+            let url = FS.expand(p, home: home)
+            if let id = (try? url.resourceValues(forKeys: [.fileResourceIdentifierKey]))?.fileResourceIdentifier as? NSObject {
+                if seen.contains(where: { $0.isEqual(id) }) { continue }
+                seen.append(id)
+            } else if !seenText.insert(url.path.lowercased()).inserted { continue }
+            out.append(p)
+        }
+        return out
+    }
 }

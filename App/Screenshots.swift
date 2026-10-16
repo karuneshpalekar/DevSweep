@@ -29,6 +29,44 @@ enum ScreenshotTour {
         for _ in 0..<120 where model.versions == nil || model.isCheckingVersions || model.isCheckingSecurity || model.isLoadingProjects {
             await pause(0.5)
         }
+        if ProcessInfo.processInfo.environment["DEVSWEEP_SCANSTATES"] != nil {
+            AppearanceMode.light.apply()
+            let realFindings = model.findings
+            // The real scan just finished: the list with its scan summary.
+            model.selection = .cleanUp
+            await pause(1.5)
+            scrollToBottom(window)
+            await pause(1)
+            await saveStable(window, "scan-list-summary", dir)
+            // Nothing found: the summary explains every check ran.
+            model.findings = []
+            await pause(1.5)
+            await saveStable(window, "scan-nothing", dir)
+            // A stalled scan without Full Disk Access.
+            model.findings = realFindings
+            model.lastScan = nil
+            model.hasFullDiskAccess = false
+            model.isScanning = true
+            model.scanProgress = ScanProgress(phase: .checking, done: 21, total: 50, running: ["Large files", "Docker build cache"],
+                                              oldestStart: Date().addingTimeInterval(-45))
+            model.selection = .home
+            await pause(3)
+            await saveStable(window, "scan-stall-home", dir)
+            model.selection = .cleanUp
+            await pause(3)
+            await saveStable(window, "scan-stall-cleanup", dir)
+            model.isScanning = false
+            model.scanProgress = nil
+            model.lastScan = Date()
+            // Settings, scrolled to Folders and Troubleshooting.
+            model.openSettings()
+            await pause(2)
+            scrollToBottom(window)
+            await pause(1.5)
+            await saveStable(window, "scan-settings-bottom", dir)
+            print(model.scanReportText())
+            exit(0)
+        }
         if ProcessInfo.processInfo.environment["DEVSWEEP_STATES"] != nil {
             model.lastScan = nil; model.hasCheckedSecurity = false; model.hasLoadedPorts = false
             model.githubAccounts = []; model.githubStatus = .notSignedIn; model.projects = []; model.hasLoadedProjects = true
@@ -179,6 +217,17 @@ enum ScreenshotTour {
         model.openSettings()
         model.selection = .home
         await pause(0.5)
+    }
+
+    /// Scrolls the tallest scroll view in the window to its end.
+    private static func scrollToBottom(_ window: NSWindow) {
+        func all(_ v: NSView) -> [NSScrollView] { (v as? NSScrollView).map { [$0] } ?? [] + v.subviews.flatMap(all) }
+        guard let root = window.contentView,
+              let sv = all(root).max(by: { ($0.documentView?.frame.height ?? 0) < ($1.documentView?.frame.height ?? 0) }),
+              let doc = sv.documentView else { return }
+        let y = doc.isFlipped ? max(0, doc.frame.height - sv.contentView.bounds.height) : 0
+        sv.contentView.scroll(to: NSPoint(x: 0, y: y))
+        sv.reflectScrolledClipView(sv.contentView)
     }
 
     private static func pickReviewItems(_ findings: [Finding]) -> Set<String> {

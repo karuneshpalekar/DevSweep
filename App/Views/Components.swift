@@ -270,3 +270,100 @@ struct DestructiveButtonStyle: ButtonStyle {
             .contentShape(Rectangle())
     }
 }
+
+
+/// Shown under a running scan when one step has taken a while. Without Full
+/// Disk Access, macOS may be waiting on a permission dialog that's hidden
+/// behind this window; with it, a big cache is simply slow to measure.
+@MainActor
+struct ScanStallHint: View {
+    @Environment(AppModel.self) private var model
+    var after: TimeInterval = 20
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 2)) { context in
+            if model.isScanning, let p = model.scanProgress, let since = p.oldestStart,
+               context.date.timeIntervalSince(since) > after {
+                let waited = ScanReport.duration(context.date.timeIntervalSince(since))
+                let what = p.running.first ?? (p.phase == .measuring ? "measuring sizes" : "a check")
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: model.hasFullDiskAccess ? "hourglass" : "lock.shield").foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 6) {
+                        if model.hasFullDiskAccess {
+                            Text("Still on \(what) after \(waited). Folders with hundreds of thousands of files, like browser caches, take a while to measure. Anything still going after a minute or so is listed with the size counted so far.")
+                        } else {
+                            Text("Still on \(what) after \(waited). macOS may be asking whether DevSweep can look in a folder. The dialog can hide behind this window, and the scan waits until you answer it. Giving DevSweep Full Disk Access stops these questions.")
+                        }
+                        if !model.hasFullDiskAccess {
+                            Button("Open Full Disk Access") { FullDiskAccess.openSettings() }.controlSize(.small)
+                        }
+                    }
+                    .font(.callout)
+                    Spacer(minLength: 0)
+                }
+                .padding(12)
+                .frame(maxWidth: 520, alignment: .leading)
+                .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+            }
+        }
+    }
+}
+
+/// What the last scan did: how long it took, and each check's result, so
+/// "nothing found" is visibly different from "didn't run".
+@MainActor
+struct ScanSummaryView: View {
+    let report: ScanReport
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(report.summary).font(.callout).foregroundStyle(.secondary)
+            ForEach(report.blockedFolders, id: \.path) { f in
+                HStack(spacing: 8) {
+                    Image(systemName: "lock.fill").foregroundStyle(.orange)
+                    Text("macOS didn't let DevSweep look in \(f.path), so anything there wasn't checked.").font(.callout)
+                    Button("Allow access") { FullDiskAccess.openSettings() }.controlSize(.small)
+                }
+            }
+            DisclosureGroup(isExpanded: $expanded) {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(byCategory, id: \.0) { category, checks in
+                        Text(category).font(.caption.weight(.semibold)).foregroundStyle(.secondary).padding(.top, 6)
+                        ForEach(checks) { c in
+                            HStack {
+                                Image(systemName: icon(c.outcome)).foregroundStyle(color(c.outcome)).frame(width: 16)
+                                Text(c.title).lineLimit(1)
+                                Spacer()
+                                Text(result(c)).foregroundStyle(c.outcome == .timedOut ? .orange : .secondary)
+                                Text(ScanReport.duration(c.seconds + c.measureSeconds)).font(.caption).foregroundStyle(.tertiary)
+                                    .frame(width: 90, alignment: .trailing)
+                            }
+                            .font(.callout)
+                        }
+                    }
+                }
+                .padding(.top, 4)
+            } label: {
+                Text("What each check found").font(.callout)
+            }
+        }
+    }
+
+    private var byCategory: [(String, [ScanReport.Check])] {
+        Dictionary(grouping: report.checks, by: \.category).map { ($0.key, $0.value.sorted { $0.title < $1.title }) }.sorted { $0.0 < $1.0 }
+    }
+    private func icon(_ o: ScanReport.Outcome) -> String {
+        switch o { case .found: return "checkmark.circle.fill"; case .nothingFound: return "circle"; case .timedOut: return "exclamationmark.triangle.fill" }
+    }
+    private func color(_ o: ScanReport.Outcome) -> Color {
+        switch o { case .found: return .accentColor; case .nothingFound: return .secondary; case .timedOut: return .orange }
+    }
+    private func result(_ c: ScanReport.Check) -> String {
+        switch c.outcome {
+        case .found: return "\(c.found) found"
+        case .nothingFound: return "Nothing found"
+        case .timedOut: return "Skipped, took over \(Int(report.checkTimeout)) s"
+        }
+    }
+}
