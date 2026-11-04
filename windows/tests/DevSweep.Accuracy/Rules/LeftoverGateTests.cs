@@ -42,7 +42,7 @@ public sealed class LeftoverGateTests(ITestOutputHelper output) : IDisposable
         Finding lima = Assert.Single(result.Findings);
         Assert.Equal("Lima", lima.Title);
         Assert.Equal(
-            [Path.Join(_machine.Local, "Lima"), Path.Join(_machine.ProgramData, "Lima"), Path.Join(_machine.Roaming, "Lima")],
+            new[] { Path.Join(_machine.Local, "Lima"), Path.Join(_machine.ProgramData, "Lima"), Path.Join(_machine.Roaming, "Lima") }.Order(StringComparer.OrdinalIgnoreCase),
             lima.Paths.Order(StringComparer.OrdinalIgnoreCase));
         foreach (InventorySource source in Enum.GetValues<InventorySource>())
         {
