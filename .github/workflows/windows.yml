@@ -1,0 +1,108 @@
+name: windows
+
+on:
+  push:
+    branches: [windows, 'windows-m*']
+    paths: ['windows/**', '.github/workflows/windows.yml']
+  pull_request:
+    branches: [windows]
+    paths: ['windows/**', '.github/workflows/windows.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  build-test:
+    name: Build, test, AOT publish (x64)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: windows/global.json
+
+      - name: Environment
+        run: |
+          dotnet --info
+          Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber | Format-List
+          Get-Volume | Where-Object DriveLetter | Format-Table DriveLetter, FileSystemType, DriveType, Size, SizeRemaining
+          "TEMP=$env:TEMP"
+
+      - name: Restore
+        run: dotnet restore DevSweep.slnx
+
+      - name: Build (Release, warnings as errors)
+        run: dotnet build DevSweep.slnx -c Release --no-restore -warnaserror
+
+      - name: Unit tests
+        run: >
+          dotnet test tests/DevSweep.Core.Tests/DevSweep.Core.Tests.csproj -c Release --no-build
+          --results-directory TestResults --logger "trx;LogFileName=core-tests.trx"
+
+      - name: Accuracy tests (real NTFS fixtures)
+        run: >
+          dotnet test tests/DevSweep.Accuracy/DevSweep.Accuracy.csproj -c Release --no-build
+          --results-directory TestResults --logger "trx;LogFileName=accuracy.trx"
+          --logger "console;verbosity=detailed"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-results
+          path: windows/TestResults
+          if-no-files-found: warn
+
+      - name: Publish CLI (Native AOT)
+        run: dotnet publish src/DevSweep.Cli/DevSweep.Cli.csproj -c Release -r win-x64 -o artifacts/cli
+
+      - name: Smoke test devsweep measure
+        run: |
+          $exe = Resolve-Path artifacts/cli/devsweep.exe
+          "devsweep.exe: {0:N0} bytes" -f (Get-Item $exe).Length
+          $root = Join-Path $env:RUNNER_TEMP 'devsweep-smoke'
+          New-Item -ItemType Directory -Force "$root\walked", "$root\outside" | Out-Null
+          [IO.File]::WriteAllBytes("$root\walked\data.bin", [byte[]]::new(1MB))
+          cmd /c mklink /H "$root\walked\data-link.bin" "$root\walked\data.bin"
+          [IO.File]::WriteAllBytes("$root\outside\big.bin", [byte[]]::new(4MB))
+          cmd /c mklink /J "$root\walked\to-outside" "$root\outside"
+
+          & $exe measure "$root\walked"
+          if ($LASTEXITCODE -ne 0) { throw "devsweep measure failed ($LASTEXITCODE)" }
+          $json = & $exe measure "$root\walked" --json
+          $json
+          $r = $json | ConvertFrom-Json
+          if ($r.files -ne 1) { throw "expected 1 file, got $($r.files)" }
+          if ($r.hardLinkDuplicates -ne 1) { throw "expected 1 hard-link duplicate, got $($r.hardLinkDuplicates)" }
+          if ($r.reparsePointCount -ne 1 -or $r.reparsePoints[0].kind -ne 'Junction') { throw "junction not recorded" }
+          if ($r.bytes -ne 1MB) { throw "expected 1 MiB on disk (junction target excluded), got $($r.bytes)" }
+          if (-not $r.complete -or $r.confidence -ne 'Exact') { throw "expected a complete, exact result" }
+          & $exe measure "$root\missing"
+          if ($LASTEXITCODE -ne 2) { throw "expected exit code 2 for a missing path" }
+          $global:LASTEXITCODE = 0
+          "Reference (fsutil hardlink list):"
+          fsutil hardlink list "$root\walked\data.bin"
+          $global:LASTEXITCODE = 0
+
+      - name: Upload CLI
+        uses: actions/upload-artifact@v5
+        with:
+          name: devsweep-cli-win-x64
+          path: windows/artifacts/cli/devsweep.exe

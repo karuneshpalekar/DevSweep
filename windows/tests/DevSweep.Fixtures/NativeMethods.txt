@@ -1,0 +1,9 @@
+// Win32 APIs used only to build test fixtures.
+CreateHardLink
+DeviceIoControl
+GetCompressedFileSize
+FSCTL_SET_SPARSE
+FSCTL_SET_ZERO_DATA
+FSCTL_SET_COMPRESSION
+FILE_ZERO_DATA_INFORMATION
+COMPRESSION_FORMAT

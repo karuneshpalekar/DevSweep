@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Accuracy suite: builds real NTFS fixtures under %TEMP% and checks every number (PLAN section 6). -->
+  <PropertyGroup>
+    <RootNamespace>DevSweep.Accuracy</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DevSweep.Core\DevSweep.Core.csproj" />
+    <ProjectReference Include="..\DevSweep.Fixtures\DevSweep.Fixtures.csproj" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>
