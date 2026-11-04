@@ -13,11 +13,14 @@
        does not);
     4. prints the user's token (whoami /groups /priv), the output and a summary of the
        results (passed, failed, skipped with reasons), and fails when any test failed;
-    5. removes the task and the user.
+    5. with -CliPath, also runs `devsweep scan --json` and `devsweep inventory --json` as that
+       user and copies the JSON next to the results (the standard-user golden scan);
+    6. removes the task and the user.
 #>
 param(
     [Parameter(Mandatory)] [string] $TestDirectory,
     [Parameter(Mandatory)] [string] $ResultsDirectory,
+    [string] $CliPath,
     [string] $UserName = 'devsweep-std',
     [int] $TimeoutMinutes = 25
 )
@@ -72,6 +75,17 @@ try {
     Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force "$work\bin", "$work\out" | Out-Null
     Copy-Item -Recurse -Force (Join-Path $exe.DirectoryName '*') "$work\bin"
+    $cliLines = ''
+    if ($CliPath) {
+        New-Item -ItemType Directory -Force "$work\cli" | Out-Null
+        Copy-Item -Force $CliPath "$work\cli\devsweep.exe"
+        $cliLines = @"
+"$work\cli\devsweep.exe" scan --json > "$work\out\scan-standard-user.json" 2> "$work\out\scan-standard-user.err"
+echo %ERRORLEVEL% > "$work\out\scan-exit.txt"
+"$work\cli\devsweep.exe" inventory --json > "$work\out\inventory-standard-user.json" 2> "$work\out\inventory-standard-user.err"
+echo %ERRORLEVEL% > "$work\out\inventory-exit.txt"
+"@
+    }
     icacls $work /grant "${UserName}:(OI)(CI)M" /T /Q | Out-Null
 
     $dotnetRoot = if ($env:DOTNET_ROOT) { $env:DOTNET_ROOT } else { Split-Path (Get-Command dotnet).Source }
@@ -81,7 +95,9 @@ set DOTNET_ROOT=$dotnetRoot
 whoami /user /groups /priv > "$work\out\whoami.txt" 2>&1
 echo TEMP=%TEMP% >> "$work\out\whoami.txt"
 "$work\bin\$($exe.Name)" -xml "$work\out\standard-user.xml" > "$work\out\standard-user.log" 2>&1
-echo %ERRORLEVEL% > "$work\out\exit.txt"
+set SUITE_EXIT=%ERRORLEVEL%
+$cliLines
+echo %SUITE_EXIT% > "$work\out\exit.txt"
 "@
 
     $action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/c `"$work\run.cmd`""
@@ -127,6 +143,22 @@ echo %ERRORLEVEL% > "$work\out\exit.txt"
                 $test.output.InnerText.Trim()
             }
         }
+    }
+
+    if ($CliPath) {
+        "===== devsweep as a standard user ====="
+        foreach ($name in 'scan', 'inventory') {
+            $code = (Get-Content "$work\out\$name-exit.txt" -ErrorAction SilentlyContinue | Select-Object -First 1)
+            "devsweep $name exit code: $code"
+            Get-Content "$work\out\$name-standard-user.err" -ErrorAction SilentlyContinue | Select-Object -Last 5
+            if ("$code".Trim() -ne '0') { throw "devsweep $name failed as a standard user (exit $code)." }
+        }
+        $scan = Get-Content -Raw "$work\out\scan-standard-user.json" | ConvertFrom-Json
+        "scan: {0} findings, {1:N0} bytes, {2}" -f $scan.findings.Count, $scan.report.totalBytes, $scan.report.summary
+        foreach ($check in $scan.report.checks) { "  {0,-14} {1,-26} {2,6:0.00} s  found {3}" -f $check.outcome, $check.id, $check.seconds, $check.found }
+        $inventory = Get-Content -Raw "$work\out\inventory-standard-user.json" | ConvertFrom-Json
+        "inventory: {0} apps from {1} records" -f $inventory.apps.Count, $inventory.records
+        foreach ($source in $inventory.sources) { "  {0,-20} {1,5}  {2}" -f $source.source, $source.count, ($(if ($source.problems.Count -eq 0) { 'complete' } else { 'INCOMPLETE: ' + ($source.problems -join '; ') })) }
     }
 
     if ($exit -ne 0) { throw "The accuracy suite failed as a standard user (exit $exit)." }

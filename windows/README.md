@@ -5,7 +5,9 @@ accuracy traps and the milestones. This folder holds milestones **M0** (the
 solution skeleton, CI, and a spike proving the filesystem primitives every
 size and every removal rests on) and **M1** (the filesystem layer and safety:
 walker v2, the safety guard, quarantine, Restart Manager blockers, the cleaner
-and History; see [M1](#m1-filesystem-layer-and-safety)).
+and History; see [M1](#m1-filesystem-layer-and-safety)) and **M2** (the rules
+engine, named locations, the installed-apps inventory, the first detectors and
+`devsweep scan`; see [M2](#m2-rules-engine-and-inventory)).
 
 Windows 11 (22H2, build 22621) or later, x64.
 
@@ -20,6 +22,12 @@ dotnet build DevSweep.slnx -c Release
 dotnet test tests/DevSweep.Core.Tests -c Release
 dotnet test tests/DevSweep.Accuracy -c Release --logger "console;verbosity=detailed"
 dotnet publish src/DevSweep.Cli -c Release -r win-x64 -o artifacts/cli   # Native AOT
+artifacts\cli\devsweep.exe scan                                         # overview sizes; changes nothing
+artifacts\cli\devsweep.exe scan --exact --explain --category packageCaches
+artifacts\cli\devsweep.exe scan --json --project-root D:\src > scan.json
+artifacts\cli\devsweep.exe rules validate                                # bundled + %LOCALAPPDATA%\DevSweep\Rules
+artifacts\cli\devsweep.exe rules validate my-pack.yml
+artifacts\cli\devsweep.exe inventory [--json]                            # installed apps, per source
 artifacts\cli\devsweep.exe measure $env:USERPROFILE\.nuget\packages
 artifacts\cli\devsweep.exe measure C:\some\folder --json --time-limit 30
 artifacts\cli\devsweep.exe measure C:\some\folder --no-streams        # faster, no handle per file
@@ -42,7 +50,10 @@ test authority: restore, Release build with warnings as errors, both test
 projects (TRX results uploaded as an artifact), the accuracy suite a second
 time as a freshly created standard user (`eng/run-as-standard-user.ps1`), a
 Native AOT publish of the CLI and a smoke run of `devsweep measure`,
-`quarantine` and `history`.
+`quarantine` and `history`, then `rules validate`, `inventory --json` and
+`scan --json` as the administrator and again as the standard user. The scan and
+inventory JSON of both runs are uploaded as the `golden-scan-windows-latest`
+artifact (the first golden scan, PLAN 6).
 
 ## Layout
 
@@ -60,6 +71,14 @@ windows/
       Platform/                 the filesystem layer (below)
         Recycling/              Recycle Bin checks, recycling, $I/$R index and restore
         Quarantine/             same-volume quarantine (move, list, restore, empty)
+      Rules/                    rule model, YAML pack parser and schema checks, loader, templates
+        Yaml/                   YAML to a node tree (YamlDotNet's parser only)
+      Locations/                named roots: Known Folders, {Temp}, tool locations (Resolvers/)
+      Inventory/                installed apps from every source (Collectors/), matching, .lnk reader
+        Registry/               read-only registry abstraction, in-memory hives for tests
+      Detectors/                one class per detector kind (Projects/: stale project artifacts)
+      Scanning/                 Scanner, check runner, measuring, totals, ScanReport, re-measure
+      Modules/                  modules, feature flags, EngineBuilder, DevSweepEngine
       Safety/                   SafetyGuard: path rules, protected folders, final-path check
       Cleaning/                 Cleaner, History store, command runner, the Finding/Action model
       Storage/                  atomic file writes, source-generated JSON
@@ -70,8 +89,9 @@ windows/
     DevSweep.Accuracy/          fixture-based accuracy suite (PLAN section 6)
     DevSweep.Fixtures/          builds NTFS edge cases for the suite (also: a Cloud Files sync
                                 provider, an exFAT virtual disk, a process holding a file open)
+  rules/                        bundled Windows rule packs (YAML), embedded in DevSweep.Core
   eng/
-    run-as-standard-user.ps1    runs the accuracy suite as a new non-admin user (CI)
+    run-as-standard-user.ps1    runs the accuracy suite (and devsweep scan/inventory) as a new non-admin user (CI)
 ```
 
 Engine conventions: small single-purpose types, Win32 only through CsWin32's
@@ -305,3 +325,260 @@ prints the token, the results and every test's output, and fails the job on any 
 | Benchmark, 20,000 files (run [41806575941](https://github.com/karuneshpalekar/DevSweep/actions/runs/41806575941)) | M0 337 ms, v2 398 ms, v2 no-streams 145 ms | M0 338 ms, v2 396 ms, v2 no-streams 145 ms |
 | Delete 64 MiB, freed-space reconciliation | difference 0 | difference 0 |
 | Cloud Filter sync root, symlinks, Recycle Bin round trip, quarantine, short names | all run | all run |
+
+## M2: rules engine and inventory
+
+Everything below is proved by `DevSweep.Core.Tests` (pure logic, fake hives and fake
+machines) and `DevSweep.Accuracy` (a whole fixture machine on real NTFS), as the runner's
+administrator and again as a standard user. CI numbers are at the end of this section.
+
+### Rule packs (`Rules/`, `rules/*.yml`)
+
+Same schema as the Mac app: `id`, `title`, `category`, `risk`, `detector` (`kind` plus the
+detector's own options), `actions` (`delete`, `trash`, `command`, `manual` with `label`,
+`command`, `detail`), `explain` (`what`, `why`, `ifDeleted` required; `wontLose`, `before`,
+`undo`, `better`), `blockers` (process names) and `minSizeMB` (10^6 bytes, default 1).
+Windows categories added: `dotnet`, `visualStudio`, `wsl`, `windows` (Xcode dropped).
+
+- **YAML** is read with YamlDotNet's *parser* only (the event stream) into a small node tree,
+  and mapped to rules by hand (`OptionReader`). No reflection-based deserialiser, so the engine
+  stays trim and Native AOT clean (the ILLink/AOT analyzers run on Core in the build; the CLI is
+  AOT-published in CI), and every error has a line and column.
+- **Validation** (each problem reported, the pack skipped, other packs still load): unknown keys
+  anywhere (a typo never silently changes a rule), unknown category, risk, action kind or detector
+  kind (the message lists the known ones), missing explanation fields, `delete` on anything but
+  `risk: rebuilds`, a `command`/`manual` action without a command, duplicate ids, invalid YAML,
+  and paths: every path must start with a named root (`{LocalAppData}\...`, `~` is
+  `{Profile}`), the root must exist, and `.`, `..`, `:`, `**` and stray braces are refused.
+  Each detector checks its own options (types, ranges, regex groups, allowed roots).
+- **Loading**: bundled packs are embedded in `DevSweep.Core` (`DevSweep.Rules.<file>.yml`), then
+  `%LOCALAPPDATA%\DevSweep\Rules\*.yml|*.yaml`, each in file-name order. A user rule with a
+  bundled id replaces it *in place* (so claim order is kept); a pack with any error is reported
+  (`RuleSet.Errors`, `ScanReport.RuleErrors`) and skipped.
+- **Templates**: `{{key}}` with the Mac semantics (spaces inside ignored, unknown key empty,
+  unclosed `{{` left as written). Facts every finding has: `size`, `count`, `path`, `title`, plus
+  the detector's (`name`, `days`, `key`, `version`, `newest`, `project`, `reinstall`, `app`,
+  `places`, `sources`...) and, for `paths` rules, each named root used (`{{npmCache}}`).
+
+### Named locations (`Locations/`)
+
+Rules never hold drive letters or user names. Roots are resolved once per scan
+(`LocationRegistry`), and each answer says where it came from (`ResolvedLocation.Describe()`
+goes into the finding's "What was checked" and `scan --explain`).
+
+| Root | How (first answer wins, in the tool's own order) |
+|---|---|
+| `{Profile}` `{LocalAppData}` `{RoamingAppData}` `{LocalLow}` `{ProgramData}` `{Downloads}` `{Desktop}` `{Documents}` `{Programs}` `{CommonPrograms}` `{ProgramFiles}` `{ProgramFilesX86}` `{UserProgramFiles}` | `SHGetKnownFolderPath` (redirection included) |
+| `{Temp}` | `GetTempPath` (TMP, then TEMP) |
+| `{npmCache}` | `npm_config_cache`; `cache=` in the user npmrc (`NPM_CONFIG_USERCONFIG` or `~\.npmrc`); in the global npmrc (`NPM_CONFIG_GLOBALCONFIG` or `<prefix>\etc\npmrc`, prefix `NPM_CONFIG_PREFIX` or `%APPDATA%\npm`); `%LOCALAPPDATA%\npm-cache`. `npm config get` is never run. |
+| `{pnpmStore}` | `npm_config_store_dir`; `store-dir` in `%LOCALAPPDATA%\pnpm\config\rc`, then `~\.npmrc`; `%PNPM_HOME%\store`; `%LOCALAPPDATA%\pnpm\store` |
+| `{yarnCache}` | `YARN_CACHE_FOLDER`; `cache-folder` in `~\.yarnrc`; `%LOCALAPPDATA%\Yarn\Cache` |
+| `{pipCache}` | `PIP_CACHE_DIR`; `cache-dir` in `[global]` of `PIP_CONFIG_FILE`, `%APPDATA%\pip\pip.ini`, `~\pip\pip.ini`, `%ProgramData%\pip\pip.ini`; `%LOCALAPPDATA%\pip\Cache` |
+| `{uvCache}` | `UV_CACHE_DIR`; `cache-dir` in `%APPDATA%\uv\uv.toml`; `%LOCALAPPDATA%\uv\cache` |
+| `{nugetPackages}` | `NUGET_PACKAGES`; `globalPackagesFolder` in `%APPDATA%\NuGet\NuGet.Config` (relative to the file); `~\.nuget\packages` |
+| `{nugetHttpCache}` | `NUGET_HTTP_CACHE_PATH`; `%LOCALAPPDATA%\NuGet\v3-cache` |
+| `{gradleHome}` | `-Dgradle.user.home=` in `GRADLE_OPTS`; `GRADLE_USER_HOME`; `~\.gradle` |
+| `{mavenRepo}` | `-Dmaven.repo.local=` in `MAVEN_OPTS`; `localRepository` in `~\.m2\settings.xml`, then `%MAVEN_HOME%\conf\settings.xml` (`${user.home}`, `${env.X}` expanded); `~\.m2\repository` |
+| `{cargoHome}` | `CARGO_HOME`; `~\.cargo` |
+| `{goModCache}` | `GOMODCACHE`; `GOMODCACHE` in the go env file (`GOENV` or `%APPDATA%\go\env`); first `GOPATH` entry (variable, then env file) + `pkg\mod`; `~\go\pkg\mod` |
+| `{androidSdk}` | `ANDROID_HOME`; `ANDROID_SDK_ROOT`; `%LOCALAPPDATA%\Android\Sdk` |
+| `{hfHome}` / `{hfHubCache}` | `HF_HOME`, `XDG_CACHE_HOME\huggingface`, `~\.cache\huggingface` / `HF_HUB_CACHE`, `HUGGINGFACE_HUB_CACHE`, `{hfHome}\hub` |
+| `{scoop}` / `{scoopGlobal}` | `SCOOP` / `SCOOP_GLOBAL`; `root_path` / `global_path` in `~\.config\scoop\config.json`; `~\scoop` / `%ProgramData%\scoop` |
+| `{chocolatey}` | `ChocolateyInstall`; `%ProgramData%\chocolatey` |
+| `{wingetPackages}` / `{wingetMachinePackages}` | `installBehavior.portablePackageUserRoot` / `...MachineRoot` in winget's settings.json (comments allowed); `%LOCALAPPDATA%\Microsoft\WinGet\Packages` / `%ProgramFiles%\WinGet\Packages` |
+
+Config values are expanded (`%VAR%`, `${VAR}`, `~`); a value that is not a full path is not
+used (and the detail says so). Where a tool reads its variable before its config file (npm,
+pip, NuGet, Go, uv), that order is kept: accuracy means the folder the tool really uses.
+
+### Installed-apps inventory (`Inventory/`, PLAN 4.3)
+
+Twelve sources, run in parallel, each timed and reported (`SourceReport`: count, where it
+looked, problems):
+
+| Source | Read from |
+|---|---|
+| `UninstallMachine64` / `UninstallMachine32` / `UninstallUser64` / `UninstallUser32` | `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall` in HKLM and HKCU, 64- and 32-bit views; every entry with a DisplayName (system components and updates included); product code (MSI), publisher, version, install location, DisplayIcon program, `WinGetPackageIdentifier` |
+| `StorePackages` | MSIX/Store packages registered for the user: `HKCU\Software\Classes\Local Settings\...\AppModel\Repository\Packages` (what `PackageManager.FindPackagesForUser` reads; read directly so no WinRT interop is needed and AOT stays clean); package family name from the full name |
+| `Scoop` | `{scoop}\apps\*`, `{scoopGlobal}\apps\*` (the `current` link is never followed) |
+| `Chocolatey` | `{chocolatey}\lib\<id>` with title, version and authors from its `.nuspec` |
+| `Winget` | portable packages in `{wingetPackages}` / `{wingetMachinePackages}` (`<Id>_<Source>`); winget's MSI/EXE/MSIX installs are already in the Uninstall keys and the package repository, so winget is never run |
+| `AppPaths` | `App Paths` in HKLM (both views) and HKCU, only when the program exists |
+| `StartMenu` | `.lnk` files in `{Programs}` and `{CommonPrograms}` (four levels), read by a managed [MS-SHLLINK] parser (`ShellLink`: LinkInfo local path, environment-variable target, relative path; no COM, AOT safe). A shortcut whose target is gone does not count; an MSI advertised shortcut gives its product code (`MsiGetShortcutTargetW`) |
+| `ProgramFiles` | non-empty folders (vendor and product level) in `{ProgramFiles}`, `{ProgramFilesX86}`, `{UserProgramFiles}` |
+| `RunningProcesses` | process names (an app in use is never gone) |
+
+`AppInventory.IsInstalled(AppHint)` returns an `InstallMatch`: the state, **every source
+checked** (with its count and completeness), and each record that matched with the hint that
+matched (name by whole leading words, publisher, product code, package family, package id,
+program file name, install folder). States: `Installed` (any source lists it), `NotInstalled`
+(every source was read completely and none lists it) and `Unknown` (nothing lists it but a source
+could not be read completely, is missing where Windows always has it, e.g. HKLM Uninstall or the
+package repository, or was turned off by a flag). Only `NotInstalled` may ever lead to a leftover.
+`Apps` merges records of one app across sources (product code, package family, package id,
+install location, normalised name).
+
+### Detectors (`Detectors/`)
+
+| Kind | Options | Notes |
+|---|---|---|
+| `paths` | `paths` (required), `groupEach`, `olderThanDays`, `exclude` | wildcards `*`, `?`, `[...]`, `[!...]` per segment, case-insensitive; every folder on the way must be an ordinary folder (a junction, symlink or cloud folder ends the branch and is reported); matches that are links or cloud placeholders are skipped. `olderThanDays` uses the newest write *or creation* time of the item and everything inside (a copied file keeps its old write time); an item whose age cannot be read completely is left alone |
+| `versionedSiblings` | `parents`, `pattern` (with `(?<version>)`, optional `(?<key>)`), `keep`, `groupEach` | numeric, part-by-part compare (`2024.10` > `2024.9`); one family per key across all parents |
+| `staleProjectArtifacts` | `roots` (Settings' project folders replace them), `names`, `staleDays`, `maxDepth` | node_modules (package.json), .venv/venv (Python markers *and* `pyvenv.cfg` inside), bin+obj (`*.csproj/fsproj/vbproj`, and `Debug`/`Release` or `project.assets.json` inside), target (Cargo.toml with `CACHEDIR.TAG`/debug/release, or pom.xml with Maven output), .gradle. Last activity = git HEAD/index of the nearest repository (worktrees too) and the newest *file* in the project, never the artifact folders or folder times; a project too big or unreadable to judge is left alone. Links never entered |
+| `orphanedAppData` | `knownApps`: `name`, `names`, `publishers`, `productCodes`, `packageFamilies`, `packageIds`, `exes`, `folders`, `paths` (only under AppData, LocalLow, ProgramData or the profile), `note` | only listed apps; only `NotInstalled`; not when any of the app's folders holds an installed program (an inventory install location or program inside it); the finding lists every source checked ("Not in ... (N apps listed)") |
+
+### Scanner (`Scanning/`)
+
+`Scanner.ScanAsync` (or `DevSweepEngine.ScanAsync`): every rule's check runs on a worker thread
+(at most `MaxParallelism` at once) under `CheckTimeout` (default 90 s; a slow check is cancelled
+and reported `TimedOut`, a throwing one `Failed`, the scan goes on). Progress events
+(`IProgress<ScanProgress>`) for each check starting and finishing and each item measured. A path
+belongs to the first rule that claims it (paths inside a claimed folder are dropped). Items are
+measured in parallel under `MeasureTimeout` (partial sizes keep what was counted and say "at
+least"). Findings get their facts, rendered explanation, actions with commands filled in, running
+blockers, and the safety guard's path verdict (a path the guard refuses loses its Delete and
+Trash actions). Totals count nothing twice: a file hard-linked into several paths of one finding
+counts once and is freeable; one hard-linked into several findings counts once in
+`ScanReport.TotalBytes` (`SharedBetweenFindingsBytes`, and each finding's
+`SharedWithOtherFindingsBytes`); a finding inside another's folder counts once (`NestedBytes`).
+`ScanReport` (the Mac report plus Windows detail): per check id, title, category, kind, outcome,
+seconds, measure seconds, found, partial sizes, folders not readable, locations resolved, notes,
+error; plus totals, timeouts, inventory sources, rule errors and what flags turned off.
+
+**Walker policy.** `ScanOptions.Mode = SizeMode.Overview` (the default, `devsweep scan`):
+alternate data streams are not counted, so files are measured by name with no handle (fast,
+Defender-friendly); every finding carries `Measurement = Overview`. `SizeMode.Exact`
+(`--exact`): streams counted. Tool-reported sizes are `Reported`.
+
+### Extension points (for M3a, M3b, M3c and M4)
+
+- **Exact re-measure (M4).** Before Review shows a size and before the cleaner runs, call
+  `new FindingRemeasurer(rules: id => ruleSet.Rules.FirstOrDefault(r => r.Id == id)).RemeasureAsync(finding, timeLimit, ct)`
+  for every finding with `Measurement == SizeMeasurement.Overview` (or always: on an exact one it
+  refreshes). It walks every path with streams on, returns the finding with `Size`, `PathSizes`,
+  `FreeableBytes`, `Files`, `Confidence`, `Measurement = Exact`, the `size` fact and (given the
+  rule) the explanation re-rendered; vanished paths are dropped. `Reported` findings are returned unchanged.
+- **Modules and flags (all).** A place is an `IDevSweepModule` (`Id`, `Title`, `EnabledByDefault`,
+  `Register(EngineBuilder)`); it registers `AddDetector`, `AddLocation`, `AddInventoryCollector`,
+  `AddRulePacks(() => EmbeddedRulePacks.From(assembly))` and `AddService<T>` (read back with
+  `engine.Services<T>()`). `DevSweepEngine.CreateDefault(flags)` registers `locations`,
+  `inventory` and `cleanup` (`BuiltInModules.All`); M3b/M3c add `HealthModule`/`ProjectsModule`
+  there (`EnabledByDefault = false` until they pass their gate). Flags (`FeatureFlags`) come from
+  `%LOCALAPPDATA%\DevSweep\features.json` (`{"disabled": [...], "enabled": [...]}`) and the
+  `DEVSWEEP_FEATURES` variable (`"-category:leftovers +module:health"`): `module:<id>`,
+  `detector:<kind>` (its rules still validate, they do not run), `category:<yamlName>`,
+  `rule:<id>`, `inventory:<Source>` (then nothing is ever a leftover). `engine.Disabled` and
+  `ScanReport.Disabled` list what is off.
+- **A detector (M3a).** A class deriving from `Detector<TOptions>`: `Kind`; `BindOptions(OptionReader)`
+  reads every option with `Paths`, `TextList`, `Text`, `Number`, `Flag`, `Pattern`, `Mappings`
+  (errors reported with line numbers; unread keys are reported as unknown); `Detect(DetectorRun, TOptions)`
+  returns `Candidate`s (key, paths or a tool-reported `Size`, facts, checks, optional title,
+  subtitle, actions, risk). Use `run.Expand(template)` for rule paths (wildcards, no links),
+  `FileProbe` for metadata-only listing, `ItemAge`, `run.Context.Inventory` / `Locations` /
+  `Processes` / `Now`, `run.Denied(path)` and `run.Note(text)`; honour `run.CancellationToken`.
+  Register it in a module. Run external tools only with a time limit and never through a shell
+  (npm, pnpm and yarn are `.cmd` scripts, so they cannot be run without one: show them as `manual`).
+- **A location (M3a/M3b).** A class deriving from `LocationResolver` with `Name` (the `{root}`),
+  `Description`, and `Resolve(ResolutionTrail t)` returning e.g.
+  `t.Variable("X") ?? t.Config(file, "key", text => ConfigText.Ini(...)) ?? t.Default("LocalAppData", "Tool")`
+  in the tool's own order; `ConfigText` reads INI/npmrc, KEY=VALUE, TOML, .yarnrc, NuGet.Config,
+  Maven XML and JSON-with-comments. Register with `AddLocation`; a later resolver with the same name replaces one.
+- **A rule pack (M3a).** A `.yml` in `windows/rules` (embedded automatically by the Core project)
+  or in another module's assembly as `DevSweep.Rules.<name>.yml`. File-name order is claim order:
+  specific rules before general ones, leftovers last (`90-`). Every rule needs a fixture test
+  (see `tests/DevSweep.Accuracy/Rules/BundledRuleTests.cs` and `MachineFixture`, a whole machine in
+  a fixture folder with a fake registry); `devsweep rules validate` checks a pack.
+- **An inventory source (M3b).** An `IInventoryCollector` (`Source`, `Collect(CollectorRun)`:
+  throw when the source cannot be read at all, `run.Problem(...)` for anything partly unreadable,
+  `run.Looked(...)` for what was read). A new `InventorySource` value needs a title in `InventorySources`.
+- **Test doubles.** `FixedEnvironment` (variables, Known Folders, temp, in-memory or real config
+  files; `UnderRoot(folder)` builds a whole profile), `InMemoryRegistry` (hives per view, `Deny`
+  for unreadable keys), `FixedProcesses`, and `IItemMeasurer` for scans without the walker.
+
+### Decisions and deviations
+
+- YAML: YamlDotNet's parser with a hand-written mapper instead of its static (source-generated)
+  serializer context: it gives line-numbered errors for every schema problem and never touches
+  reflection, so no trim/AOT exceptions are needed.
+- MSIX: read from the per-user package repository in the registry, not WinRT `PackageManager`
+  (no CsWinRT projection in an AOT engine). A missing repository key makes the source incomplete.
+- winget: no `winget` process and no read of its SQLite state: its installs are already in the
+  Uninstall keys (MSI/EXE, with `WinGetPackageIdentifier` for portable ones) and the package
+  repository (MSIX); portable package folders are a source of their own.
+- Go: the go env file is read the way `go env` reads it instead of running `go env` (same answer,
+  no process, no time limit to manage).
+- Start menu `.lnk`: a managed parser instead of COM `IShellLink`.
+- Gradle's daemon has no process of its own name on Windows (it is `java.exe`), so the Gradle rule
+  has no blocker; the cleaner's Restart Manager check still finds files in use.
+
+### Numbers from CI
+
+CI run [41842008632](https://github.com/karuneshpalekar/DevSweep/actions/runs/41842008632)
+(`windows-latest`, NTFS, 4 KiB clusters): unit tests 306 passed; accuracy suite 96 passed, 0
+skipped as administrator; 91 passed and the same 5 M1 skips (virtual disks need an
+administrator; the Desktop redirect only runs with `CI=true`) as a fresh standard user.
+Native AOT `devsweep.exe`: 8,837,632 bytes, no trim or AOT warnings.
+
+**Installed-apps inventory on the runner** (`devsweep inventory`, and `InventorySmokeTests`):
+
+| Source | Administrator | Standard user (new account) |
+|---|---:|---:|
+| Uninstall HKLM 64-bit | 249 | 249 |
+| Uninstall HKLM 32-bit | 179 | 179 |
+| Uninstall HKCU 64 / 32-bit | 0 / 0 | 0 / 0 |
+| Store and MSIX packages | 48 | **incomplete**: the account never logged on interactively, so it has no package repository yet; every leftover is then "unknown", never "gone" |
+| Scoop / winget portable | 0 / 0 | 0 / 0 |
+| Chocolatey | 45 | 45 |
+| App Paths (program exists) | 43 | 40 |
+| Start menu shortcuts (target exists) | 161 | 161 |
+| Program Files folders | 377 | 351 |
+| Running programs | 57 | 59 |
+| **Merged** | 837 apps from 1,159 records | 767 apps from 1,084 records |
+
+Every source but the standard user's package repository was read completely. `IsInstalled`
+for Git: Installed, from the HKLM Uninstall key, four Start menu shortcuts and its Program Files
+folder; for a made-up app: NotInstalled (administrator), Unknown (standard user, because of the
+package repository). Slowest sources: Start menu (129 ms) and App Paths (66 ms).
+
+**Rules, on the fixture machine** (`BundledRuleTests`, exact sizes = allocation): npm cache
+62,914,560 bytes at the default and, with a `.npmrc`, at the folder it names (the default one
+ignored); pip 62,914,560 (not shown at 41.9 MB, under its 50 MB limit); Gradle 545,259,520 via
+`GRADLE_USER_HOME`; NuGet HTTP cache 53,477,376; `%TEMP%`: the old file and the old folder
+(60 MiB) offered, the new file and the old-looking folder with a new file inside left alone;
+JetBrains: IntelliJIdea 2024.1 (Roaming + Local, 25,165,824) and 2024.9 offered, 2024.10 and
+Rider kept; stale projects: `node_modules in old-web` (git HEAD old, npm wrote into node_modules
+today) and `bin and obj in OldLib` (62,914,560) offered; a fresh project, one with a commit
+today, a `bin` of scripts and a `node_modules` junction left alone; leftovers: Postman offered
+with 12 "Not in ..." lines, Slack (installed) not.
+
+**Leftover gate** (`LeftoverGateTests`): eleven apps installed one per source (HKLM 64 by product
+code, HKLM 32, HKCU, an MSIX family, Scoop, Chocolatey by nuspec title, winget portable, App
+Paths, a real `.lnk` written by Windows, a Program Files folder, a running process), each with
+data in Roaming, Local and ProgramData: **0 false leftovers**; the uninstalled app is offered
+(3 places, every source listed); with the 32-bit Uninstall key unreadable, or the Start menu
+source turned off, nothing is offered and the report says why; an app whose folder holds another
+installed program is left alone. The gate caught a real bug on its first run (the nuspec reader
+skipped the title, so a Chocolatey app's data was offered as a leftover); fixed before merge.
+
+**Totals** (`ScanAccuracyTests`, real walker): a store (10 MiB) and a project (11 MiB) sharing an
+8 MiB hard-linked file: store `SharedLinks`, freeable 2 MiB; scan total 13,631,488 bytes (21 MiB
+less the 8 MiB counted once), `SharedBetweenFindingsBytes` 8,388,608. Two paths of one finding
+sharing a file: 4 MiB, all freeable. A file with a 1 MiB stream: overview 2,097,152, exact
+re-measure 3,145,728 (`Measurement = Exact`).
+
+**Golden scan** (`golden-scan-windows-latest` artifact): as administrator, 8 checks, 1 finding
+(NuGet HTTP cache, 222,639,384 bytes overview, the same 212 MB exact), under a second; the npm
+cache was resolved from the runner's own global npmrc (`C:\npm\cache`, "from cache in
+C:\npm\prefix\etc\npmrc"). As the standard user: 8 checks, 0 findings. A broken pack is rejected
+by `rules validate` with 4 line-numbered problems.
+
+### Known gaps (for M3 and M7)
+
+- The PLAN 6 reference machines (winget/VS/WSL, Scoop/Docker, Chocolatey/JetBrains/OneDrive)
+  are not available to a milestone run; the CI runner is the only real machine so far.
+- `versionedSiblings` keeps the newest version only by number; JetBrains IDEs installed side by
+  side are not yet checked against the inventory (M3a: add an inventory guard).
+- Projects inside OneDrive (cloud folders) are not looked into by the detectors.
+- A brand-new account without a package repository makes every leftover "unknown" (by design).
+- A hard-linked file inside a finding that is itself inside another finding's folder is subtracted
+  twice from the scan total (rare: claims normally prevent nesting); the per-finding sizes are right.

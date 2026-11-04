@@ -67,6 +67,34 @@ public static unsafe class KnownFolders
     /// <summary>The Desktop folder, wherever it is redirected.</summary>
     public static string Desktop => Get(PInvoke.FOLDERID_Desktop, "Desktop");
 
+    /// <summary>
+    /// Folders rules and resolvers name as roots (<c>{LocalAppData}</c>...), by
+    /// root name. Each is resolved by the shell, redirection included.
+    /// </summary>
+    private static readonly Dictionary<string, Guid> Roots = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Profile"] = PInvoke.FOLDERID_Profile,
+        ["LocalAppData"] = PInvoke.FOLDERID_LocalAppData,
+        ["RoamingAppData"] = PInvoke.FOLDERID_RoamingAppData,
+        ["LocalLow"] = PInvoke.FOLDERID_LocalAppDataLow,
+        ["ProgramData"] = PInvoke.FOLDERID_ProgramData,
+        ["Downloads"] = PInvoke.FOLDERID_Downloads,
+        ["Desktop"] = PInvoke.FOLDERID_Desktop,
+        ["Documents"] = PInvoke.FOLDERID_Documents,
+        ["Programs"] = PInvoke.FOLDERID_Programs,
+        ["CommonPrograms"] = PInvoke.FOLDERID_CommonPrograms,
+        ["ProgramFiles"] = PInvoke.FOLDERID_ProgramFiles,
+        ["ProgramFilesX86"] = PInvoke.FOLDERID_ProgramFilesX86,
+        ["UserProgramFiles"] = PInvoke.FOLDERID_UserProgramFiles,
+    };
+
+    /// <summary>The names <see cref="TryGetRoot"/> knows.</summary>
+    public static IReadOnlyCollection<string> RootNames => Roots.Keys;
+
+    /// <summary>Resolves a root by name ("LocalAppData", "Downloads"...); null when unknown or not resolvable.</summary>
+    public static string? TryGetRoot(string name)
+        => Roots.TryGetValue(name, out Guid id) && TryGet(id, out string? path) ? path : null;
+
     private static string Get(Guid id, string name)
         => TryGet(id, out string? path) ? path : throw new InvalidOperationException($"The shell cannot resolve the {name} folder.");
 

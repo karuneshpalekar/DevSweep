@@ -7,6 +7,8 @@
   <ItemGroup>
     <!-- Win32 interop (source generator, build-time only) -->
     <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.367" />
+    <!-- Rule packs: the YAML parser only (events), mapped by hand, so no reflection (AOT safe) -->
+    <PackageVersion Include="YamlDotNet" Version="16.3.0" />
     <!-- CLI -->
     <PackageVersion Include="System.CommandLine" Version="2.0.14" />
     <!-- Tests -->

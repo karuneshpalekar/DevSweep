@@ -22,9 +22,13 @@ internal sealed class HardLinkLedger
             return false;
         }
 
-        _entries[facts.Identity] = new Entry(1, facts.LinkCount, facts.AllocationSize);
+        _entries[facts.Identity] = new Entry(1, facts.LinkCount, facts.AllocationSize, facts.TotalAllocation);
         return true;
     }
+
+    /// <summary>Every file with more than one link seen in this walk, for deduplication across walks.</summary>
+    public IReadOnlyList<LinkedFile> LinkedFiles()
+        => _entries.Select(pair => new LinkedFile(pair.Key, pair.Value.TotalAllocation, pair.Value.LinkCount, pair.Value.NamesSeen)).ToList();
 
     /// <summary>Files (and their bytes) with links the walk did not see.</summary>
     public (long Files, long Bytes) SharedOutside()
@@ -43,5 +47,5 @@ internal sealed class HardLinkLedger
         return (files, bytes);
     }
 
-    private readonly record struct Entry(uint NamesSeen, uint LinkCount, long AllocationSize);
+    private readonly record struct Entry(uint NamesSeen, uint LinkCount, long AllocationSize, long TotalAllocation);
 }

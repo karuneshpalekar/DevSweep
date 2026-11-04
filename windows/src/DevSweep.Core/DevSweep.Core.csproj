@@ -9,6 +9,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.CsWin32" PrivateAssets="all" />
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The bundled Windows rule packs (windows/rules), read by EmbeddedRulePacks. -->
+    <EmbeddedResource Include="..\..\rules\*.yml" LogicalName="DevSweep.Rules.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

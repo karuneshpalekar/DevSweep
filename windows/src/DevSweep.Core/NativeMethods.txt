@@ -68,6 +68,10 @@ FOLDERID_Templates
 FOLDERID_SendTo
 FOLDERID_Recent
 FOLDERID_UserProgramFiles
+FOLDERID_ProgramData
+FOLDERID_CommonPrograms
+FOLDERID_ProgramFiles
+FOLDERID_ProgramFilesX86
 // Restart Manager (who holds a file open)
 RmStartSession
 RmRegisterResources
@@ -81,3 +85,5 @@ SHQueryRecycleBin
 FILEOPERATION_FLAGS
 WIN32_ERROR
 FO_DELETE
+// Installed apps (inventory)
+MsiGetShortcutTarget

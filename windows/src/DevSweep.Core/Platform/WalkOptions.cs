@@ -24,4 +24,11 @@ public sealed record WalkOptions
     /// are left out.
     /// </summary>
     public bool AlternateStreams { get; init; } = true;
+
+    /// <summary>
+    /// List every file with more than one hard link in <see cref="WalkResult.LinkedFiles"/>
+    /// (identity, bytes, links seen), so a scan can count bytes shared between
+    /// findings once. Off by default.
+    /// </summary>
+    public bool RecordLinkedFiles { get; init; }
 }

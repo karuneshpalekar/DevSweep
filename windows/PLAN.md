@@ -1,6 +1,6 @@
 # DevSweep for Windows: plan
 
-Status: **approved** (decisions in section 7). M0 and M1 done (M1 on branch `windows-m1-filesystem`, awaiting review); next M2. This branch (`windows`)
+Status: **approved** (decisions in section 7). M0, M1 and M2 done (M2 on branch `windows-m2-rules`, awaiting review); next M3a, M3b, M3c and M4 in parallel. This branch (`windows`)
 holds the plan; code lands here milestone by milestone.
 
 ## 1. Goal
@@ -197,7 +197,7 @@ parallel; each ends with a PR into `windows`.
 |---|---|---|---|---|
 | **M0** | Foundation & stack spike | none | Solution skeleton, CI on `windows-latest` (x64), CsWin32 set up, a spike proving: allocation size, file ID dedupe, reparse-point stop, OneDrive placeholder detection, recycle with quota check | Spike numbers match `fsutil`/Explorer on fixture folders; CI green |
 | **M1** (done, CI green; see README) | Filesystem layer + Safety | M0 | Walker (4.2), Safety (4.4), Recycle/quarantine, Restart Manager blockers, History store | Accuracy suite fixtures (6) all pass; fuzzed path tests for Safety |
-| **M2** | Rules engine + inventory | M1 | YAML loader (shared schema), location resolvers (Known Folders, env, tool config), installed-apps inventory (4.3), `paths`/`versionedSiblings`/`staleProjectArtifacts`/`orphanedAppData` detectors, CLI `scan` | Inventory matches on 3 reference machines; no false leftovers |
+| **M2** (done, CI green; see README) | Rules engine + inventory | M1 | YAML loader (shared schema), location resolvers (Known Folders, env, tool config), installed-apps inventory (4.3), `paths`/`versionedSiblings`/`staleProjectArtifacts`/`orphanedAppData` detectors, CLI `scan` | Inventory matches on 3 reference machines; no false leftovers |
 | **M3a** | Windows rule packs | M2 | Section 4.5 packs, WSL/Docker vhdx detector, .NET SDK detector, Android detector, explanations | Each rule has a fixture test + a real-machine check |
 | **M3b** | Health | M2 | Runtimes (nvm-windows, fnm, Volta, pyenv-win, `py` launcher, conda, uv, SDKMAN-alt, rustup, Scoop/winget/choco installs, Store aliases), registry PATH, EOL, project requirements, Security scan, Ports (`GetExtendedTcpTable` + firewall reachability) | Runtime inventory correct on reference machines; Store alias never reported as install |
 | **M3c** | Projects | M2 | git/gh multi-account, safe removal checks, download strategies, per-account identity, CRLF/case-insensitivity handling | Same checks as Mac test suite, ported |

@@ -62,20 +62,6 @@ jobs:
           --results-directory TestResults --logger "trx;LogFileName=accuracy.trx"
           --logger "console;verbosity=detailed"
 
-      - name: Accuracy tests as a standard (non-admin) user
-        run: >
-          ./eng/run-as-standard-user.ps1
-          -TestDirectory tests/DevSweep.Accuracy/bin/Release
-          -ResultsDirectory TestResults/standard-user
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: test-results
-          path: windows/TestResults
-          if-no-files-found: warn
-
       - name: Publish CLI (Native AOT)
         run: dotnet publish src/DevSweep.Cli/DevSweep.Cli.csproj -c Release -r win-x64 -o artifacts/cli
 
@@ -119,6 +105,73 @@ jobs:
           "Reference (fsutil hardlink list):"
           fsutil hardlink list "$root\walked\data.bin"
           $global:LASTEXITCODE = 0
+
+      - name: Smoke test devsweep rules, inventory and scan (golden scan, administrator)
+        run: |
+          $exe = Resolve-Path artifacts/cli/devsweep.exe
+          $golden = New-Item -ItemType Directory -Force artifacts/golden
+          "== rules validate (bundled packs)"
+          & $exe rules validate
+          if ($LASTEXITCODE -ne 0) { throw "bundled rule packs are invalid ($LASTEXITCODE)" }
+          $bad = Join-Path $env:RUNNER_TEMP 'bad-pack.yml'
+          Set-Content $bad "rules:`n  - id: bad`n    title: Bad`n    category: nowhere`n    risk: rebuilds`n    detector: { kind: pathz }`n    actions: [{ kind: delete }]`n    explain: { what: x }`n"
+          "== rules validate (a broken pack must fail with reasons)"
+          & $exe rules validate $bad
+          if ($LASTEXITCODE -ne 1) { throw "a broken pack was not rejected ($LASTEXITCODE)" }
+          $global:LASTEXITCODE = 0
+
+          "== inventory"
+          & $exe inventory --json > "$golden/inventory-admin.json"
+          if ($LASTEXITCODE -ne 0) { throw "devsweep inventory failed ($LASTEXITCODE)" }
+          $inventory = Get-Content -Raw "$golden/inventory-admin.json" | ConvertFrom-Json
+          "{0} apps from {1} records" -f $inventory.apps.Count, $inventory.records
+          foreach ($source in $inventory.sources) { "  {0,-20} {1,5} {2,8:0} ms  {3}" -f $source.source, $source.count, $source.milliseconds, ($(if ($source.problems.Count -eq 0) { 'complete' } else { 'INCOMPLETE: ' + ($source.problems -join '; ') })) }
+          if ($inventory.sources.Count -ne 12) { throw "expected 12 inventory sources" }
+          if (($inventory.sources | Where-Object source -eq 'UninstallMachine64').count -lt 1) { throw "no apps in HKLM Uninstall" }
+
+          "== scan --json (overview sizes)"
+          & $exe scan --json > "$golden/scan-admin.json"
+          if ($LASTEXITCODE -ne 0) { throw "devsweep scan failed ($LASTEXITCODE)" }
+          $scan = Get-Content -Raw "$golden/scan-admin.json" | ConvertFrom-Json
+          "{0} findings, {1:N0} bytes; {2}" -f $scan.findings.Count, $scan.report.totalBytes, $scan.report.summary
+          foreach ($check in $scan.report.checks) { "  {0,-14} {1,-26} {2,6:0.00} s + {3,6:0.00} s measuring, found {4}" -f $check.outcome, $check.id, $check.seconds, $check.measureSeconds, $check.found }
+          foreach ($finding in $scan.findings) { "  {0,14:N0}  {1}  [{2}, {3}, {4}]" -f $finding.size, $finding.title, $finding.confidence, $finding.measurement, $finding.paths[0] }
+          if ($scan.report.checks.Count -lt 8) { throw "expected every bundled rule to run" }
+          if (@($scan.report.checks | Where-Object { $_.outcome -eq 'Failed' }).Count -gt 0) { throw "a check failed" }
+          if (@($scan.report.ruleErrors).Count -gt 0) { throw "rule errors in the scan" }
+          if (@($scan.findings | Where-Object { $_.measurement -ne 'Overview' -and $_.measurement -ne 'Reported' }).Count -gt 0) { throw "overview scan produced exact findings" }
+
+          "== scan --exact --explain (text)"
+          & $exe scan --exact --explain --category packageCaches,windows,dotnet,leftovers
+          if ($LASTEXITCODE -ne 0) { throw "devsweep scan --exact failed ($LASTEXITCODE)" }
+          & $exe scan --category nowhere
+          if ($LASTEXITCODE -ne 2) { throw "an unknown category was not rejected" }
+          $global:LASTEXITCODE = 0
+
+      - name: Accuracy tests and devsweep as a standard (non-admin) user
+        run: >
+          ./eng/run-as-standard-user.ps1
+          -TestDirectory tests/DevSweep.Accuracy/bin/Release
+          -ResultsDirectory TestResults/standard-user
+          -CliPath artifacts/cli/devsweep.exe
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-results
+          path: windows/TestResults
+          if-no-files-found: warn
+
+      - name: Upload golden scan
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: golden-scan-windows-latest
+          path: |
+            windows/artifacts/golden
+            windows/TestResults/standard-user/*.json
+          if-no-files-found: warn
 
       - name: Upload CLI
         uses: actions/upload-artifact@v5

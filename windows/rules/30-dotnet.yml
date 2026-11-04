@@ -1,0 +1,22 @@
+# .NET and NuGet.
+rules:
+  - id: nuget-http-cache
+    title: NuGet download cache
+    category: dotnet
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ['{nugetHttpCache}']
+    actions:
+      - kind: command
+        label: Clear with dotnet
+        command: ["dotnet", "nuget", "locals", "http-cache", "--clear"]
+        detail: "Runs dotnet nuget locals http-cache --clear."
+      - kind: delete
+    explain:
+      what: "Package lists and packages NuGet downloaded from feeds, kept so restores can skip the network."
+      why: "{{size}} of downloads in {{nugetHttpCache}}."
+      ifDeleted: "The next restore asks the feeds again, so it's slower once. Installed packages are not affected."
+      wontLose: "Your global packages folder (.nuget\\packages), your projects or their packages."
+      undo: "Nothing to undo. NuGet refills it on the next restore."

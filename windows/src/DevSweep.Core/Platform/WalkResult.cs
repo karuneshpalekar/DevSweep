@@ -6,6 +6,13 @@ public sealed record ReparsePointRecord(string Path, uint Tag, ReparseKind Kind,
 /// <summary>A path the walker could not read, and the Win32 error.</summary>
 public sealed record WalkProblem(string Path, int Win32Error);
 
+/// <summary>A file with more than one hard link that a walk counted (once).</summary>
+/// <param name="Identity">Volume serial and file ID.</param>
+/// <param name="Bytes">On-disk bytes counted for it (alternate streams included when they were counted).</param>
+/// <param name="LinkCount">Links the file has on its volume.</param>
+/// <param name="NamesSeen">Links the walk saw.</param>
+public sealed record LinkedFile(FileIdentity Identity, long Bytes, uint LinkCount, uint NamesSeen);
+
 /// <summary>What one walk measured. Sizes are on-disk allocation, each file counted once.</summary>
 public sealed record WalkResult
 {
@@ -80,6 +87,12 @@ public sealed record WalkResult
     public long StaleDirectoryEntries { get; init; }
 
     public TimeSpan Elapsed { get; init; }
+
+    /// <summary>True when alternate data streams were counted (<see cref="WalkOptions.AlternateStreams"/>).</summary>
+    public bool CountedAlternateStreams { get; init; }
+
+    /// <summary>Files with more than one link, when <see cref="WalkOptions.RecordLinkedFiles"/> was set; otherwise empty.</summary>
+    public IReadOnlyList<LinkedFile> LinkedFiles { get; init; } = [];
 
     /// <summary>Bytes that removing the item would free: <see cref="Bytes"/> minus <see cref="SharedLinkBytes"/>.</summary>
     public long FreeableBytes => Bytes - SharedLinkBytes;

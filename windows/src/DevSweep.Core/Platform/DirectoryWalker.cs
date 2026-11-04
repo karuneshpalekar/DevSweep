@@ -157,6 +157,8 @@ public static class DirectoryWalker
                 Listing = _lister.Used,
                 StaleDirectoryEntries = _measurer.StaleEntries,
                 Elapsed = _clock.Elapsed,
+                CountedAlternateStreams = options.AlternateStreams,
+                LinkedFiles = options.RecordLinkedFiles ? _ledger.LinkedFiles() : [],
             };
         }
 
