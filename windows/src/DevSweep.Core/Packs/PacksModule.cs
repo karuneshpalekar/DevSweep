@@ -51,6 +51,11 @@ public sealed class PacksModule(IMachineQueries? machine = null) : IDevSweepModu
     public void Register(EngineBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
+        if (!builder.Flags.IsEnabled("module:cleanup"))
+        {
+            return; // The packs are part of Clean up (and use its paths and versionedSiblings detectors).
+        }
+
         foreach (ILocationResolver resolver in PackLocations.All())
         {
             builder.AddLocation(resolver);
