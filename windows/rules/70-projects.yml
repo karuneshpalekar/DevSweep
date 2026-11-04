@@ -1,0 +1,23 @@
+# Dependencies and build output in projects nobody has worked on for a while.
+rules:
+  - id: stale-project-artifacts
+    title: "{{folders}} in {{project}}"
+    category: projects
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: staleProjectArtifacts
+      # Settings' project folders replace these.
+      roots: ['{Profile}\source', '{Profile}\Projects', '{Profile}\projects', '{Profile}\repos',
+              '{Profile}\code', '{Profile}\src', '{Profile}\dev', '{Documents}\GitHub', '{Documents}\Projects',
+              '{Profile}\IdeaProjects', '{Profile}\AndroidStudioProjects', '{Profile}\RiderProjects', '{Downloads}']
+      names: ["node_modules", ".venv", "venv", "bin", "obj", "target", ".gradle"]
+      staleDays: 30
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "{{ecosystem}} dependencies or build output ({{folders}}) for {{project}}. They can be made again from {{manifest}}."
+      why: "{{size}} in a project nobody has changed for {{days}} days."
+      ifDeleted: "Before you work on {{project}} again, run {{reinstall}}."
+      wontLose: "Your source code, {{manifest}} or git history."

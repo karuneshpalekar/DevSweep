@@ -1,0 +1,22 @@
+# Editors and IDEs.
+rules:
+  - id: jetbrains-old
+    title: "{{key}} {{version}} settings and caches"
+    category: ideVersions
+    risk: oldVersion
+    minSizeMB: 10
+    detector:
+      kind: versionedSiblings
+      # Settings in AppData\Roaming, caches and logs in AppData\Local.
+      parents: ['{RoamingAppData}\JetBrains', '{LocalAppData}\JetBrains']
+      pattern: "^(?<key>[A-Za-z]+)(?<version>20[0-9]{2}\\.[0-9]+)$"
+      keep: 1
+      groupEach: true
+    actions:
+      - kind: trash
+    explain:
+      what: "Settings, indexes and logs from {{key}} {{version}}."
+      why: "{{size}}. {{key}} {{newest}} is newer and imported your settings on first launch."
+      ifDeleted: "Nothing changes in {{key}} {{newest}}. If you still open {{key}} {{version}}, it starts with default settings."
+      wontLose: "Your projects."
+      undo: "Restore the folders from the Recycle Bin (History)."

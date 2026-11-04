@@ -1,0 +1,50 @@
+# Runs last, so every more specific rule gets first claim on a folder.
+# Only apps listed here are ever called leftovers, and only when every inventory
+# source (installed programs in all four registry views, Store packages, Scoop,
+# Chocolatey, winget, App Paths, Start menu, Program Files, running programs)
+# was read completely and none lists the app.
+rules:
+  - id: orphaned-app-data
+    title: Leftovers from a removed app
+    category: leftovers
+    risk: leftover
+    minSizeMB: 1
+    detector:
+      kind: orphanedAppData
+      knownApps:
+        - name: Postman
+          names: ["Postman"]
+          packageIds: ["Postman.Postman", "postman"]
+          exes: ["Postman.exe"]
+          folders: ["Postman"]
+          paths: ['{RoamingAppData}\Postman']
+          note: "May contain collections you never synced to a Postman account."
+        - name: GitHub Desktop
+          names: ["GitHub Desktop"]
+          packageIds: ["GitHub.GitHubDesktop", "github"]
+          exes: ["GitHubDesktop.exe"]
+          folders: ["GitHubDesktop"]
+          paths: ['{RoamingAppData}\GitHub Desktop']
+        - name: Slack
+          names: ["Slack"]
+          packageFamilies: ["91750D7E.Slack"]
+          packageIds: ["SlackTechnologies.Slack", "slack"]
+          exes: ["slack.exe"]
+          folders: ["slack"]
+          paths: ['{RoamingAppData}\Slack']
+          note: "Messages stay in Slack; files you downloaded inside the app may be here."
+        - name: Insomnia
+          names: ["Insomnia"]
+          packageIds: ["Insomnia.Insomnia", "insomnia"]
+          exes: ["Insomnia.exe"]
+          folders: ["insomnia"]
+          paths: ['{RoamingAppData}\Insomnia']
+          note: "May contain requests you never synced."
+    actions:
+      - kind: trash
+    explain:
+      what: "Settings and data {{app}} left in {{places}} after it was uninstalled."
+      why: "{{size}}. {{app}} is not installed: DevSweep checked {{sourceCount}} places apps are installed from and none lists it."
+      ifDeleted: "Nothing changes. If you install {{app}} again, it starts fresh."
+      wontLose: "Anything of another app."
+      undo: "Restore it from the Recycle Bin (History)."

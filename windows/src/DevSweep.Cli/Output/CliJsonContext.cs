@@ -13,4 +13,6 @@ namespace DevSweep.Cli.Output;
 [JsonSerializable(typeof(MeasureReport))]
 [JsonSerializable(typeof(List<QuarantineEntry>))]
 [JsonSerializable(typeof(List<HistoryEntry>))]
+[JsonSerializable(typeof(ScanJson))]
+[JsonSerializable(typeof(InventoryJson))]
 internal sealed partial class CliJsonContext : JsonSerializerContext;

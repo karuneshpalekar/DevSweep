@@ -1,0 +1,21 @@
+# Windows itself.
+rules:
+  - id: temp-old-files
+    title: Old temporary files
+    category: windows
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ['{Temp}\*']
+      # Only items where nothing inside was written or added for a week.
+      olderThanDays: 7
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Files and folders programs left in your temporary-files folder ({{Temp}}) and never cleaned up."
+      why: "{{size}} in {{count}} items nobody has changed for at least {{days}} days."
+      ifDeleted: "Nothing you'll notice. Programs make new temporary files when they need them."
+      wontLose: "Anything changed in the last {{days}} days, or files a running program has open (those are left alone)."
+      before: "Close installers that are still running."

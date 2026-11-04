@@ -8,6 +8,9 @@ internal static class Program
     private static int Main(string[] args)
     {
         var root = new RootCommand("DevSweep: a disk cleaner for developer machines that explains every item before it goes.");
+        root.Subcommands.Add(ScanCommand.Create());
+        root.Subcommands.Add(RulesCommand.Create());
+        root.Subcommands.Add(InventoryCommand.Create());
         root.Subcommands.Add(MeasureCommand.Create());
         root.Subcommands.Add(QuarantineCommand.Create());
         root.Subcommands.Add(HistoryCommand.Create());

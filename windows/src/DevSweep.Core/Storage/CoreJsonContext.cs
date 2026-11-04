@@ -12,4 +12,5 @@ namespace DevSweep.Core.Storage;
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(List<HistoryEntry>))]
 [JsonSerializable(typeof(QuarantineEntry))]
+[JsonSerializable(typeof(Modules.FeatureSettings))]
 public sealed partial class CoreJsonContext : JsonSerializerContext;

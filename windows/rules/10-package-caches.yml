@@ -1,0 +1,64 @@
+# Package-manager caches. Everything here comes back on its own.
+# Locations come from each tool's own settings ({npmCache}, {pipCache}...), never fixed paths.
+# npm and pnpm are .cmd scripts on Windows, which DevSweep never runs through a shell,
+# so their own clean commands are shown (manual), not run.
+rules:
+  - id: npm-cache
+    title: npm cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ['{npmCache}\_cacache']
+    actions:
+      - kind: delete
+      - kind: manual
+        label: Show npm's command
+        command: ["npm", "cache", "clean", "--force"]
+        detail: "Run npm cache clean --force in a terminal."
+    explain:
+      what: "Every package npm has downloaded, kept so the next install can skip the download."
+      why: "{{size}} of downloaded packages in {{npmCache}}."
+      ifDeleted: "The next npm install in each project downloads its packages again, so it's slower once."
+      wontLose: "Your projects, their node_modules folders, or anything you've published."
+      undo: "Nothing to undo. npm refills the cache as you work."
+
+  - id: pip-cache
+    title: pip cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ['{pipCache}']
+    actions:
+      - kind: delete
+      - kind: command
+        label: Run pip cache purge
+        command: ["pip", "cache", "purge"]
+        detail: "Runs pip cache purge."
+    explain:
+      what: "Python packages pip has downloaded or built, kept to speed up future installs."
+      why: "{{size}} of downloaded and built packages in {{pipCache}}."
+      ifDeleted: "The next pip install downloads packages again. Packages with native code may need to build again, which can take a while."
+      wontLose: "Packages already installed in your Python environments."
+
+  - id: gradle-caches
+    title: Gradle dependency cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 500
+    detector:
+      kind: paths
+      paths: ['{gradleHome}\caches']
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Every library and plugin Gradle has downloaded for Android, Kotlin and Java builds."
+      why: "{{size}} of downloaded libraries in {{gradleHome}}."
+      ifDeleted: "The next build of each Gradle project downloads everything again, which can take several minutes."
+      wontLose: "Your projects or their build settings."
+      before: "Stop running Gradle builds (gradle --stop). Android Studio can stay open."
+      better: "If you build often, keep this and clear only old Gradle versions."
