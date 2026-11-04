@@ -46,25 +46,13 @@ public sealed class SearchPath
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(environment);
         var problems = new List<string>();
-        Dictionary<string, string> machine = Values(registry, RegistryHive.LocalMachine, RegistryView.Registry64, MachineKey, problems);
-        Dictionary<string, string> user = Values(registry, RegistryHive.CurrentUser, RegistryView.Registry64, UserKey, problems);
-
-        string? Lookup(string name)
-            => user.TryGetValue(name, out string? u) && !name.Equals("Path", StringComparison.OrdinalIgnoreCase) ? Expand(u, n => machine.GetValueOrDefault(n) ?? environment.GetVariable(n))
-                : machine.TryGetValue(name, out string? m) ? Expand(m, environment.GetVariable)
-                : environment.GetVariable(name);
-
+        var variables = new RegistryVariables(registry, environment, problems);
         var entries = new List<PathEntry>();
-        foreach ((Dictionary<string, string> values, bool fromUser) in (ReadOnlySpan<(Dictionary<string, string>, bool)>)[(machine, false), (user, true)])
+        foreach ((string? path, bool fromUser) in (ReadOnlySpan<(string?, bool)>)[(variables.MachineRaw("Path"), false), (variables.UserRaw("Path"), true)])
         {
-            if (!values.TryGetValue("Path", out string? path))
+            foreach (string raw in (path ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
-                continue;
-            }
-
-            foreach (string raw in path.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            {
-                string expanded = Expand(raw, Lookup).Trim('"');
+                string expanded = Expand(raw, fromUser ? variables.User : variables.Machine).Trim('"');
                 if (expanded.Length > 0)
                 {
                     entries.Add(new PathEntry(raw, expanded, fromUser));
@@ -72,7 +60,7 @@ public sealed class SearchPath
             }
         }
 
-        string? pathExt = machine.GetValueOrDefault("PATHEXT");
+        string? pathExt = variables.MachineRaw("PATHEXT");
         IReadOnlyList<string> extensions = pathExt is null
             ? DefaultExtensions
             : pathExt.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -143,7 +131,7 @@ public sealed class SearchPath
                     continue;
                 }
 
-                AliasInfo? alias = entry.IsReparsePoint ? aliases.Read(candidate) : null;
+                AliasInfo? alias = entry.IsReparsePoint || entry.Length == 0 ? aliases.Read(candidate) : null;
                 hits.Add(new PathHit(candidate, i, Entries[i].FromUser, alias));
                 break;
             }
@@ -152,44 +140,61 @@ public sealed class SearchPath
         return hits;
     }
 
-    private static Dictionary<string, string> Values(IRegistryReader registry, RegistryHive hive, RegistryView view, string key, List<string> problems)
-    {
-        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            using IRegistryKeyReader? reader = registry.Open(hive, view, key);
-            if (reader is null)
-            {
-                return values;
-            }
-
-            foreach (string name in (string[])["Path", "PATHEXT", "SystemRoot", "ProgramFiles", "USERPROFILE", "LOCALAPPDATA", "APPDATA",
-                         "NVM_HOME", "NVM_SYMLINK", "PYENV", "PYENV_HOME", "PYENV_ROOT", "JAVA_HOME", "GOROOT", "GOPATH", "CARGO_HOME", "RUSTUP_HOME",
-                         "VOLTA_HOME", "FNM_DIR", "SCOOP", "ChocolateyInstall", "ChocolateyToolsLocation", "DENO_INSTALL", "BUN_INSTALL", "PGBIN", "PGROOT",
-                         "CONDA", "DOTNET_ROOT", "UV_PYTHON_INSTALL_DIR", "MISE_DATA_DIR", "ProgramData", "SystemDrive"])
-            {
-                if (reader.Value(name) is string text)
-                {
-                    values[name] = text;
-                }
-            }
-        }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException)
-        {
-            problems.Add($"{hive}\\{key} could not be read ({ex.Message})");
-        }
-
-        return values;
-    }
-
     /// <summary>A variable from the registry environment (user first, then system), as a new program would see it; null when unset.</summary>
     public static string? RegistryVariable(IRegistryReader registry, ISystemEnvironment environment, string name)
     {
         ArgumentNullException.ThrowIfNull(name);
-        var problems = new List<string>();
-        Dictionary<string, string> user = Values(registry, RegistryHive.CurrentUser, RegistryView.Registry64, UserKey, problems);
-        Dictionary<string, string> machine = Values(registry, RegistryHive.LocalMachine, RegistryView.Registry64, MachineKey, problems);
-        string? raw = user.GetValueOrDefault(name) ?? machine.GetValueOrDefault(name);
-        return raw is null ? null : Expand(raw, n => user.GetValueOrDefault(n) ?? machine.GetValueOrDefault(n) ?? environment.GetVariable(n));
+        var variables = new RegistryVariables(registry, environment, []);
+        return variables.UserRaw(name) is not null || variables.MachineRaw(name) is not null ? variables.User(name) : null;
+    }
+
+    /// <summary>
+    /// The registry environment, read value by value: system variables expand with system variables
+    /// (then the process environment); user variables expand with user, then system ones.
+    /// </summary>
+    private sealed class RegistryVariables(IRegistryReader registry, ISystemEnvironment environment, List<string> problems)
+    {
+        private readonly Dictionary<string, string?> _machine = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string?> _user = new(StringComparer.OrdinalIgnoreCase);
+
+        public string? MachineRaw(string name) => Read(_machine, RegistryHive.LocalMachine, MachineKey, name);
+
+        public string? UserRaw(string name) => Read(_user, RegistryHive.CurrentUser, UserKey, name);
+
+        public string? Machine(string name) => Machine(name, 0);
+
+        public string? User(string name) => User(name, 0);
+
+        private string? Machine(string name, int depth)
+            => depth > 8 ? null
+                : MachineRaw(name) is { } raw && !name.Equals("Path", StringComparison.OrdinalIgnoreCase) ? Expand(raw, n => Machine(n, depth + 1))
+                : environment.GetVariable(name);
+
+        private string? User(string name, int depth)
+            => depth > 8 ? null
+                : UserRaw(name) is { } raw && !name.Equals("Path", StringComparison.OrdinalIgnoreCase) ? Expand(raw, n => User(n, depth + 1))
+                : Machine(name, depth + 1);
+
+        private string? Read(Dictionary<string, string?> cache, RegistryHive hive, string key, string name)
+        {
+            if (cache.TryGetValue(name, out string? cached))
+            {
+                return cached;
+            }
+
+            string? value = null;
+            try
+            {
+                using IRegistryKeyReader? reader = registry.Open(hive, RegistryView.Registry64, key);
+                value = reader?.Value(name) as string;
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException)
+            {
+                problems.Add($"{hive}\\{key} could not be read ({ex.Message})");
+            }
+
+            cache[name] = value;
+            return value;
+        }
     }
 }

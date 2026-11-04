@@ -319,7 +319,7 @@ public sealed partial class PythonProbe : RuntimeProbe
         var families = new Dictionary<string, (string? Target, string? Version, string? Location)>(StringComparer.OrdinalIgnoreCase);
         foreach (ProbeEntry entry in HealthFiles.List(context.InLocalAppData("Microsoft", "WindowsApps")))
         {
-            if (!entry.IsDirectory && entry.Name.StartsWith("python", StringComparison.OrdinalIgnoreCase) && entry.IsReparsePoint
+            if (!entry.IsDirectory && entry.Name.StartsWith("python", StringComparison.OrdinalIgnoreCase) && (entry.IsReparsePoint || entry.Length == 0)
                 && context.Aliases.Read(entry.Path) is { Kind: AliasKind.StorePython } alias)
             {
                 families.TryAdd(alias.PackageFamily, (alias.Target, null, null));

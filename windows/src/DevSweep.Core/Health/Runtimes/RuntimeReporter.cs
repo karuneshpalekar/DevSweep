@@ -78,7 +78,7 @@ public static class RuntimeReporter
             issues.Add(new(IssueLevel.Info, $"Newer patch releases (security and bug fixes, same release line): {Words.Join(patches)}."));
         }
 
-        List<string> sources = user.Select(i => i.SourceTitle).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+        List<string> sources = user.Select(i => i.SourceTitle).Distinct(StringComparer.Ordinal).Order(StringComparer.OrdinalIgnoreCase).ToList();
         if (sources.Count > 1)
         {
             issues.Add(new(IssueLevel.Warning, string.Create(CultureInfo.InvariantCulture, $"Installed by {sources.Count} different tools ({Words.Join(sources)}). Mixing them makes it easy to run a different version than you expect.")));
@@ -183,8 +183,10 @@ public static class RuntimeReporter
             string version = install.Version;
             if (toolId == "java" && latest is not null)
             {
-                latest = VersionText.Prefix(latest, 3);
-                version = VersionText.Prefix(version, 3);
+                // Java 8 is "1.8.0_392" here and "8u392-b08" upstream: not comparable part by part.
+                bool legacy = VersionText.Parts(version) is [1, ..];
+                latest = legacy ? null : VersionText.Prefix(latest, 3);
+                version = legacy ? version : VersionText.Prefix(version, 3);
             }
 
             return install with
