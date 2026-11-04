@@ -1,0 +1,61 @@
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{csproj,props,targets,slnx,json,yml,yaml,xml,manifest}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+# Layout
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_using_directive_placement = outside_namespace:warning
+dotnet_sort_system_directives_first = true
+csharp_prefer_braces = when_multiline:suggestion
+
+# Style the build enforces (EnforceCodeStyleInBuild)
+dotnet_style_readonly_field = true:warning
+dotnet_diagnostic.IDE0161.severity = warning   # file-scoped namespaces
+dotnet_diagnostic.IDE0044.severity = warning   # make field readonly
+dotnet_diagnostic.IDE0055.severity = none      # formatting is not a build error
+
+# Naming: private fields are _camelCase
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_fields.required_modifiers =
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+dotnet_naming_style.underscore_camel.required_prefix = _
+
+# Constants and static readonly are PascalCase (overrides the rule above)
+dotnet_naming_rule.private_constants.symbols = private_constants
+dotnet_naming_rule.private_constants.style = pascal
+dotnet_naming_rule.private_constants.severity = warning
+dotnet_naming_symbols.private_constants.applicable_kinds = field
+dotnet_naming_symbols.private_constants.applicable_accessibilities = private
+dotnet_naming_symbols.private_constants.required_modifiers = const
+dotnet_naming_style.pascal.capitalization = pascal_case
+
+# This is a Windows-only product; Win32 interop is the point.
+dotnet_diagnostic.CA1416.severity = warning
+# Console output in a CLI and messages in an engine are not localised yet.
+dotnet_diagnostic.CA1303.severity = none
+
+# Generated Win32 interop code
+[**/Generated/**.cs]
+generated_code = true
+
+# Tests: descriptive method names use underscores.
+[tests/**.cs]
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1515.severity = none
+dotnet_diagnostic.CA2007.severity = none

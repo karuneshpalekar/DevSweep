@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>DevSweep.Cli</RootNamespace>
+    <AssemblyName>devsweep</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- devsweep.exe ships as a Native AOT binary: `dotnet publish -c Release -r win-x64`. -->
+    <PublishAot>true</PublishAot>
+    <OptimizationPreference>Size</OptimizationPreference>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DevSweep.Core\DevSweep.Core.csproj" />
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+</Project>

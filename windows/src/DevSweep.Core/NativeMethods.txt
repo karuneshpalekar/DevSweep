@@ -1,0 +1,29 @@
+// Win32 APIs the engine calls. CsWin32 generates typed P/Invoke for each line.
+// Handles and files
+CreateFile
+CloseHandle
+INVALID_HANDLE_VALUE
+GetFileInformationByHandleEx
+FILE_ID_INFO
+FILE_STANDARD_INFO
+FILE_COMPRESSION_INFO
+GetCompressedFileSize
+FILE_ACCESS_RIGHTS
+// Enumeration (metadata only, never file contents)
+FindFirstFileEx
+FindNextFile
+FindClose
+WIN32_FIND_DATAW
+// Volumes
+GetVolumePathName
+GetVolumeNameForVolumeMountPoint
+GetVolumeInformation
+GetDriveType
+GetDiskFreeSpace
+GetDiskFreeSpaceEx
+// Recycle Bin
+SHFileOperation
+SHQueryRecycleBin
+FILEOPERATION_FLAGS
+WIN32_ERROR
+FO_DELETE
