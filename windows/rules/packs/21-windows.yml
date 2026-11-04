@@ -8,12 +8,12 @@ rules:
     minSizeMB: 50
     detector:
       kind: paths
-      paths: ['{LocalAppData}\CrashDumps']
+      paths: ['{LocalAppData}\CrashDumps\*']
       olderThanDays: 7
     actions:
       - kind: trash
     explain:
-      what: "Memory snapshots Windows saved when programs crashed, for the program's developers to investigate."
+      what: "Memory snapshots Windows saved in {{LocalAppData}}\\CrashDumps when programs crashed, for the program's developers to investigate."
       why: "{{size}} of crash dumps nobody has changed for at least {{days}} days."
       ifDeleted: "Nothing changes. They can't be sent to a developer afterwards."
       before: "If you're helping a developer chase a crash, send them the dump first."
