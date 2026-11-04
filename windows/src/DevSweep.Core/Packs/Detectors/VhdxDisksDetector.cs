@@ -70,7 +70,7 @@ public sealed class VhdxDisksDetector(IMachineQueries machine) : Detector<VhdxDi
     {
         ArgumentNullException.ThrowIfNull(path);
         return path.StartsWith(@"\\?\UNC\", StringComparison.Ordinal) ? @"\\" + path[8..]
-            : path.StartsWith(@"\\?\", StringComparison.Ordinal) ? path[4..]
+            : path.StartsWith(@"\\?\", StringComparison.Ordinal) || path.StartsWith(@"\??\", StringComparison.Ordinal) ? path[4..]
             : path;
     }
 
