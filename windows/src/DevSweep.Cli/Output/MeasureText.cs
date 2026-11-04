@@ -21,8 +21,10 @@ internal static class MeasureText
 
         if (report.HardLinkDuplicates > 0 || report.SharedLinkFiles > 0)
         {
-            Line(output, "Hard links", $"{Count(report.HardLinkDuplicates)} extra names counted once; "
-                + $"{Count(report.SharedLinkFiles)} files ({Bytes(report.SharedLinkBytes)}) also linked from elsewhere");
+            string shared = report.SharedLinkFiles > 0
+                ? $"; {Count(report.SharedLinkFiles)} files ({Bytes(report.SharedLinkBytes)}) are also linked from elsewhere, so removing this frees less"
+                : string.Empty;
+            Line(output, "Hard links", $"{Count(report.HardLinkDuplicates)} extra names, counted once{shared}");
         }
 
         if (report.CloudPlaceholderCount > 0)

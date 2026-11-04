@@ -64,7 +64,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results
           path: windows/TestResults
@@ -102,7 +102,7 @@ jobs:
           $global:LASTEXITCODE = 0
 
       - name: Upload CLI
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: devsweep-cli-win-x64
           path: windows/artifacts/cli/devsweep.exe

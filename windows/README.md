@@ -82,6 +82,32 @@ All in `src/DevSweep.Core/Platform`. Each is proved by tests in
 `devsweep measure <path> [--json]` prints all of it, laid out for comparison
 with Explorer's "Size on disk", `fsutil` and `du -l`.
 
+### Numbers from CI
+
+From the first green run on `windows-latest` (Windows Server, NTFS, 4 KiB
+clusters, run as the runner's admin account, no tests skipped):
+
+| Fixture | Logical | DevSweep on-disk | Reference |
+|---|---:|---:|---|
+| Ordinary file | 100,000 | 102,400 | 25 clusters of 4,096 |
+| NTFS-compressed text | 4,194,304 | 524,288 | `GetCompressedFileSizeW` 524,288 |
+| Sparse, 12 MiB hole in 16 MiB | 16,777,216 | 4,194,304 | `GetCompressedFileSizeW` 4,194,304 |
+| Sparse, 1 TiB, empty | 1,099,511,627,776 | 0 | |
+| WOF (`compact /exe:xpress4k`) text | 4,194,304 | 311,296 | `GetCompressedFileSizeW` 311,296 |
+| File + 3 hard links (1 MiB) | 4 names | 1,048,576, 1 file, 3 duplicates | `fsutil hardlink list` |
+| 2,000 files, time limit 1/4 of a full walk | | 607 files, `Complete = false` | full walk 2,000 files in 46 ms |
+
+Recycle Bin on the runner's C: drive: BitBucket `MaxCapacity` gave a limit
+of 10,194,255,872 bytes; a 64 KiB file was recycled and the bin went from 0
+to 1 item (`SHQueryRecycleBin`); the 1 TiB sparse file was judged "would be
+permanent".
+
+One finding: on Windows 11 / Server the WOF filter hides its reparse point
+from `FindFirstFileExW` (the file shows as a plain `Archive` file, tag 0),
+and `FILE_STANDARD_INFO.AllocationSize` already reports the compressed
+allocation through the filter. The explicit WOF branch in `FileInspector`
+stays for systems or modes where the tag is exposed.
+
 ### Known gaps (for M1)
 
 - Alternate data streams are not yet counted (`FileStreamInfo` gives each stream's allocation).
