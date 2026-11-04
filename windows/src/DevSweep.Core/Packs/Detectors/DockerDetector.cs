@@ -53,7 +53,7 @@ public sealed class DockerDetector(IMachineQueries machine) : Detector<DockerDet
             "TB" => 1e12,
             _ => double.NaN,
         };
-        return double.IsNaN(scale) ? 0 : (long)(value * scale);
+        return double.IsNaN(scale) ? 0 : (long)Math.Round(value * scale);
     }
 
     /// <summary><c>docker system df --format "{{json .}}"</c>: one JSON object per line, by Type.</summary>

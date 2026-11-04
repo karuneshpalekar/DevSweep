@@ -31,7 +31,29 @@ public sealed class SemVerComparer : IComparer<string>
             return (preX is null ? 1 : 0) - (preY is null ? 1 : 0);
         }
 
-        return VersionComparer.Instance.Compare(preX, preY);
+        return ComparePrerelease(preX, preY);
+    }
+
+    /// <summary>SemVer precedence: dot-separated parts, numbers numerically, words by text, numbers before words.</summary>
+    private static int ComparePrerelease(string x, string y)
+    {
+        string[] a = x.Split('.');
+        string[] b = y.Split('.');
+        for (int i = 0; i < Math.Min(a.Length, b.Length); i++)
+        {
+            bool numA = long.TryParse(a[i], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out long na);
+            bool numB = long.TryParse(b[i], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out long nb);
+            int order = numA && numB ? na.CompareTo(nb)
+                : numA ? -1
+                : numB ? 1
+                : StringComparer.OrdinalIgnoreCase.Compare(a[i], b[i]);
+            if (order != 0)
+            {
+                return order;
+            }
+        }
+
+        return a.Length.CompareTo(b.Length);
     }
 
     /// <summary>True when the version has a prerelease tag (<c>-preview.3</c>).</summary>
