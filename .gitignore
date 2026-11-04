@@ -6,3 +6,6 @@ Core/.build/
 Core/.swiftpm/
 *.xcuserstate
 xcuserdata/
+
+# Claude Code local worktrees
+.claude/worktrees/
