@@ -33,6 +33,19 @@ public sealed class PacksModule(IMachineQueries? machine = null) : IDevSweepModu
         new DockerDetector(Machine),
         new VhdxDisksDetector(Machine),
         new DotnetInstallsDetector(Machine),
+        new VisualStudioInstancesDetector(),
+        new EditorExtensionsDetector(),
+        new AndroidSystemImagesDetector(),
+        new OldJdksDetector(),
+        new ToolVersionsDetector(),
+        new RustToolchainsDetector(),
+        new LargeOldFilesDetector(),
+        new BrowserCachesDetector(),
+        new BrowserProfilesDetector(),
+        new OllamaModelsDetector(),
+        new OrphanedScheduledTasksDetector(Machine),
+        new OrphanedRunEntriesDetector(),
+        new RecycleBinDetector(Machine),
     ];
 
     public void Register(EngineBuilder builder)
