@@ -5,7 +5,9 @@ accuracy traps and the milestones. This folder holds milestones **M0** (the
 solution skeleton, CI, and a spike proving the filesystem primitives every
 size and every removal rests on) and **M1** (the filesystem layer and safety:
 walker v2, the safety guard, quarantine, Restart Manager blockers, the cleaner
-and History; see [M1](#m1-filesystem-layer-and-safety)).
+and History; see [M1](#m1-filesystem-layer-and-safety)) and **M2** (the rules
+engine, named locations, the installed-apps inventory, the first detectors and
+`devsweep scan`; see [M2](#m2-rules-engine-and-inventory)).
 
 Windows 11 (22H2, build 22621) or later, x64.
 
@@ -20,6 +22,12 @@ dotnet build DevSweep.slnx -c Release
 dotnet test tests/DevSweep.Core.Tests -c Release
 dotnet test tests/DevSweep.Accuracy -c Release --logger "console;verbosity=detailed"
 dotnet publish src/DevSweep.Cli -c Release -r win-x64 -o artifacts/cli   # Native AOT
+artifacts\cli\devsweep.exe scan                                         # overview sizes; changes nothing
+artifacts\cli\devsweep.exe scan --exact --explain --category packageCaches
+artifacts\cli\devsweep.exe scan --json --project-root D:\src > scan.json
+artifacts\cli\devsweep.exe rules validate                                # bundled + %LOCALAPPDATA%\DevSweep\Rules
+artifacts\cli\devsweep.exe rules validate my-pack.yml
+artifacts\cli\devsweep.exe inventory [--json]                            # installed apps, per source
 artifacts\cli\devsweep.exe measure $env:USERPROFILE\.nuget\packages
 artifacts\cli\devsweep.exe measure C:\some\folder --json --time-limit 30
 artifacts\cli\devsweep.exe measure C:\some\folder --no-streams        # faster, no handle per file
@@ -42,7 +50,10 @@ test authority: restore, Release build with warnings as errors, both test
 projects (TRX results uploaded as an artifact), the accuracy suite a second
 time as a freshly created standard user (`eng/run-as-standard-user.ps1`), a
 Native AOT publish of the CLI and a smoke run of `devsweep measure`,
-`quarantine` and `history`.
+`quarantine` and `history`, then `rules validate`, `inventory --json` and
+`scan --json` as the administrator and again as the standard user. The scan and
+inventory JSON of both runs are uploaded as the `golden-scan-windows-latest`
+artifact (the first golden scan, PLAN 6).
 
 ## Layout
 
@@ -60,6 +71,14 @@ windows/
       Platform/                 the filesystem layer (below)
         Recycling/              Recycle Bin checks, recycling, $I/$R index and restore
         Quarantine/             same-volume quarantine (move, list, restore, empty)
+      Rules/                    rule model, YAML pack parser and schema checks, loader, templates
+        Yaml/                   YAML to a node tree (YamlDotNet's parser only)
+      Locations/                named roots: Known Folders, {Temp}, tool locations (Resolvers/)
+      Inventory/                installed apps from every source (Collectors/), matching, .lnk reader
+        Registry/               read-only registry abstraction, in-memory hives for tests
+      Detectors/                one class per detector kind (Projects/: stale project artifacts)
+      Scanning/                 Scanner, check runner, measuring, totals, ScanReport, re-measure
+      Modules/                  modules, feature flags, EngineBuilder, DevSweepEngine
       Safety/                   SafetyGuard: path rules, protected folders, final-path check
       Cleaning/                 Cleaner, History store, command runner, the Finding/Action model
       Storage/                  atomic file writes, source-generated JSON
@@ -70,8 +89,9 @@ windows/
     DevSweep.Accuracy/          fixture-based accuracy suite (PLAN section 6)
     DevSweep.Fixtures/          builds NTFS edge cases for the suite (also: a Cloud Files sync
                                 provider, an exFAT virtual disk, a process holding a file open)
+  rules/                        bundled Windows rule packs (YAML), embedded in DevSweep.Core
   eng/
-    run-as-standard-user.ps1    runs the accuracy suite as a new non-admin user (CI)
+    run-as-standard-user.ps1    runs the accuracy suite (and devsweep scan/inventory) as a new non-admin user (CI)
 ```
 
 Engine conventions: small single-purpose types, Win32 only through CsWin32's

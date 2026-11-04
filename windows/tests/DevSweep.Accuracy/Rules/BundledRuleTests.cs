@@ -102,7 +102,7 @@ public sealed class BundledRuleTests(ITestOutputHelper output) : IDisposable
 
         Finding finding = Only(await _machine.ScanAsync([Category.Windows]), "temp-old-files");
 
-        Assert.Equal([oldFile, oldFolder], finding.Paths.Order(StringComparer.OrdinalIgnoreCase));
+        Assert.Equal(new[] { oldFile, oldFolder }.Order(StringComparer.OrdinalIgnoreCase), finding.Paths.Order(StringComparer.OrdinalIgnoreCase));
         AssertExact(finding, 60 * Mb);
         Assert.Contains(finding.Checks, c => c.Text.Contains("2 newer items left alone", StringComparison.Ordinal));
         Assert.Contains("7 days", finding.Explanation!.Why, StringComparison.Ordinal);

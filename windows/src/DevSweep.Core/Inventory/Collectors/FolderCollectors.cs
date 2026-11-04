@@ -98,25 +98,22 @@ public sealed class ChocolateyCollector : IInventoryCollector
             }
 
             using XmlReader reader = XmlReader.Create(path, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
-            while (reader.Read())
+            reader.MoveToContent();
+            while (!reader.EOF)
             {
-                if (reader.NodeType != XmlNodeType.Element || reader.IsEmptyElement)
+                // ReadElementContentAsString already moves to the next node: do not Read() again after it.
+                bool wanted = reader.NodeType == XmlNodeType.Element && !reader.IsEmptyElement && reader.LocalName is "title" or "version" or "authors";
+                if (!wanted)
                 {
+                    reader.Read();
                     continue;
                 }
 
-                switch (reader.LocalName)
-                {
-                    case "title":
-                        title = reader.ReadElementContentAsString().Trim();
-                        break;
-                    case "version":
-                        version = reader.ReadElementContentAsString().Trim();
-                        break;
-                    case "authors":
-                        authors = reader.ReadElementContentAsString().Trim();
-                        break;
-                }
+                string name = reader.LocalName;
+                string value = reader.ReadElementContentAsString().Trim();
+                title = name == "title" ? value : title;
+                version = name == "version" ? value : version;
+                authors = name == "authors" ? value : authors;
             }
         }
         catch (Exception ex) when (ex is XmlException or IOException or UnauthorizedAccessException)
