@@ -11,6 +11,7 @@ namespace DevSweep.Accuracy;
 /// measured five times after a warm-up; the median is logged. All modes must
 /// give identical counts. The numbers go in the README.
 /// </summary>
+[Collection(AloneOnTheVolume.Name)]
 public sealed class WalkerBenchmarkTests(ITestOutputHelper output) : IDisposable
 {
     private const int Folders = 200;

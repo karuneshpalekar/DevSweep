@@ -9,6 +9,7 @@ using Xunit;
 namespace DevSweep.Accuracy;
 
 /// <summary>The cleaner end to end: blockers, delete, Recycle Bin and quarantine, commands, History, restore, freed space.</summary>
+[Collection(AloneOnTheVolume.Name)]
 public sealed class CleanerTests : IDisposable
 {
     private const long Mb = 1024 * 1024;
@@ -156,12 +157,22 @@ public sealed class CleanerTests : IDisposable
         LockReport locks = FileLocks.Check(folder);
         ActionOutcome outcome = await Run(Finding(folder, Risk.Rebuilds, 0), CleanActionKind.Delete);
 
-        _output.WriteLine($"locks: {string.Join(", ", locks.Processes)} (checked {locks.FilesChecked} files); cleaner: {outcome.Message}");
-        LockingProcess process = Assert.Single(locks.Processes);
-        Assert.Equal(holder.ProcessId, process.ProcessId);
+        _output.WriteLine($"locks: {string.Join(", ", locks.Processes)} (checked {locks.FilesChecked} files; Restart Manager error: {locks.RestartManagerError ?? "none"}; in use: {locks.InUseFile ?? "-"}); cleaner: {outcome.Message} ({Elevation.Describe()})");
+        Assert.True(locks.IsLocked);
         Assert.False(outcome.Succeeded);
         Assert.StartsWith("Close ", outcome.Message, StringComparison.Ordinal);
-        Assert.Contains(holder.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture), outcome.Message, StringComparison.Ordinal);
+        if (locks.RestartManagerError is null)
+        {
+            LockingProcess process = Assert.Single(locks.Processes);
+            Assert.Equal(holder.ProcessId, process.ProcessId);
+            Assert.Contains(holder.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture), outcome.Message, StringComparison.Ordinal);
+        }
+        else
+        {
+            // Restart Manager could not answer for this account: the probe still finds the file, without a name.
+            Assert.Equal(LongNames.Resolve(held), LongNames.Resolve(locks.InUseFile!), ignoreCase: true);
+        }
+
         Assert.True(outcome.NothingChanged);
         Assert.True(File.Exists(held));
         Assert.True(File.Exists(_fixture.PathOf(@"locked\cache\other.bin")));

@@ -32,12 +32,24 @@ public sealed record LockingProcess(int ProcessId, string Name, string? Executab
 /// </param>
 public sealed record LockReport(IReadOnlyList<LockingProcess> Processes, int FilesChecked, bool Truncated, int FilesUnchecked = 0)
 {
-    public bool IsLocked => Processes.Count > 0;
+    /// <summary>
+    /// Set when Restart Manager could not answer (it returns ERROR_ACCESS_DENIED for a
+    /// standard user in a non-interactive logon, for example): the files were then
+    /// probed by opening each for delete, which finds a file in use but not who holds it.
+    /// </summary>
+    public string? RestartManagerError { get; init; }
+
+    /// <summary>A file found in use by the probe (when Restart Manager could not name the process).</summary>
+    public string? InUseFile { get; init; }
+
+    public bool IsLocked => Processes.Count > 0 || InUseFile is not null;
 
     /// <summary>"Close X first." for the user, or null when nothing holds the files.</summary>
-    public string? BlockerMessage => IsLocked
+    public string? BlockerMessage => Processes.Count > 0
         ? $"Close {string.Join(", ", Processes.Select(p => p.ToString()))} first; it has files in this item open."
-        : null;
+        : InUseFile is { } file
+            ? $"Close the program using {file} first (Windows did not say which program it is)."
+            : null;
 }
 
 /// <summary>
@@ -53,13 +65,45 @@ public static class FileLocks
     private const int Batch = 500;
     private const int MaxRmPath = 260;
 
-    /// <summary>Checks every file in <paramref name="path"/> (a file or a folder), up to <paramref name="fileLimit"/> files.</summary>
-    /// <exception cref="Win32Exception">Restart Manager failed.</exception>
+    /// <summary>
+    /// Checks every file in <paramref name="path"/> (a file or a folder), up to
+    /// <paramref name="fileLimit"/> files. When Restart Manager cannot answer, every
+    /// file is probed instead (see <see cref="LockReport.RestartManagerError"/>).
+    /// </summary>
     public static LockReport Check(string path, int fileLimit = DefaultFileLimit)
     {
         IReadOnlyList<string> files = ItemFiles.Collect(path, fileLimit, out bool truncated);
         List<string> usable = [.. files.Select(RmPath).OfType<string>()];
-        return new LockReport(Find(usable), usable.Count, truncated, files.Count - usable.Count);
+        try
+        {
+            return new LockReport(Find(usable), usable.Count, truncated, files.Count - usable.Count);
+        }
+        catch (Win32Exception ex)
+        {
+            return new LockReport([], 0, truncated, files.Count)
+            {
+                RestartManagerError = ex.Message,
+                InUseFile = FirstInUse(files),
+            };
+        }
+    }
+
+    /// <summary>
+    /// The first file another process holds open without letting it be deleted:
+    /// opening it for DELETE (sharing everything) then fails with a sharing violation.
+    /// </summary>
+    private static string? FirstInUse(IReadOnlyList<string> files)
+    {
+        foreach (string file in files)
+        {
+            using Microsoft.Win32.SafeHandles.SafeFileHandle? handle = NativeFile.Open(LongPath.ToExtended(file), NativeFile.DeleteAccess, NativeFile.NoFollow, out int error);
+            if (handle is null && error == Win32Errors.SharingViolation)
+            {
+                return LongPath.StripPrefix(file);
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The processes holding any of <paramref name="files"/> open.</summary>

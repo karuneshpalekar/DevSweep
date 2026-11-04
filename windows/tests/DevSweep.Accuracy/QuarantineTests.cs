@@ -7,6 +7,7 @@ using Xunit;
 namespace DevSweep.Accuracy;
 
 /// <summary>Quarantine: same-volume rename in, exact restore out, listing, emptying.</summary>
+[Collection(AloneOnTheVolume.Name)]
 public sealed class QuarantineTests(ITestOutputHelper output) : IDisposable
 {
     private readonly TempFixture _fixture = new("quarantine");
