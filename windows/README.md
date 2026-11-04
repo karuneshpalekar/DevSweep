@@ -301,4 +301,7 @@ prints the token, the results and every test's output, and fails the job on any 
 | Virtual disk (exFAT fallback, mount point, cross-volume quarantine; 4 tests) | run | skipped: diskpart needs an administrator |
 | Redirected Desktop | run (`SHSetKnownFolderPath`, restored after) | skipped: only with `CI=true`, which the scheduled task does not inherit |
 | Restart Manager | names the process | `RmGetList` access denied; the in-use file is still found by the probe, unnamed |
-| Cloud Filter sync root, symlinks, Recycle Bin, quarantine, short names | all run | all run |
+| Recycle Bin size limit | BitBucket `MaxCapacity` 10,194,255,872 bytes | none recorded for a brand-new account until the shell first creates its bin: verdict `Unknown`, so DevSweep would quarantine rather than guess; after the first recycle the same limit appears |
+| Benchmark, 20,000 files (run [41806575941](https://github.com/karuneshpalekar/DevSweep/actions/runs/41806575941)) | M0 337 ms, v2 398 ms, v2 no-streams 145 ms | M0 338 ms, v2 396 ms, v2 no-streams 145 ms |
+| Delete 64 MiB, freed-space reconciliation | difference 0 | difference 0 |
+| Cloud Filter sync root, symlinks, Recycle Bin round trip, quarantine, short names | all run | all run |
