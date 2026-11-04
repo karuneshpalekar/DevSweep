@@ -1,6 +1,6 @@
 # DevSweep for Windows: plan
 
-Status: **draft, for review**. Nothing is built yet. This branch (`windows`)
+Status: **approved** (decisions in section 7). Building from M0. This branch (`windows`)
 holds the plan; code lands here milestone by milestone.
 
 ## 1. Goal
@@ -89,9 +89,10 @@ glue layer to get wrong.
 | YAML | `YamlDotNet` |
 | Storage | JSON files in `%LOCALAPPDATA%\DevSweep` (history, snapshots, settings); SQLite only if history needs querying |
 | GitHub | `gh` CLI tokens per account (same as Mac), `Octokit` or plain `HttpClient` |
-| Tests | xUnit + FluentAssertions; fixture builder for NTFS edge cases; Windows CI runners (x64 and ARM64) |
-| Packaging | MSIX (Store-ready) + winget manifest; unpackaged `.zip` for portable use. Signing via Azure Trusted Signing (cheap, avoids SmartScreen warnings) |
-| Targets | Windows 11 (23H2+), Windows 10 22H2 best effort; x64 and ARM64 |
+| Tests | xUnit + FluentAssertions; fixture builder for NTFS edge cases; Windows CI runners (x64) |
+| Packaging | **Unsigned.** Unpackaged, self-contained WinUI 3 app (MSIX needs a signature, so no MSIX). Per-user installer (no admin, installs to `%LOCALAPPDATA%\Programs\DevSweep`) + portable `.zip`; winget manifest later. README explains the SmartScreen "More info, Run anyway" step |
+| Optimisation | Native AOT for `devsweep.exe`; trimmed, ReadyToRun app; no reflection-based serialisation (System.Text.Json source generators) so AOT stays possible |
+| Targets | **Windows 11 only** (build 22621 / 22H2 and later). **x64 only**; ARM64 is a later add, kept possible by never shipping x64-only native code |
 
 ## 4. Architecture
 
@@ -189,7 +190,7 @@ parallel; each ends with a PR into `windows`.
 
 | # | Milestone | Depends on | Delivers | Accepted when |
 |---|---|---|---|---|
-| **M0** | Foundation & stack spike | none | Solution skeleton, CI on `windows-latest` + ARM64, CsWin32 set up, a spike proving: allocation size, file ID dedupe, reparse-point stop, OneDrive placeholder detection, recycle with quota check | Spike numbers match `fsutil`/Explorer on fixture folders; CI green |
+| **M0** | Foundation & stack spike | none | Solution skeleton, CI on `windows-latest` (x64), CsWin32 set up, a spike proving: allocation size, file ID dedupe, reparse-point stop, OneDrive placeholder detection, recycle with quota check | Spike numbers match `fsutil`/Explorer on fixture folders; CI green |
 | **M1** | Filesystem layer + Safety | M0 | Walker (4.2), Safety (4.4), Recycle/quarantine, Restart Manager blockers, History store | Accuracy suite fixtures (6) all pass; fuzzed path tests for Safety |
 | **M2** | Rules engine + inventory | M1 | YAML loader (shared schema), location resolvers (Known Folders, env, tool config), installed-apps inventory (4.3), `paths`/`versionedSiblings`/`staleProjectArtifacts`/`orphanedAppData` detectors, CLI `scan` | Inventory matches on 3 reference machines; no false leftovers |
 | **M3a** | Windows rule packs | M2 | Section 4.5 packs, WSL/Docker vhdx detector, .NET SDK detector, Android detector, explanations | Each rule has a fixture test + a real-machine check |
@@ -197,7 +198,7 @@ parallel; each ends with a PR into `windows`.
 | **M3c** | Projects | M2 | git/gh multi-account, safe removal checks, download strategies, per-account identity, CRLF/case-insensitivity handling | Same checks as Mac test suite, ported |
 | **M4** | WinUI 3 app | M2 (stubs), then M3* | Home, Clean up (+ⓘ inspector), Review sheet, Projects tabs, Health tabs, History, Settings, Welcome, light/dark | Every Mac screen has a Windows equivalent; review shows exact commands |
 | **M5** | Tray, schedule, alerts, updates | M4 | Tray icon + menu, open at login, scheduled read-only scans, toast alerts, update check | Alerts fire once with reminders, like Mac |
-| **M6** | Packaging & release | M4 | MSIX + winget manifest + portable zip, signing, `release.ps1`, README section | Clean install on fresh Win10 22H2 / Win11 x64 / Win11 ARM64 VMs |
+| **M6** | Packaging & release | M4 | Unsigned per-user installer + portable zip, `release.ps1`, GitHub release, README section | Clean install and uninstall on fresh Windows 11 22H2 and 24H2/25H2 x64 VMs, no admin prompt |
 | **M7** | Accuracy sign-off | all | Full accuracy matrix run (section 6), freed-space reconciliation report | All thresholds met; known gaps documented in-app |
 
 Order: M0 → M1 → M2 → (M3a ∥ M3b ∥ M3c ∥ M4) → M5 → M6 → M7.
@@ -215,7 +216,7 @@ Order: M0 → M1 → M2 → (M3a ∥ M3b ∥ M3c ∥ M4) → M5 → M6 → M7.
 - **Freed-space reconciliation**: after every clean (in tests and in the app's
   scan report) compare "shown" vs "actually freed" from the volume; differences
   over threshold are logged as accuracy bugs.
-- **Machine matrix**: CI (x64, ARM64) + three reference VMs set up the way
+- **Machine matrix**: CI (x64) + three reference VMs set up the way
   developers really use Windows: (a) winget + VS + .NET + WSL; (b) Scoop +
   Node/Python + Docker Desktop; (c) Chocolatey + Android Studio + JetBrains +
   OneDrive-redirected Documents.
@@ -224,15 +225,26 @@ Order: M0 → M1 → M2 → (M3a ∥ M3b ∥ M3c ∥ M4) → M5 → M6 → M7.
 - **No-false-positive gate**: a rule that ever flags an installed app's data as
   leftover is a release blocker.
 
-## 7. Decisions needed before M0
+## 7. Decisions (agreed)
 
-1. **Stack**: C# / .NET 10 + WinUI 3, as recommended?
-2. **Minimum OS**: Windows 11 23H2+ with Windows 10 22H2 best effort? (Win10 is
-   out of mainstream support.)
-3. **Architectures**: x64 and ARM64 from day one?
-4. **Distribution & signing**: MSIX + winget, signed with Azure Trusted Signing
-   (about $10/month), or unsigned zip first?
-5. **Repo layout**: Windows code in `windows/` on this branch (and later on
-   `main`), or a separate repository?
-6. **Scope of v1**: all four places, or ship Clean up + History first and add
-   Projects/Health in v1.1?
+1. **Stack**: the most optimised and maintainable option: C# / .NET 10 (LTS)
+   + WinUI 3, CsWin32 for Win32, Native AOT CLI.
+2. **OS**: Windows 11 and later only.
+3. **Architecture**: x64 first. ARM64 later, not blocked by design.
+4. **Signing**: unsigned. So: unpackaged app, per-user installer + zip, no MSIX.
+5. **Repo**: Windows code lives in `windows/` in this repository, on the
+   `windows` branch.
+6. **Scope**: as flexible as possible. Each place (Clean up, Projects, Health
+   and its tabs) is a separate module in Core and in the app, registered at
+   startup and switchable by a feature flag. Any module that passes its accuracy
+   gate can ship on its own; one that doesn't stays hidden, so v1's scope is
+   decided by quality, not fixed in advance. Clean up + History is the minimum.
+
+## 8. How milestones are run
+
+- One subagent per milestone, on its own branch `windows-mN-<name>` cut from
+  `windows`, with a brief and the acceptance checklist from section 5.
+- No .NET SDK in the cloud session, so CI (`.github/workflows/windows.yml` on
+  `windows-latest`) is the build and test authority: a milestone is done only
+  when CI is green on its branch.
+- Finished milestones are merged into `windows` after review.
