@@ -1,6 +1,6 @@
 namespace DevSweep.Core.Platform;
 
-/// <summary>Limits for one <see cref="DirectoryWalker"/> walk.</summary>
+/// <summary>Limits and choices for one <see cref="DirectoryWalker"/> walk.</summary>
 public sealed record WalkOptions
 {
     public static WalkOptions Default { get; } = new();
@@ -13,4 +13,15 @@ public sealed record WalkOptions
 
     /// <summary>At most this many unreadable paths are listed in the result (all are counted).</summary>
     public int MaxRecordedProblems { get; init; } = 100;
+
+    /// <summary>How folders are listed. <see cref="ListingMethod.Auto"/> is walker v2.</summary>
+    public ListingMethod Listing { get; init; } = ListingMethod.Auto;
+
+    /// <summary>
+    /// Count alternate data streams (true by default). Needs one metadata-only
+    /// handle per file (<c>FileStreamInfo</c>). When false, files are measured by
+    /// name with no handle at all (<c>NtQueryInformationByName</c>) and streams
+    /// are left out.
+    /// </summary>
+    public bool AlternateStreams { get; init; } = true;
 }

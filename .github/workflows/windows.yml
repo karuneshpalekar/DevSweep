@@ -25,7 +25,7 @@ jobs:
   build-test:
     name: Build, test, AOT publish (x64)
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     defaults:
       run:
         shell: pwsh
@@ -62,6 +62,12 @@ jobs:
           --results-directory TestResults --logger "trx;LogFileName=accuracy.trx"
           --logger "console;verbosity=detailed"
 
+      - name: Accuracy tests as a standard (non-admin) user
+        run: >
+          ./eng/run-as-standard-user.ps1
+          -TestDirectory tests/DevSweep.Accuracy/bin/Release
+          -ResultsDirectory TestResults/standard-user
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v5
@@ -94,6 +100,19 @@ jobs:
           if ($r.reparsePointCount -ne 1 -or $r.reparsePoints[0].kind -ne 'Junction') { throw "junction not recorded" }
           if ($r.bytes -ne 1MB) { throw "expected 1 MiB on disk (junction target excluded), got $($r.bytes)" }
           if (-not $r.complete -or $r.confidence -ne 'Exact') { throw "expected a complete, exact result" }
+          "v2 without streams and the M0 listing must agree:"
+          $fast = & $exe measure "$root\walked" --json --no-streams | ConvertFrom-Json
+          $m0 = & $exe measure "$root\walked" --json --find-first-file --no-streams | ConvertFrom-Json
+          if ($r.listing -ne 'FileIdExtdDirectoryInfo') { throw "expected walker v2 listing, got $($r.listing)" }
+          if ($m0.listing -ne 'FindFirstFile') { throw "expected the FindFirstFile listing, got $($m0.listing)" }
+          if ($fast.bytes -ne $r.bytes -or $m0.bytes -ne $r.bytes) { throw "walker modes disagree: $($r.bytes) / $($fast.bytes) / $($m0.bytes)" }
+          & $exe quarantine list
+          if ($LASTEXITCODE -ne 0) { throw "devsweep quarantine list failed ($LASTEXITCODE)" }
+          & $exe quarantine empty
+          if ($LASTEXITCODE -ne 0) { throw "devsweep quarantine empty (dry run) failed ($LASTEXITCODE)" }
+          & $exe history
+          if ($LASTEXITCODE -ne 0) { throw "devsweep history failed ($LASTEXITCODE)" }
+          & $exe history --json | ConvertFrom-Json | Out-Null
           & $exe measure "$root\missing"
           if ($LASTEXITCODE -ne 2) { throw "expected exit code 2 for a missing path" }
           $global:LASTEXITCODE = 0

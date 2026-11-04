@@ -12,10 +12,10 @@ public sealed record WalkResult
     /// <summary>The walked path, normalised, without the <c>\\?\</c> prefix.</summary>
     public required string Path { get; init; }
 
-    /// <summary>Bytes on disk: allocation of each distinct local file, hard links counted once.</summary>
+    /// <summary>Bytes on disk: allocation of each distinct local file (alternate streams included), hard links counted once.</summary>
     public long Bytes { get; init; }
 
-    /// <summary>Logical (end-of-file) bytes of the same files.</summary>
+    /// <summary>Logical (end-of-file) bytes of the same files, alternate streams included.</summary>
     public long LogicalBytes { get; init; }
 
     /// <summary>Distinct local files measured.</summary>
@@ -39,11 +39,20 @@ public sealed record WalkResult
     /// <summary>Files counted in <see cref="SharedLinkBytes"/>.</summary>
     public long SharedLinkFiles { get; init; }
 
-    /// <summary>Cloud placeholders found; counted as 0 bytes and never opened.</summary>
+    /// <summary>Cloud placeholders found (files, and cloud folders whose contents are not on this disk); 0 bytes, never opened.</summary>
     public long CloudPlaceholderCount { get; init; }
 
     /// <summary>Logical size of the placeholders (what is in the cloud, not on this disk).</summary>
     public long CloudPlaceholderLogicalBytes { get; init; }
+
+    /// <summary>Cloud-provider folders (OneDrive and the like) that were entered, reading attributes only.</summary>
+    public long CloudDirectories { get; init; }
+
+    /// <summary>Alternate data streams found on counted files (not the main stream).</summary>
+    public long AlternateStreamCount { get; init; }
+
+    /// <summary>On-disk bytes of those streams; already included in <see cref="Bytes"/>.</summary>
+    public long AlternateStreamBytes { get; init; }
 
     /// <summary>Folders or files that could not be read because access was denied.</summary>
     public long AccessDenied { get; init; }
@@ -59,6 +68,16 @@ public sealed record WalkResult
 
     /// <summary>Paths that could not be read, up to <see cref="WalkOptions.MaxRecordedProblems"/>.</summary>
     public IReadOnlyList<WalkProblem> Problems { get; init; } = [];
+
+    /// <summary>How folders were listed.</summary>
+    public ListingUsed Listing { get; init; }
+
+    /// <summary>
+    /// Files whose allocation in the folder listing differed from the file's own
+    /// (fresh) value. NTFS updates the directory copy lazily, and for hard links
+    /// only under the name that was used, so the walker always takes the fresh one.
+    /// </summary>
+    public long StaleDirectoryEntries { get; init; }
 
     public TimeSpan Elapsed { get; init; }
 

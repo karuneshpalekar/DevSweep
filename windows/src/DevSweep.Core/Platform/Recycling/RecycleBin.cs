@@ -48,8 +48,12 @@ public sealed class RecycleBin(IRecycleBinQuotaSource quotaSource)
     /// <paramref name="allowUnverified"/> is true; permanent and not-allowed verdicts never are.
     /// </summary>
     public RecycleOutcome Recycle(string path, bool allowUnverified = false)
+        => Recycle(Assess(path), allowUnverified);
+
+    /// <summary>Recycles the item of an assessment made just before, on the same terms as <see cref="Recycle(string, bool)"/>.</summary>
+    public static RecycleOutcome Recycle(RecycleAssessment assessment, bool allowUnverified = false)
     {
-        RecycleAssessment assessment = Assess(path);
+        ArgumentNullException.ThrowIfNull(assessment);
         bool allowed = assessment.Verdict == RecycleVerdict.Recyclable
             || (assessment.Verdict == RecycleVerdict.Unknown && allowUnverified);
         if (!allowed)

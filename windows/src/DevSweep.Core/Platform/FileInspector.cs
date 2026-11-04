@@ -1,15 +1,15 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 using Windows.Win32;
-using Windows.Win32.Foundation;
 using Windows.Win32.Storage.FileSystem;
 
 namespace DevSweep.Core.Platform;
 
 /// <summary>
-/// Reads a file's on-disk size, link count and identity through a handle opened
-/// for <c>FILE_READ_ATTRIBUTES</c> only, never following a link and never
-/// recalling cloud data.
+/// Reads a file's on-disk size, link count, identity and alternate streams
+/// through a handle opened for <c>FILE_READ_ATTRIBUTES</c> only, never following
+/// a link and never recalling cloud data.
 /// </summary>
 public static unsafe class FileInspector
 {
@@ -28,7 +28,7 @@ public static unsafe class FileInspector
         return entry;
     }
 
-    /// <summary>Inspects one file. Cloud placeholders are refused rather than opened.</summary>
+    /// <summary>Inspects one file, alternate streams included. Cloud placeholders are refused rather than opened.</summary>
     /// <exception cref="Win32Exception">The file cannot be opened or queried.</exception>
     /// <exception cref="InvalidOperationException">The file is a cloud placeholder.</exception>
     public static FileFacts Inspect(string path)
@@ -39,7 +39,7 @@ public static unsafe class FileInspector
             throw new InvalidOperationException($"{path} is a cloud placeholder; opening it would download it.");
         }
 
-        if (!TryInspect(LongPath.ToExtended(path), in entry, out FileFacts facts, out int error))
+        if (!TryInspect(LongPath.ToExtended(path), in entry, includeStreams: true, out FileFacts facts, out int error))
         {
             throw new Win32Exception(error, $"Cannot inspect {path}");
         }
@@ -48,76 +48,80 @@ public static unsafe class FileInspector
     }
 
     /// <summary>Inspects <paramref name="extendedPath"/>, whose directory entry the caller already has.</summary>
-    internal static bool TryInspect(string extendedPath, in DirectoryEntry entry, out FileFacts facts, out int error)
+    internal static bool TryInspect(string extendedPath, in DirectoryEntry entry, bool includeStreams, out FileFacts facts, out int error)
     {
         facts = default;
         ReparseKind kind = entry.ReparseKind;
 
         // A WOF or dedup file is opened through its reparse point so the filter
         // reports the real data; every other reparse point is opened as itself.
-        FILE_FLAGS_AND_ATTRIBUTES flags = FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_BACKUP_SEMANTICS
-            | FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_OPEN_NO_RECALL;
-        if (!ReparseTags.HoldsLocalData(kind))
+        FILE_FLAGS_AND_ATTRIBUTES flags = ReparseTags.HoldsLocalData(kind)
+            ? FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_OPEN_NO_RECALL
+            : NativeFile.NoFollow;
+
+        using SafeFileHandle? handle = NativeFile.Open(extendedPath, NativeFile.ReadAttributes, flags, out error);
+        if (handle is null)
         {
-            flags |= FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_OPEN_REPARSE_POINT;
+            return false;
         }
 
-        HANDLE handle = OpenForAttributes(extendedPath, flags);
-        if (handle == HANDLE.INVALID_HANDLE_VALUE)
+        FILE_STANDARD_INFO standard;
+        if (!NativeFile.Query(handle, FILE_INFO_BY_HANDLE_CLASS.FileStandardInfo, &standard, (uint)sizeof(FILE_STANDARD_INFO), out error)
+            || !TryGetIdentity(handle, out FileIdentity identity, out error))
+        {
+            return false;
+        }
+
+        long allocation = standard.AllocationSize;
+        if (kind == ReparseKind.Wof)
+        {
+            allocation = CompressedSizeByPath(extendedPath, allocation);
+        }
+        else if ((entry.Attributes & CompressedOrSparse) != 0)
+        {
+            FILE_COMPRESSION_INFO compression;
+            if (NativeFile.Query(handle, FILE_INFO_BY_HANDLE_CLASS.FileCompressionInfo, &compression, (uint)sizeof(FILE_COMPRESSION_INFO), out _))
+            {
+                allocation = compression.CompressedFileSize;
+            }
+        }
+
+        StreamTotals streams = includeStreams ? AlternateStreams.Read(handle) : default;
+        facts = new FileFacts(standard.EndOfFile, allocation, standard.NumberOfLinks, identity)
+        {
+            AlternateStreams = streams.Count,
+            AlternateStreamLength = streams.Length,
+            AlternateStreamAllocation = streams.Allocation,
+        };
+        error = 0;
+        return true;
+    }
+
+    /// <summary>
+    /// FILE_ID_INFO where the file system has it; otherwise (FAT, exFAT) the
+    /// 32-bit serial and 64-bit index from BY_HANDLE_FILE_INFORMATION.
+    /// </summary>
+    private static bool TryGetIdentity(SafeFileHandle handle, out FileIdentity identity, out int error)
+    {
+        if (NativeFile.TryGetIdentity(handle, out identity, out error))
+        {
+            return true;
+        }
+
+        if (!Win32Errors.IsUnsupported(error))
+        {
+            return false;
+        }
+
+        if (!PInvoke.GetFileInformationByHandle(handle, out BY_HANDLE_FILE_INFORMATION info))
         {
             error = Marshal.GetLastPInvokeError();
             return false;
         }
 
-        try
-        {
-            FILE_STANDARD_INFO standard;
-            FILE_ID_INFO id;
-            if (!PInvoke.GetFileInformationByHandleEx(handle, FILE_INFO_BY_HANDLE_CLASS.FileStandardInfo, &standard, (uint)sizeof(FILE_STANDARD_INFO))
-                || !PInvoke.GetFileInformationByHandleEx(handle, FILE_INFO_BY_HANDLE_CLASS.FileIdInfo, &id, (uint)sizeof(FILE_ID_INFO)))
-            {
-                error = Marshal.GetLastPInvokeError();
-                return false;
-            }
-
-            long allocation = standard.AllocationSize;
-            if (kind == ReparseKind.Wof)
-            {
-                allocation = CompressedSizeByPath(extendedPath, allocation);
-            }
-            else if ((entry.Attributes & CompressedOrSparse) != 0)
-            {
-                FILE_COMPRESSION_INFO compression;
-                if (PInvoke.GetFileInformationByHandleEx(handle, FILE_INFO_BY_HANDLE_CLASS.FileCompressionInfo, &compression, (uint)sizeof(FILE_COMPRESSION_INFO)))
-                {
-                    allocation = compression.CompressedFileSize;
-                }
-            }
-
-            facts = new FileFacts(standard.EndOfFile, allocation, standard.NumberOfLinks, ToIdentity(id));
-            error = 0;
-            return true;
-        }
-        finally
-        {
-            PInvoke.CloseHandle(handle);
-        }
-    }
-
-    /// <summary>Opens a metadata-only handle (FILE_READ_ATTRIBUTES, share everything).</summary>
-    internal static HANDLE OpenForAttributes(string extendedPath, FILE_FLAGS_AND_ATTRIBUTES flags)
-    {
-        fixed (char* p = extendedPath)
-        {
-            return PInvoke.CreateFile(
-                p,
-                (uint)FILE_ACCESS_RIGHTS.FILE_READ_ATTRIBUTES,
-                FILE_SHARE_MODE.FILE_SHARE_READ | FILE_SHARE_MODE.FILE_SHARE_WRITE | FILE_SHARE_MODE.FILE_SHARE_DELETE,
-                null,
-                FILE_CREATION_DISPOSITION.OPEN_EXISTING,
-                flags,
-                HANDLE.Null);
-        }
+        identity = new FileIdentity(info.dwVolumeSerialNumber, ((ulong)info.nFileIndexHigh << 32) | info.nFileIndexLow);
+        error = 0;
+        return true;
     }
 
     private static long CompressedSizeByPath(string extendedPath, long fallback)
@@ -136,11 +140,5 @@ public static unsafe class FileInspector
         }
 
         return ((long)high << 32) | low;
-    }
-
-    private static FileIdentity ToIdentity(FILE_ID_INFO info)
-    {
-        ulong* words = (ulong*)&info.FileId;
-        return new FileIdentity(info.VolumeSerialNumber, new UInt128(words[1], words[0]));
     }
 }

@@ -7,3 +7,21 @@ FSCTL_SET_ZERO_DATA
 FSCTL_SET_COMPRESSION
 FILE_ZERO_DATA_INFORMATION
 COMPRESSION_FORMAT
+// Cloud Filter API: a test sync provider with real placeholders
+CfRegisterSyncRoot
+CfConnectSyncRoot
+CfDisconnectSyncRoot
+CfUnregisterSyncRoot
+CfCreatePlaceholders
+CfConvertToPlaceholder
+CfGetPlaceholderInfo
+CF_PLACEHOLDER_STANDARD_INFO
+CreateFile
+FILE_ACCESS_RIGHTS
+// Short (8.3) names
+GetShortPathName
+// Known folders (redirect Desktop for a moment)
+SHGetKnownFolderPath
+SHSetKnownFolderPath
+FOLDERID_Desktop
+KNOWN_FOLDER_FLAG

@@ -5,8 +5,10 @@ namespace DevSweep.Core.Platform;
 
 /// <summary>
 /// Measures a file or folder the way the disk sees it (PLAN 4.2):
-/// metadata-only enumeration under <c>\\?\</c> paths, on-disk allocation,
-/// hard links counted once, reparse points recorded and never followed,
+/// metadata-only enumeration from each folder's handle under <c>\\?\</c> paths,
+/// on-disk allocation including alternate streams, hard links counted once,
+/// reparse points recorded and never followed (cloud-provider folders excepted:
+/// they are the user's real folders and are entered reading attributes only),
 /// cloud placeholders counted as 0 and never opened, and a time limit that
 /// returns partial counts instead of nothing.
 /// </summary>
@@ -45,6 +47,8 @@ public static class DirectoryWalker
     {
         private readonly Stopwatch _clock = Stopwatch.StartNew();
         private readonly HardLinkLedger _ledger = new();
+        private readonly DirectoryLister _lister = new(options.Listing);
+        private readonly FileMeasurer _measurer = new(options.AlternateStreams);
         private readonly List<ReparsePointRecord> _reparsePoints = [];
         private readonly List<WalkProblem> _problems = [];
         private bool _stopped;
@@ -55,6 +59,9 @@ public static class DirectoryWalker
         private long _duplicates;
         private long _placeholders;
         private long _placeholderLogicalBytes;
+        private long _cloudDirectories;
+        private long _streams;
+        private long _streamBytes;
         private long _accessDenied;
         private long _unreadable;
         private long _reparsePointCount;
@@ -70,13 +77,9 @@ public static class DirectoryWalker
             {
                 VisitFile(extendedPath, in entry);
             }
-            else if (entry.IsReparsePoint)
-            {
-                RecordReparsePoint(extendedPath, in entry);
-            }
             else
             {
-                WalkTree(extendedPath);
+                VisitDirectory(extendedPath, in entry, null);
             }
         }
 
@@ -87,14 +90,21 @@ public static class DirectoryWalker
             while (pending.Count > 0 && !ShouldStop())
             {
                 string directory = pending.Pop();
-                _directories++;
-                using FindFileEnumerator? listing = FindFileEnumerator.Open(directory, out int error);
-                if (listing is null)
+                ListingOpen opened = _lister.Open(directory);
+                if (opened.Link is { } link)
                 {
-                    RecordProblem(directory, error);
+                    RecordReparsePoint(directory, in link);
                     continue;
                 }
 
+                using IDirectoryListing? listing = opened.Listing;
+                if (listing is null)
+                {
+                    RecordProblem(directory, opened.Error);
+                    continue;
+                }
+
+                _directories++;
                 while (listing.MoveNext(out DirectoryEntry entry))
                 {
                     if (ShouldStop())
@@ -103,18 +113,13 @@ public static class DirectoryWalker
                     }
 
                     string child = LongPath.Join(directory, entry.Name);
-                    if (!entry.IsDirectory)
+                    if (entry.IsDirectory)
                     {
-                        VisitFile(child, in entry);
-                    }
-                    else if (entry.IsReparsePoint)
-                    {
-                        // Junctions, symlinks, mount points, cloud and projected folders: never entered.
-                        RecordReparsePoint(child, in entry);
+                        VisitDirectory(child, in entry, pending);
                     }
                     else
                     {
-                        pending.Push(child);
+                        VisitFile(child, in entry);
                     }
                 }
 
@@ -141,13 +146,50 @@ public static class DirectoryWalker
                 SharedLinkFiles = sharedFiles,
                 CloudPlaceholderCount = _placeholders,
                 CloudPlaceholderLogicalBytes = _placeholderLogicalBytes,
+                CloudDirectories = _cloudDirectories,
+                AlternateStreamCount = _streams,
+                AlternateStreamBytes = _streamBytes,
                 AccessDenied = _accessDenied,
                 Unreadable = _unreadable,
                 ReparsePointCount = _reparsePointCount,
                 ReparsePoints = _reparsePoints,
                 Problems = _problems,
+                Listing = _lister.Used,
+                StaleDirectoryEntries = _measurer.StaleEntries,
                 Elapsed = _clock.Elapsed,
             };
+        }
+
+        /// <summary>Queues an ordinary or cloud folder (or walks it, for the root); records every other reparse point.</summary>
+        private void VisitDirectory(string extendedPath, in DirectoryEntry entry, Stack<string>? pending)
+        {
+            if (entry.IsTraversableDirectory)
+            {
+                if (entry.ReparseKind == ReparseKind.Cloud)
+                {
+                    _cloudDirectories++;
+                }
+
+                if (pending is null)
+                {
+                    WalkTree(extendedPath);
+                }
+                else
+                {
+                    pending.Push(extendedPath);
+                }
+            }
+            else if (entry.ReparseKind == ReparseKind.Cloud)
+            {
+                // A cloud folder not yet populated: nothing of it is on this disk,
+                // and listing it would ask the provider to fetch its contents.
+                _placeholders++;
+            }
+            else
+            {
+                // Junctions, symlinks, volume mount points, projected folders: never entered.
+                RecordReparsePoint(extendedPath, in entry);
+            }
         }
 
         private void VisitFile(string extendedPath, in DirectoryEntry entry)
@@ -166,7 +208,7 @@ public static class DirectoryWalker
                 return;
             }
 
-            if (!FileInspector.TryInspect(extendedPath, in entry, out FileFacts facts, out int error))
+            if (!_measurer.TryMeasure(extendedPath, in entry, _lister.VolumeSerial, out FileFacts facts, out int error))
             {
                 RecordProblem(extendedPath, error);
                 return;
@@ -175,8 +217,10 @@ public static class DirectoryWalker
             if (_ledger.Register(in facts))
             {
                 _files++;
-                _bytes += facts.AllocationSize;
-                _logicalBytes += facts.Length;
+                _bytes += facts.TotalAllocation;
+                _logicalBytes += facts.Length + facts.AlternateStreamLength;
+                _streams += facts.AlternateStreams;
+                _streamBytes += facts.AlternateStreamAllocation;
             }
             else
             {

@@ -17,11 +17,16 @@ internal sealed record MeasureReport(
     long SharedLinkFiles,
     long CloudPlaceholderCount,
     long CloudPlaceholderLogicalBytes,
+    long CloudDirectories,
+    long AlternateStreamCount,
+    long AlternateStreamBytes,
     long AccessDenied,
     long Unreadable,
     long ReparsePointCount,
     IReadOnlyList<ReparsePointReport> ReparsePoints,
     IReadOnlyList<ProblemReport> Problems,
+    ListingUsed Listing,
+    long StaleDirectoryEntries,
     double ElapsedSeconds)
 {
     public static MeasureReport From(WalkResult result)
@@ -41,11 +46,16 @@ internal sealed record MeasureReport(
             result.SharedLinkFiles,
             result.CloudPlaceholderCount,
             result.CloudPlaceholderLogicalBytes,
+            result.CloudDirectories,
+            result.AlternateStreamCount,
+            result.AlternateStreamBytes,
             result.AccessDenied,
             result.Unreadable,
             result.ReparsePointCount,
             [.. result.ReparsePoints.Select(r => new ReparsePointReport(r.Path, r.Kind, $"0x{r.Tag:X8}", r.IsDirectory))],
             [.. result.Problems.Select(p => new ProblemReport(p.Path, p.Win32Error))],
+            result.Listing,
+            result.StaleDirectoryEntries,
             Math.Round(result.Elapsed.TotalSeconds, 3));
     }
 }
