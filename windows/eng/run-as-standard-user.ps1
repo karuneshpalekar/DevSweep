@@ -118,6 +118,15 @@ echo %ERRORLEVEL% > "$work\out\exit.txt"
             if ($test.result -eq 'Skip') { "SKIPPED  {0}`n         {1}" -f $test.name, $test.reason.InnerText }
             if ($test.result -eq 'Fail') { "FAILED   {0}`n         {1}" -f $test.name, $test.failure.message.InnerText }
         }
+
+        # What each test measured as a standard user, to compare with the administrator run.
+        "===== test output as a standard user ====="
+        foreach ($test in $xml.SelectNodes('//test')) {
+            if ($test.output -and $test.output.InnerText.Trim()) {
+                "--- {0} ({1})" -f $test.name, $test.result
+                $test.output.InnerText.Trim()
+            }
+        }
     }
 
     if ($exit -ne 0) { throw "The accuracy suite failed as a standard user (exit $exit)." }

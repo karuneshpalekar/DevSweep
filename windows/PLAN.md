@@ -130,11 +130,16 @@ Windows: every `Finding` carries a **size confidence** (`exact`, `partial`,
 
 One walker used by everything:
 
-- Enumerates with `FindFirstFileExW` (large fetch, basic info) under `\\?\`
-  paths; gets attributes, reparse tag, allocation size and file ID without
-  opening files.
-- Stops at every reparse point (junction, symlink, OneDrive, WSL, dedup) and
-  records it.
+- Enumerates each folder from its own handle with
+  `GetFileInformationByHandleEx(FileIdExtdDirectoryInfo)` under `\\?\` paths
+  (attributes, reparse tag, sizes and 128-bit file ID without opening files),
+  falling back to `FindFirstFileExW` where the file system lacks it (FAT, exFAT).
+  NTFS has no link count in directory entries, so each file still needs one
+  metadata query: by name (`NtQueryInformationByName`, no handle) or, to count
+  alternate data streams (the default), one attribute-only handle (M1).
+- Stops at every reparse point (junction, symlink, mount point, WSL, AppX alias)
+  and records it; cloud-provider folders (OneDrive) are entered reading
+  attributes only, never content (M1).
 - Dedupes hard links by file ID within a scan, so a pnpm store or Scoop app
   isn't counted twice across findings.
 - Time-limited, cancellable, returns partial counts with `complete=false`.
