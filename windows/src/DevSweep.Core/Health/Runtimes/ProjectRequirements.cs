@@ -254,7 +254,7 @@ public static partial class ProjectRequirementScanner
 
         string cycle = tool switch
         {
-            "node" or "java" or "bun" => VersionText.Prefix(s, 1),
+            "node" or "java" => VersionText.Prefix(s, 1),
             _ => parts.Count > 1 ? VersionText.Prefix(s, 2) : VersionText.Prefix(s, 1),
         };
         return (cycle, minimum);
