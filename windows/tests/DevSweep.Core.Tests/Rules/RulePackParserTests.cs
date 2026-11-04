@@ -167,7 +167,45 @@ public sealed class RulePackParserTests
             Assert.True(pack.IsValid, $"{text.Name}: {string.Join("; ", pack.Errors)}");
         }
 
+        // Packs are loaded in file-name order across modules: file-name order is claim order.
         RuleSet set = engine.LoadRules(userDirectory: string.Empty);
+        Assert.Empty(set.Errors);
+        Assert.Equal(
+        [
+            "npm-cache", "pip-cache", "gradle-caches",
+            "npx-cache", "pnpm-store", "yarn-cache", "uv-cache", "nuget-global-packages", "nuget-other-caches", "gradle-wrappers",
+            "gradle-daemon-logs", "maven-repository", "cargo-cache", "go-module-cache", "go-build-cache", "composer-cache",
+            "chocolatey-cache", "scoop-cache", "winget-downloads",
+            "docker-build-cache", "docker-images", "docker-containers", "docker-volumes", "wsl-disks", "docker-disk",
+            "temp-old-files",
+            "crash-dumps", "error-reports-user", "error-reports-machine", "thumbnail-cache", "shader-caches", "windows-update-cleanup", "recycle-bin",
+            "chrome-cache", "edge-cache", "brave-cache", "chrome-ai-model", "edge-ai-model", "chrome-profiles", "edge-profiles",
+            "huggingface-models", "torch-hub", "whisper-models", "ollama-models", "lm-studio-models",
+            "nuget-http-cache",
+            "dotnet-sdks", "dotnet-sdks-user", "dotnet-runtimes", "dotnet-workload-packs", "vs-component-model-cache", "vs-old-instances",
+            "vs-package-cache", "resharper-caches",
+            "android-system-images", "android-build-tools", "android-platforms", "android-ndk", "android-emulator-snapshots",
+            "android-studio-old", "android-studio-caches",
+            "old-jdks-user", "old-jdks-machine", "nvm-old-node", "fnm-old-node", "volta-old-node", "pyenv-old-python", "rustup-toolchains", "windows-sdks",
+            "jetbrains-old",
+            "editor-extensions", "vscode-caches", "cursor-caches", "windsurf-caches", "jetbrains-caches",
+            "old-installers", "old-disk-images", "large-old-files",
+            "stale-project-artifacts",
+            "orphaned-app-data",
+            "orphaned-program-data", "orphaned-scheduled-tasks", "orphaned-startup-entries",
+        ],
+            set.Rules.Select(r => r.Id));
+    }
+
+    [Fact]
+    public void Turning_off_the_packs_module_leaves_the_first_eight_rules_and_no_errors()
+    {
+        var engine = TestSchema.Engine(Core.Modules.FeatureFlags.Default.With("-module:packs"));
+
+        RuleSet set = engine.LoadRules(userDirectory: string.Empty);
+
+        Assert.Empty(set.Errors);
+        Assert.Contains("module:packs", engine.Disabled);
         Assert.Equal(
             ["npm-cache", "pip-cache", "gradle-caches", "temp-old-files", "nuget-http-cache", "jetbrains-old", "stale-project-artifacts", "orphaned-app-data"],
             set.Rules.Select(r => r.Id));

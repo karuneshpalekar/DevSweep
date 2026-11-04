@@ -1,0 +1,92 @@
+# Editors and IDEs (module:packs). Runs after jetbrains-old (60-ide.yml), so old versions are
+# claimed whole before the current versions' caches are looked at.
+rules:
+  - id: editor-extensions
+    title: Old editor extension versions
+    category: ideVersions
+    risk: oldVersion
+    minSizeMB: 10
+    blockers: ["Code", "Code - Insiders", "Cursor", "Windsurf"]
+    detector:
+      kind: editorExtensions
+      paths: ['{Profile}\.vscode\extensions', '{Profile}\.vscode-insiders\extensions', '{Profile}\.cursor\extensions', '{Profile}\.windsurf\extensions']
+    actions:
+      - kind: trash
+    explain:
+      what: "Extension folders {{editor}} left behind after updating or uninstalling them."
+      why: "{{size}} in {{count}} folders {{editor}} no longer loads."
+      ifDeleted: "Nothing changes in {{editor}}. It only loads the versions in its extension list."
+      before: "Quit {{editor}}."
+      undo: "Restore them from the Recycle Bin (History)."
+
+  - id: vscode-caches
+    title: VS Code caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 200
+    blockers: ["Code"]
+    detector:
+      kind: paths
+      paths: ['{RoamingAppData}\Code\Cache', '{RoamingAppData}\Code\CachedData', '{RoamingAppData}\Code\CachedExtensionVSIXs', '{RoamingAppData}\Code\Code Cache', '{RoamingAppData}\Code\GPUCache']
+    actions:
+      - kind: delete
+    explain:
+      what: "VS Code's web cache, compiled code from earlier versions and downloaded extension installers."
+      why: "{{size}} across {{count}} caches."
+      ifDeleted: "VS Code starts a little slower once."
+      wontLose: "Settings, extensions, workspaces or unsaved files."
+      before: "Quit VS Code."
+
+  - id: cursor-caches
+    title: Cursor caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 200
+    blockers: ["Cursor"]
+    detector:
+      kind: paths
+      paths: ['{RoamingAppData}\Cursor\Cache', '{RoamingAppData}\Cursor\CachedData', '{RoamingAppData}\Cursor\CachedExtensionVSIXs', '{RoamingAppData}\Cursor\Code Cache', '{RoamingAppData}\Cursor\GPUCache']
+    actions:
+      - kind: delete
+    explain:
+      what: "Cursor's web cache, compiled code from earlier versions and downloaded extension installers."
+      why: "{{size}} across {{count}} caches."
+      ifDeleted: "Cursor starts a little slower once."
+      wontLose: "Settings, extensions, chats or unsaved files."
+      before: "Quit Cursor."
+
+  - id: windsurf-caches
+    title: Windsurf caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 200
+    blockers: ["Windsurf"]
+    detector:
+      kind: paths
+      paths: ['{RoamingAppData}\Windsurf\Cache', '{RoamingAppData}\Windsurf\CachedData', '{RoamingAppData}\Windsurf\CachedExtensionVSIXs', '{RoamingAppData}\Windsurf\Code Cache', '{RoamingAppData}\Windsurf\GPUCache']
+    actions:
+      - kind: delete
+    explain:
+      what: "Windsurf's web cache, compiled code from earlier versions and downloaded extension installers."
+      why: "{{size}} across {{count}} caches."
+      ifDeleted: "Windsurf starts a little slower once."
+      wontLose: "Settings, extensions or unsaved files."
+      before: "Quit Windsurf."
+
+  - id: jetbrains-caches
+    title: JetBrains IDE caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 200
+    blockers: ["idea64", "pycharm64", "webstorm64", "rider64", "clion64", "goland64", "phpstorm64", "rubymine64", "datagrip64", "rustrover64", "dataspell64", "aqua64"]
+    detector:
+      kind: paths
+      paths: ['{LocalAppData}\JetBrains\*\caches', '{LocalAppData}\JetBrains\*\index']
+    actions:
+      - kind: delete
+    explain:
+      what: "Indexes and caches your JetBrains IDEs rebuild by themselves (the same as File, Invalidate Caches)."
+      why: "{{size}} across {{count}} folders."
+      ifDeleted: "Each IDE indexes your projects again when it next opens them, which can take a few minutes."
+      wontLose: "Settings, plugins, local history or projects."
+      before: "Quit every JetBrains IDE."

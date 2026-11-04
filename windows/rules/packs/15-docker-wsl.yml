@@ -1,0 +1,144 @@
+# Docker and WSL (module:packs). Docker sizes come from docker system df; cleaning uses
+# Docker's own prune commands. Nothing here runs when Docker isn't running.
+# The WSL and Docker virtual disks are never removed: they hold everything inside. DevSweep
+# shows their size and the steps to compact them; it never starts a distro to look inside.
+rules:
+  - id: docker-build-cache
+    title: Docker build cache
+    category: docker
+    risk: rebuilds
+    minSizeMB: 100
+    detector:
+      kind: docker
+      names: ["Build Cache"]
+    actions:
+      - kind: command
+        label: Run docker builder prune
+        command: ["{{docker}}", "builder", "prune", "-f"]
+        detail: "Runs docker builder prune -f."
+    explain:
+      what: "Layers Docker kept from earlier image builds, so rebuilds are faster."
+      why: "{{size}} that no current build needs, as Docker reports it."
+      ifDeleted: "The next docker build of each project runs every step again, so it's slower once."
+      wontLose: "Your images, containers or volumes."
+      undo: "Nothing to undo. Docker refills the cache as you build."
+
+  - id: docker-images
+    title: Unused Docker images
+    category: docker
+    risk: oldVersion
+    minSizeMB: 200
+    detector:
+      kind: docker
+      names: ["Images"]
+    actions:
+      - kind: command
+        label: Run docker image prune -a
+        command: ["{{docker}}", "image", "prune", "-a", "-f"]
+        detail: "Runs docker image prune -a -f: removes images no container uses."
+    explain:
+      what: "Images you pulled or built that no container uses right now."
+      why: "{{size}} reclaimable out of {{total}} images; {{active}} are in use and stay."
+      ifDeleted: "The next docker run or docker compose up downloads or rebuilds the images it needs."
+      wontLose: "Images used by any container, running or stopped."
+      undo: "Pull or build the image again."
+
+  - id: docker-containers
+    title: Stopped Docker containers
+    category: docker
+    risk: holdsData
+    minSizeMB: 50
+    detector:
+      kind: docker
+      names: ["Containers"]
+    actions:
+      - kind: command
+        label: Run docker container prune
+        command: ["{{docker}}", "container", "prune", "-f"]
+        detail: "Runs docker container prune -f: removes stopped containers."
+    explain:
+      what: "Containers that have stopped. Each keeps whatever was written inside it."
+      why: "{{size}} in stopped containers."
+      ifDeleted: "Anything written inside those containers (not in a volume) is gone. Running containers aren't touched."
+      before: "If a stopped container holds something you need, copy it out first with docker cp."
+      undo: "Can't be undone. Create the containers again from their images."
+
+  - id: docker-volumes
+    title: Unused Docker volumes
+    category: docker
+    risk: holdsData
+    minSizeMB: 100
+    detector:
+      kind: docker
+      names: ["Local Volumes"]
+    actions:
+      - kind: command
+        label: Run docker volume prune
+        command: ["{{docker}}", "volume", "prune", "-f"]
+        detail: "Runs docker volume prune -f: removes anonymous volumes no container uses."
+    explain:
+      what: "Volumes no container is attached to. Databases in Docker usually keep their data in volumes."
+      why: "{{size}} in volumes nothing uses."
+      ifDeleted: "The data in those volumes is gone for good. Named volumes are kept by default."
+      before: "Check with docker volume ls that none of them is a database you still want."
+      undo: "Can't be undone."
+
+  - id: wsl-disks
+    title: "WSL disk of {{name}} ({{fileSize}})"
+    category: wsl
+    risk: holdsData
+    minSizeMB: 0
+    detector:
+      kind: vhdxDisks
+      source: wsl
+      fileMinMB: 2000
+    actions:
+      - kind: manual
+        label: Shut down WSL
+        command: ["wsl", "--shutdown"]
+        detail: "Step 1: stops every distro so the disk can be compacted. Save your work in WSL first."
+      - kind: manual
+        label: Compact with Optimize-VHD (administrator)
+        command: ["powershell", "-NoProfile", "-Command", "Optimize-VHD -Path '{{vhdxPs}}' -Mode Full"]
+        detail: "Step 2, in PowerShell run as administrator. Needs the Hyper-V module (Windows Pro, Enterprise or Education)."
+      - kind: manual
+        label: Compact with diskpart (administrator)
+        command: ["diskpart"]
+        detail: "Step 2 without Hyper-V: in diskpart run as administrator, type: select vdisk file=\"{{vhdx}}\", then attach vdisk readonly, compact vdisk, detach vdisk, exit."
+    explain:
+      what: "The virtual disk holding everything in the WSL distro {{name}}. It grows as files are added and doesn't shrink when they are deleted."
+      why: "The disk file is {{fileSize}}; the files inside use {{used}}. Compacting can free {{estimate}}."
+      ifDeleted: "DevSweep never deletes it: that would remove the distro and every file in it. Compacting keeps every file and only gives back unused space."
+      wontLose: "Any file inside the distro. Compacting changes only how much space the disk file takes."
+      before: "Delete what you don't need inside the distro first (for example caches under ~/.cache), then run wsl --shutdown."
+      better: "On recent WSL, wsl --manage {{name}} --set-sparse true makes the disk give space back by itself."
+
+  - id: docker-disk
+    title: "Docker Desktop disk ({{fileSize}})"
+    category: docker
+    risk: holdsData
+    minSizeMB: 0
+    blockers: ["Docker Desktop"]
+    detector:
+      kind: vhdxDisks
+      source: docker
+      fileMinMB: 2000
+    actions:
+      - kind: manual
+        label: Shut down WSL
+        command: ["wsl", "--shutdown"]
+        detail: "Step 1, after quitting Docker Desktop: stops its virtual machine so the disk can be compacted."
+      - kind: manual
+        label: Compact with Optimize-VHD (administrator)
+        command: ["powershell", "-NoProfile", "-Command", "Optimize-VHD -Path '{{vhdxPs}}' -Mode Full"]
+        detail: "Step 2, in PowerShell run as administrator. Needs the Hyper-V module (Windows Pro, Enterprise or Education)."
+      - kind: manual
+        label: Compact with diskpart (administrator)
+        command: ["diskpart"]
+        detail: "Step 2 without Hyper-V: in diskpart run as administrator, type: select vdisk file=\"{{vhdx}}\", then attach vdisk readonly, compact vdisk, detach vdisk, exit."
+    explain:
+      what: "The virtual disk where Docker Desktop keeps every image, container, volume and build cache. It grows and doesn't shrink when you prune."
+      why: "The disk file is {{fileSize}}. How much compacting frees is {{estimate}}: Docker doesn't report the free space inside it."
+      ifDeleted: "DevSweep never deletes it: that would remove every image, container and volume. Compacting keeps them and only gives back unused space."
+      wontLose: "Images, containers or volumes."
+      before: "Prune first (the Docker findings above), then quit Docker Desktop."

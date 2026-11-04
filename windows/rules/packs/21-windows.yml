@@ -1,0 +1,137 @@
+# Windows itself (module:packs). Anything outside your user folder is shown as a command for
+# an administrator window; DevSweep never runs elevated.
+rules:
+  - id: crash-dumps
+    title: Crash dumps
+    category: windows
+    risk: oldVersion
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ['{LocalAppData}\CrashDumps']
+      olderThanDays: 7
+    actions:
+      - kind: trash
+    explain:
+      what: "Memory snapshots Windows saved when programs crashed, for the program's developers to investigate."
+      why: "{{size}} of crash dumps nobody has changed for at least {{days}} days."
+      ifDeleted: "Nothing changes. They can't be sent to a developer afterwards."
+      before: "If you're helping a developer chase a crash, send them the dump first."
+      undo: "Restore it from the Recycle Bin (History)."
+
+  - id: error-reports-user
+    title: Windows error reports
+    category: windows
+    risk: rebuilds
+    minSizeMB: 20
+    detector:
+      kind: paths
+      paths: ['{LocalAppData}\Microsoft\Windows\WER\ReportArchive', '{LocalAppData}\Microsoft\Windows\WER\ReportQueue', '{LocalAppData}\Microsoft\Windows\WER\Temp']
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Problem reports Windows Error Reporting kept for your programs, sent or waiting to be sent to Microsoft."
+      why: "{{size}} of reports."
+      ifDeleted: "Nothing changes. Disk Cleanup removes the same files as \"Windows error reports\"."
+      wontLose: "Settings or programs."
+
+  - id: error-reports-machine
+    title: Windows error reports for all users
+    category: windows
+    risk: needsAdmin
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ['{ProgramData}\Microsoft\Windows\WER\ReportArchive', '{ProgramData}\Microsoft\Windows\WER\ReportQueue', '{ProgramData}\Microsoft\Windows\WER\Temp']
+    actions:
+      - kind: manual
+        label: Open Disk Cleanup for system files
+        command: ["cleanmgr.exe"]
+        detail: "Choose the drive, click Clean up system files (asks for an administrator), then tick System error reports."
+    explain:
+      what: "Problem reports kept for Windows and for programs running as an administrator or service."
+      why: "{{size}} of reports outside your user folder."
+      ifDeleted: "Nothing changes."
+      wontLose: "Settings or programs."
+
+  - id: thumbnail-cache
+    title: Thumbnail cache
+    category: windows
+    risk: rebuilds
+    minSizeMB: 200
+    detector:
+      kind: paths
+      paths: ['{LocalAppData}\Microsoft\Windows\Explorer\thumbcache_*.db']
+    actions:
+      - kind: manual
+        label: Open Disk Cleanup
+        command: ["cleanmgr.exe"]
+        detail: "Tick Thumbnails. File Explorer keeps these files open, so Disk Cleanup (which can close them) does it rather than DevSweep."
+    explain:
+      what: "Small pictures File Explorer made of your photos, videos and documents, so folders open quickly."
+      why: "{{size}} across {{count}} cache files."
+      ifDeleted: "Folders with many pictures show thumbnails a little slower the first time, while Explorer makes them again."
+      wontLose: "Your pictures or files."
+
+  - id: shader-caches
+    title: Graphics shader caches
+    category: windows
+    risk: rebuilds
+    minSizeMB: 200
+    detector:
+      kind: paths
+      paths: ['{LocalAppData}\D3DSCache', '{LocalAppData}\NVIDIA\DXCache', '{LocalAppData}\NVIDIA\GLCache', '{LocalAppData}\AMD\DxCache', '{LocalAppData}\AMD\DxcCache', '{LocalAppData}\AMD\VkCache', '{LocalAppData}\Intel\ShaderCache']
+    actions:
+      - kind: delete
+    explain:
+      what: "Shaders DirectX and your graphics driver compiled for games and apps, kept so they start smoothly."
+      why: "{{size}} across {{count}} caches."
+      ifDeleted: "Games may stutter a little the first time you play them again, while shaders are compiled again."
+      before: "Close games and 3D apps."
+
+  - id: windows-update-cleanup
+    title: Windows Update downloads
+    category: windows
+    risk: needsAdmin
+    minSizeMB: 200
+    detector:
+      kind: paths
+      paths: ['{Windows}\SoftwareDistribution\Download']
+    actions:
+      - kind: manual
+        label: Clean up superseded components (administrator)
+        command: ["Dism.exe", "/Online", "/Cleanup-Image", "/StartComponentCleanup"]
+        detail: "Run in a terminal as administrator. Removes old versions of updated Windows components; it can take a while."
+      - kind: manual
+        label: Open Disk Cleanup for system files
+        command: ["cleanmgr.exe"]
+        detail: "Click Clean up system files, then tick Windows Update Cleanup and Delivery Optimization Files."
+      - kind: manual
+        label: Clear the Delivery Optimization cache (administrator)
+        command: ["powershell", "-NoProfile", "-Command", "Delete-DeliveryOptimizationCache -Force"]
+        detail: "In PowerShell run as administrator. Removes update files Windows keeps to share with other PCs."
+    explain:
+      what: "Update files Windows Update downloaded. Updates that are installed don't need them any more."
+      why: "{{size}} in {{Windows}}\\SoftwareDistribution\\Download. Old component versions and Delivery Optimization files can't be measured without an administrator; the commands clean those too."
+      ifDeleted: "Nothing changes for installed updates. A pending update downloads its files again."
+      before: "Let Windows Update finish installing anything pending, and restart if it asks."
+      wontLose: "Installed updates or the ability to uninstall the latest ones (only superseded versions are removed)."
+
+  - id: recycle-bin
+    title: Recycle Bin
+    category: windows
+    risk: holdsData
+    minSizeMB: 50
+    detector:
+      kind: recycleBin
+    actions:
+      - kind: manual
+        label: Open the Recycle Bin
+        command: ["explorer.exe", "shell:RecycleBinFolder"]
+        detail: "Look through it, then choose Empty Recycle Bin."
+    explain:
+      what: "Files you deleted on {{drive}} (and items DevSweep moved there), kept until you empty the Recycle Bin."
+      why: "{{size}} in {{items}} items."
+      ifDeleted: "Emptying it removes them for good: they can't be restored, from Explorer or from DevSweep's History."
+      before: "Restore anything you still need first."

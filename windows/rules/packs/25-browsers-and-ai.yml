@@ -1,0 +1,224 @@
+# Browsers and AI models (module:packs).
+rules:
+  - id: chrome-cache
+    title: Chrome cache
+    category: browsers
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["chrome"]
+    detector:
+      kind: browserCaches
+      browser: Chrome
+      userData: ['{LocalAppData}\Google\Chrome\User Data']
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Saved copies of images, scripts and fonts from sites you've visited in the Chrome profile {{profile}}, so pages open faster."
+      why: "{{size}} of cache in that profile. Each profile is its own item, so you can keep any of them."
+      ifDeleted: "Sites load a little slower the first time you revisit them. Chrome grows the cache back over time."
+      wontLose: "Logins, passwords, bookmarks, history or extensions. Those live elsewhere in the profile."
+      before: "Quit Chrome."
+
+  - id: edge-cache
+    title: Microsoft Edge cache
+    category: browsers
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["msedge"]
+    detector:
+      kind: browserCaches
+      browser: Edge
+      userData: ['{LocalAppData}\Microsoft\Edge\User Data']
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Saved copies of pages you've visited in the Edge profile {{profile}}, so they open faster."
+      why: "{{size}} of cache in that profile."
+      ifDeleted: "Sites load a little slower the first time you revisit them."
+      wontLose: "Logins, passwords, favorites or history."
+      before: "Quit Microsoft Edge (and turn off Startup boost if Edge keeps running in the background)."
+
+  - id: brave-cache
+    title: Brave cache
+    category: browsers
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["brave"]
+    detector:
+      kind: browserCaches
+      browser: Brave
+      userData: ['{LocalAppData}\BraveSoftware\Brave-Browser\User Data']
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Saved copies of pages you've visited in the Brave profile {{profile}}, so they open faster."
+      why: "{{size}} of cache in that profile."
+      ifDeleted: "Sites load a little slower the first time you revisit them."
+      wontLose: "Logins, passwords, bookmarks or history."
+      before: "Quit Brave."
+
+  - id: chrome-ai-model
+    title: Chrome's on-device AI model
+    category: browsers
+    risk: rebuilds
+    minSizeMB: 200
+    blockers: ["chrome"]
+    detector:
+      kind: paths
+      paths: ['{LocalAppData}\Google\Chrome\User Data\OptGuideOnDeviceModel']
+    actions:
+      - kind: delete
+    explain:
+      what: "Gemini Nano, the model Chrome uses for features like Help me write."
+      why: "{{size}} for a model Chrome downloaded in the background."
+      ifDeleted: "Chrome downloads it again unless you turn the feature off."
+      before: "Quit Chrome."
+      better: "To stop it coming back, open chrome://flags, set Enables optimization guide on device to Disabled, then delete it."
+
+  - id: edge-ai-model
+    title: Edge's on-device AI model
+    category: browsers
+    risk: rebuilds
+    minSizeMB: 200
+    blockers: ["msedge"]
+    detector:
+      kind: paths
+      paths: ['{LocalAppData}\Microsoft\Edge\User Data\OptGuideOnDeviceModel', '{LocalAppData}\Microsoft\Edge\User Data\EdgeLLMOnDeviceModel']
+    actions:
+      - kind: delete
+    explain:
+      what: "The language model Edge downloads for its on-device AI features."
+      why: "{{size}} for a model Edge downloaded in the background."
+      ifDeleted: "Edge downloads it again while those features are on."
+      before: "Quit Microsoft Edge."
+
+  - id: chrome-profiles
+    title: Chrome profile
+    category: browsers
+    risk: holdsData
+    minSizeMB: 20
+    detector:
+      kind: browserProfiles
+      browser: Chrome
+      userData: ['{LocalAppData}\Google\Chrome\User Data']
+      unusedDays: 180
+    actions:
+      - kind: manual
+        label: Open Chrome
+        command: ["chrome.exe"]
+        detail: "In Chrome, open chrome://profile-picker (or click your profile picture, then Manage profiles), click ⋮ on “{{profile}}” and choose Delete."
+    explain:
+      what: "The Chrome profile “{{profile}}”: its bookmarks, history, passwords, extensions and settings."
+      why: "{{size}}, last used {{ago}}."
+      ifDeleted: "Everything in that profile is removed from this PC. If it was signed in to sync, the synced data stays in that account."
+      before: "Delete it from inside Chrome, so Chrome also removes it from its profile list."
+
+  - id: edge-profiles
+    title: Edge profile
+    category: browsers
+    risk: holdsData
+    minSizeMB: 20
+    detector:
+      kind: browserProfiles
+      browser: Edge
+      userData: ['{LocalAppData}\Microsoft\Edge\User Data']
+      unusedDays: 180
+    actions:
+      - kind: manual
+        label: Open Edge
+        command: ["msedge.exe"]
+        detail: "In Edge, open edge://settings/profiles, switch to “{{profile}}”, then choose Remove."
+    explain:
+      what: "The Edge profile “{{profile}}”: its favorites, history, passwords, extensions and settings."
+      why: "{{size}}, last used {{ago}}."
+      ifDeleted: "Everything in that profile is removed from this PC. If it was signed in to sync, the synced data stays in that account."
+      before: "Remove it from inside Edge, so Edge also removes it from its profile list."
+
+  - id: huggingface-models
+    title: "Hugging Face {{name}}"
+    category: aiModels
+    risk: rebuilds
+    minSizeMB: 200
+    detector:
+      kind: paths
+      paths: ['{hfHubCache}\models--*', '{hfHubCache}\datasets--*']
+      groupEach: true
+    actions:
+      - kind: trash
+      - kind: delete
+    explain:
+      what: "A model or dataset downloaded by Hugging Face libraries like transformers and diffusers."
+      why: "{{size}} in {{hfHubCache}}."
+      ifDeleted: "Code that loads it downloads it again on first use."
+      better: "Keep the ones a project you're working on uses; models are large to download."
+
+  - id: torch-hub
+    title: PyTorch Hub cache
+    category: aiModels
+    risk: rebuilds
+    minSizeMB: 100
+    detector:
+      kind: paths
+      paths: ['{torchHome}\hub']
+    actions:
+      - kind: delete
+    explain:
+      what: "Pretrained weights downloaded through torch.hub and torchvision."
+      why: "{{size}} of model weights in {{torchHome}}."
+      ifDeleted: "Code that loads these weights downloads them again on first use."
+
+  - id: whisper-models
+    title: Whisper speech models
+    category: aiModels
+    risk: rebuilds
+    minSizeMB: 100
+    detector:
+      kind: paths
+      paths: ['{Profile}\.cache\whisper']
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Speech-to-text models downloaded by OpenAI Whisper."
+      why: "{{size}} of models."
+      ifDeleted: "The next project that transcribes audio downloads the model again before it starts."
+
+  - id: ollama-models
+    title: Ollama model
+    category: aiModels
+    risk: holdsData
+    minSizeMB: 100
+    detector:
+      kind: ollamaModels
+      paths: ['{ollamaModels}']
+    actions:
+      - kind: manual
+        label: Show Ollama's command
+        command: ["ollama", "rm", "{{model}}"]
+        detail: "Run ollama rm {{model}} in a terminal. Ollama removes only the layers no other model uses."
+    explain:
+      what: "The model {{model}}, pulled with Ollama."
+      why: "{{size}} that only this model uses; {{shared}} more is shared with other models and stays."
+      ifDeleted: "To use it again, ollama pull {{model}} downloads it again. A model you created yourself (ollama create) has to be created again."
+      before: "Check it isn't a model you made or customised yourself."
+
+  - id: lm-studio-models
+    title: "LM Studio model {{name}}"
+    category: aiModels
+    risk: holdsData
+    minSizeMB: 200
+    blockers: ["LM Studio"]
+    detector:
+      kind: paths
+      paths: ['{Profile}\.lmstudio\models\*\*', '{Profile}\.cache\lm-studio\models\*\*']
+      groupEach: true
+    actions:
+      - kind: trash
+    explain:
+      what: "A model downloaded in LM Studio."
+      why: "{{size}}."
+      ifDeleted: "LM Studio can't load it until you download it again from its Discover tab."
+      undo: "Restore it from the Recycle Bin (History)."

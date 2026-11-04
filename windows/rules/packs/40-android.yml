@@ -1,0 +1,137 @@
+# Android (module:packs). The SDK is wherever ANDROID_HOME / ANDROID_SDK_ROOT say ({androidSdk}).
+rules:
+  - id: android-system-images
+    title: "Android {{level}} system image"
+    category: android
+    risk: oldVersion
+    minSizeMB: 100
+    blockers: ["studio64", "emulator", "qemu-system-x86_64"]
+    detector:
+      kind: androidSystemImages
+      sdks: ['{androidSdk}']
+      avds: ['{androidAvd}']
+    actions:
+      - kind: trash
+    explain:
+      what: "The Android OS image an emulator boots from."
+      why: "{{size}} for an image none of your emulators use."
+      ifDeleted: "You can't create an emulator on {{level}} until you download it again."
+      wontLose: "Your emulators or their data."
+      undo: "Restore it from the Recycle Bin (History), or in Android Studio: SDK Manager, SDK Platforms, tick {{level}} and apply."
+
+  - id: android-build-tools
+    title: Old Android build tools
+    category: android
+    risk: oldVersion
+    minSizeMB: 50
+    blockers: ["studio64"]
+    detector:
+      kind: versionedSiblings
+      parents: ['{androidSdk}\build-tools']
+      pattern: "^(?<version>[0-9][0-9.]*)$"
+      keep: 3
+    actions:
+      - kind: trash
+    explain:
+      what: "Older versions of Android's build tools (aapt, d8, zipalign)."
+      why: "{{size}} for versions {{versions}}. {{kept}} stay installed."
+      ifDeleted: "An old project that pins one of these versions asks you to download it again, or you update its buildToolsVersion."
+      undo: "Android Studio downloads the version a project asks for."
+
+  - id: android-platforms
+    title: Old Android platforms
+    category: android
+    risk: oldVersion
+    minSizeMB: 50
+    blockers: ["studio64"]
+    detector:
+      kind: versionedSiblings
+      parents: ['{androidSdk}\platforms']
+      pattern: "^android-(?<version>[0-9]+)$"
+      keep: 3
+    actions:
+      - kind: trash
+    explain:
+      what: "Android SDK platforms you compile against, one per API level."
+      why: "{{size}} for API levels {{versions}}. {{kept}} stay installed."
+      ifDeleted: "A project with an old compileSdk asks you to download that platform again."
+      undo: "Android Studio downloads the platform a project asks for."
+
+  - id: android-ndk
+    title: "Android NDK {{version}}"
+    category: android
+    risk: oldVersion
+    minSizeMB: 100
+    blockers: ["studio64"]
+    detector:
+      kind: versionedSiblings
+      parents: ['{androidSdk}\ndk']
+      pattern: "^(?<version>[0-9][0-9.]*)$"
+      keep: 1
+      groupEach: true
+    actions:
+      - kind: trash
+    explain:
+      what: "Native development kit for C and C++ code in Android apps."
+      why: "{{size}}. NDK {{newest}} is also installed."
+      ifDeleted: "A project that pins NDK {{version}} asks you to download it again, or you move it to NDK {{newest}}."
+      undo: "SDK Manager, SDK Tools, NDK (Side by side), tick Show package details and pick {{version}}."
+
+  - id: android-emulator-snapshots
+    title: Android emulator snapshots
+    category: android
+    risk: holdsData
+    minSizeMB: 200
+    blockers: ["emulator", "qemu-system-x86_64"]
+    detector:
+      kind: paths
+      paths: ['{androidAvd}\*.avd\snapshots']
+    actions:
+      - kind: trash
+    explain:
+      what: "Saved states of your emulators, including the quick-boot snapshot and any you saved yourself."
+      why: "{{size}} across {{count}} emulators."
+      ifDeleted: "Emulators cold-boot next time, and apps and data you had open in a saved snapshot are gone. The emulators themselves stay."
+      before: "Close every running emulator."
+      undo: "Restore them from the Recycle Bin (History)."
+
+  - id: android-studio-old
+    title: "Android Studio {{version}} settings and caches"
+    category: ideVersions
+    risk: oldVersion
+    minSizeMB: 10
+    detector:
+      kind: versionedSiblings
+      parents: ['{RoamingAppData}\Google', '{LocalAppData}\Google']
+      pattern: "^(?<key>AndroidStudio)(?<version>[0-9][0-9.]*)$"
+      keep: 1
+      groupEach: true
+      installedAs:
+        - key: AndroidStudio
+          names: ["Android Studio"]
+    actions:
+      - kind: trash
+    explain:
+      what: "Settings, caches and logs from Android Studio {{version}}."
+      why: "{{size}}. Android Studio {{newest}} is newer and copied your settings when you first opened it."
+      ifDeleted: "Nothing changes in Android Studio {{newest}}."
+      wontLose: "Your projects, SDK or emulators."
+      undo: "Restore the folders from the Recycle Bin (History)."
+
+  - id: android-studio-caches
+    title: Android Studio caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 200
+    blockers: ["studio64"]
+    detector:
+      kind: paths
+      paths: ['{LocalAppData}\Google\AndroidStudio*\caches']
+    actions:
+      - kind: delete
+    explain:
+      what: "Indexes and caches Android Studio rebuilds by itself (the same as File, Invalidate Caches)."
+      why: "{{size}} across {{count}} versions."
+      ifDeleted: "Android Studio indexes your projects again when it next starts, which takes a few minutes."
+      wontLose: "Settings, plugins or projects."
+      before: "Quit Android Studio."
