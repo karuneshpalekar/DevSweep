@@ -30,6 +30,7 @@ public sealed class StoreAliasTests(ITestOutputHelper output) : IDisposable
     public void The_installer_stub_and_a_store_python_alias_are_told_apart_on_a_real_volume()
     {
         var environment = FixedEnvironment.UnderRoot(_fixture.Root);
+        environment.Variables["SystemDrive"] = _fixture.CreateDirectory("C");
         string apps = Path.Join(environment.KnownFolder("LocalAppData")!, "Microsoft", "WindowsApps");
         Directory.CreateDirectory(apps);
         string stub = Path.Join(apps, "python.exe");

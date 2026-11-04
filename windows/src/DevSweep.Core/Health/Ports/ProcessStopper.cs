@@ -85,6 +85,7 @@ public sealed class ProcessStopper(IProcessDetails details, Func<int, bool>? sen
             return new StopResult(StopOutcome.NotFound, "That process has already exited.");
         }
 
+        string name = process.ProcessName;
         string method;
         if (process.MainWindowHandle != IntPtr.Zero)
         {
@@ -97,12 +98,12 @@ public sealed class ProcessStopper(IProcessDetails details, Func<int, bool>? sen
         }
         else
         {
-            return new StopResult(StopOutcome.CouldNotAsk, $"{process.ProcessName} has no window and no console DevSweep could send Ctrl+C to.");
+            return new StopResult(StopOutcome.CouldNotAsk, $"{name} has no window and no console DevSweep could send Ctrl+C to.");
         }
 
         return process.WaitForExit(wait)
-            ? new StopResult(StopOutcome.Stopped, $"{process.ProcessName} stopped.", method)
-            : new StopResult(StopOutcome.StillRunning, $"{process.ProcessName} is still running after DevSweep {method}. Ending it may lose unsaved work.", method);
+            ? new StopResult(StopOutcome.Stopped, $"{name} stopped.", method)
+            : new StopResult(StopOutcome.StillRunning, $"{name} is still running after DevSweep {method}. Ending it may lose unsaved work.", method);
     }
 
     /// <summary>Ends the process. Call only after the user confirmed (after <see cref="AskToStop"/> said it is still running).</summary>
@@ -119,15 +120,16 @@ public sealed class ProcessStopper(IProcessDetails details, Func<int, bool>? sen
             return new StopResult(StopOutcome.NotFound, "That process has already exited.");
         }
 
+        string name = process.ProcessName;
         try
         {
             process.Kill(entireProcessTree: false);
             process.WaitForExit(TimeSpan.FromSeconds(5));
-            return new StopResult(StopOutcome.Stopped, $"{process.ProcessName} was ended.", "ended (TerminateProcess)");
+            return new StopResult(StopOutcome.Stopped, $"{name} was ended.", "ended (TerminateProcess)");
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or NotSupportedException)
         {
-            return new StopResult(StopOutcome.Failed, $"{process.ProcessName} could not be ended: {ex.Message}");
+            return new StopResult(StopOutcome.Failed, $"{name} could not be ended: {ex.Message}");
         }
     }
 

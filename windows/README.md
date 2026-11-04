@@ -582,3 +582,7 @@ by `rules validate` with 4 line-numbered problems.
 - A brand-new account without a package repository makes every leftover "unknown" (by design).
 - A hard-linked file inside a finding that is itself inside another finding's folder is subtracted
   twice from the scan total (rare: claims normally prevent nesting); the per-finding sizes are right.
+
+## Milestone docs
+
+- [M3b: Health (runtimes, security, ports, alerts)](docs/m3b-health.md)
