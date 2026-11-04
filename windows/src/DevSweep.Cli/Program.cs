@@ -14,6 +14,9 @@ internal static class Program
         root.Subcommands.Add(MeasureCommand.Create());
         root.Subcommands.Add(QuarantineCommand.Create());
         root.Subcommands.Add(HistoryCommand.Create());
+
+        // Health (M3b): runtimes, security, ports (module:health).
+        Commands.Health.HealthCommands.AddTo(root);
         return root.Parse(args).Invoke();
     }
 }

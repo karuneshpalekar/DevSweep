@@ -30,7 +30,7 @@ public sealed class FeatureFlagTests
         Assert.Equal(["locations", "inventory", "cleanup"], engine.Modules.Select(m => m.Id));
         Assert.Equal(["orphanedAppData", "paths", "staleProjectArtifacts", "versionedSiblings"], engine.Detectors.Kinds.Order(StringComparer.Ordinal));
         Assert.Equal(12, engine.InventoryCollectors.Count);
-        Assert.Empty(engine.Disabled);
+        Assert.Equal(["module:health"], engine.Disabled); // Health (M3b) is off until it passes its gate
     }
 
     [Fact]
