@@ -92,6 +92,21 @@ public static unsafe class Ntfs
         return new Scope(() => Run("icacls.exe", $"\"{directory}\" /remove:d *S-1-1-0"));
     }
 
+    /// <summary>The 8.3 short form of an existing path (GetShortPathNameW); the path itself when it has none.</summary>
+    public static string ShortPath(string path)
+    {
+        Span<char> buffer = new char[path.Length + 16];
+        uint length = PInvoke.GetShortPathName(path, buffer);
+        return length == 0 || length > buffer.Length ? path : buffer[..(int)length].ToString();
+    }
+
+    /// <summary>Gives <paramref name="path"/> the short name <paramref name="shortName"/> (fsutil, needs an administrator and 8.3 names enabled on the volume).</summary>
+    public static bool TrySetShortName(string path, string shortName)
+    {
+        (int exit, _) = Run("fsutil.exe", $"file setshortname \"{path}\" {shortName}");
+        return exit == 0;
+    }
+
     public static (int ExitCode, string Output) Run(string fileName, string arguments)
     {
         var start = new ProcessStartInfo(fileName, arguments)

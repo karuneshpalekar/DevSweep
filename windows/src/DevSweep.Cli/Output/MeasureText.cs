@@ -32,6 +32,16 @@ internal static class MeasureText
             Line(output, "Cloud-only files", $"{Count(report.CloudPlaceholderCount)} ({Bytes(report.CloudPlaceholderLogicalBytes)} in the cloud, 0 on disk)");
         }
 
+        if (report.CloudDirectories > 0)
+        {
+            Line(output, "Cloud folders", $"{Count(report.CloudDirectories)} entered (attributes only, nothing downloaded)");
+        }
+
+        if (report.AlternateStreamCount > 0)
+        {
+            Line(output, "Alternate streams", $"{Count(report.AlternateStreamCount)} ({Bytes(report.AlternateStreamBytes)} on disk, included above)");
+        }
+
         if (report.AccessDenied > 0 || report.Unreadable > 0)
         {
             Line(output, "Not readable", $"{Count(report.AccessDenied)} access denied, {Count(report.Unreadable)} other errors");
@@ -43,14 +53,15 @@ internal static class MeasureText
             output.WriteLine($"    {link.Kind,-14} {link.Path}");
         }
 
+        Line(output, "Listing", report.Listing.ToString());
         Line(output, "Elapsed", string.Create(CultureInfo.InvariantCulture, $"{report.ElapsedSeconds:0.000} s"));
     }
 
     private static void Line(TextWriter output, string label, string value) => output.WriteLine($"{label + ":",-20}{value}");
 
-    private static string Count(long value) => value.ToString("N0", CultureInfo.InvariantCulture);
+    internal static string Count(long value) => value.ToString("N0", CultureInfo.InvariantCulture);
 
-    private static string Bytes(long bytes)
+    internal static string Bytes(long bytes)
     {
         string[] units = ["B", "KB", "MB", "GB", "TB"];
         double scaled = bytes;

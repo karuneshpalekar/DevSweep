@@ -6,11 +6,12 @@ using Windows.Win32.Storage.FileSystem;
 namespace DevSweep.Core.Platform;
 
 /// <summary>
-/// Lists one directory with <c>FindFirstFileExW</c> (basic info, large fetch).
+/// Lists one directory with <c>FindFirstFileExW</c> (basic info, large fetch): the
+/// fallback for file systems without <c>FileIdExtdDirectoryInfo</c> (FAT, exFAT, some network shares).
 /// Metadata only: no entry is opened, so cloud placeholders are not recalled
 /// and antivirus does not scan file contents.
 /// </summary>
-internal sealed unsafe class FindFileEnumerator : IDisposable
+internal sealed unsafe class FindFileEnumerator : IDirectoryListing
 {
     private HANDLE _handle;
     private WIN32_FIND_DATAW _data;

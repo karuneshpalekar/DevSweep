@@ -96,15 +96,36 @@ public static unsafe class Volumes
     /// <summary>The root of the volume holding <paramref name="fullPath"/>, mounted folders included.</summary>
     internal static string VolumeRoot(string fullPath)
     {
-        Span<char> buffer = stackalloc char[MaxPath];
-        if (fullPath.Length < MaxPath && PInvoke.GetVolumePathName(fullPath, buffer))
+        string normal = LongPath.Normalize(fullPath);
+        string query = normal.Length < MaxPath ? normal : LongPath.ToExtended(normal);
+        Span<char> buffer = new char[query.Length + 2];
+        if (PInvoke.GetVolumePathName(query, buffer))
         {
-            return buffer.UpToNull().ToString();
+            return LongPath.StripPrefix(buffer.UpToNull().ToString());
         }
 
-        // Past MAX_PATH: fall back to the drive or share root.
-        return Path.GetPathRoot(fullPath) ?? fullPath;
+        // Fall back to the drive or share root.
+        return Path.GetPathRoot(normal) ?? normal;
     }
+
+    /// <summary>
+    /// Total free bytes on the volume holding <paramref name="path"/> (GetDiskFreeSpaceExW
+    /// lpTotalNumberOfFreeBytes: the volume's own count, not reduced by quotas).
+    /// </summary>
+    /// <exception cref="Win32Exception">The volume cannot be queried.</exception>
+    public static long FreeBytes(string path)
+    {
+        string root = VolumeRoot(path);
+        if (!PInvoke.GetDiskFreeSpaceEx(root, out _, out _, out ulong totalFree))
+        {
+            throw new Win32Exception(Marshal.GetLastPInvokeError(), $"Cannot read free space for {root}");
+        }
+
+        return (long)totalFree;
+    }
+
+    /// <summary><c>\\?\Volume{GUID}\</c> of the volume whose root is <paramref name="root"/>, or null.</summary>
+    internal static string? VolumeGuidPathOf(string root) => VolumeGuidPath(root);
 
     private static string? VolumeGuidPath(string root)
     {

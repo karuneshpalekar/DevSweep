@@ -3,17 +3,34 @@
 CreateFile
 CloseHandle
 INVALID_HANDLE_VALUE
+GetFileInformationByHandle
 GetFileInformationByHandleEx
+SetFileInformationByHandle
+GetFinalPathNameByHandle
+GetLongPathName
 FILE_ID_INFO
 FILE_STANDARD_INFO
 FILE_COMPRESSION_INFO
+FILE_ATTRIBUTE_TAG_INFO
+FILE_STREAM_INFO
+FILE_RENAME_INFO
+FILE_DISPOSITION_INFO_EX
 GetCompressedFileSize
 FILE_ACCESS_RIGHTS
+DeleteFile
+RemoveDirectory
+SetFileAttributes
+MoveFileEx
+// Metadata by name, without a handle (Windows 10 1709 and later)
+NtQueryInformationByName
+Windows.Wdk.Storage.FileSystem.FILE_STAT_INFORMATION
+RtlNtStatusToDosError
 // Enumeration (metadata only, never file contents)
 FindFirstFileEx
 FindNextFile
 FindClose
 WIN32_FIND_DATAW
+FILE_ID_EXTD_DIR_INFO
 // Volumes
 GetVolumePathName
 GetVolumeNameForVolumeMountPoint
@@ -21,6 +38,42 @@ GetVolumeInformation
 GetDriveType
 GetDiskFreeSpace
 GetDiskFreeSpaceEx
+// Known folders
+SHGetKnownFolderPath
+CoTaskMemFree
+FOLDERID_Profile
+FOLDERID_Desktop
+FOLDERID_Documents
+FOLDERID_Downloads
+FOLDERID_Pictures
+FOLDERID_Music
+FOLDERID_Videos
+FOLDERID_Favorites
+FOLDERID_Contacts
+FOLDERID_Links
+FOLDERID_SavedGames
+FOLDERID_SavedSearches
+FOLDERID_Objects3D
+FOLDERID_RoamingAppData
+FOLDERID_LocalAppData
+FOLDERID_LocalAppDataLow
+FOLDERID_SkyDrive
+FOLDERID_CameraRoll
+FOLDERID_Screenshots
+FOLDERID_StartMenu
+FOLDERID_Programs
+FOLDERID_Startup
+FOLDERID_Templates
+FOLDERID_SendTo
+FOLDERID_Recent
+FOLDERID_UserProgramFiles
+// Restart Manager (who holds a file open)
+RmStartSession
+RmRegisterResources
+RmGetList
+RmEndSession
+RM_PROCESS_INFO
+CCH_RM_SESSION_KEY
 // Recycle Bin
 SHFileOperation
 SHQueryRecycleBin
