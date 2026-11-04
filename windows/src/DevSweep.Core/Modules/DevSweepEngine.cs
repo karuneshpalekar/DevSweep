@@ -86,7 +86,8 @@ public sealed class DevSweepEngine
     }
 
     /// <summary>The bundled packs of every module.</summary>
-    public IReadOnlyList<RulePackText> BundledPacks() => _parts.Packs.SelectMany(p => p()).ToList();
+    /// <remarks>Sorted by file name across modules: file-name order is claim order (leftovers, <c>90-</c>, last).</remarks>
+    public IReadOnlyList<RulePackText> BundledPacks() => _parts.Packs.SelectMany(p => p()).OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList();
 
     /// <summary><c>%LOCALAPPDATA%\DevSweep\Rules</c>.</summary>
     public string? DefaultUserRulesDirectory
@@ -124,6 +125,7 @@ public sealed class DevSweepEngine
         {
             ProjectRoots = request?.ProjectRoots,
             SafetyCheck = request?.SafetyCheck,
+            Registry = _parts.Registry,
         };
     }
 
