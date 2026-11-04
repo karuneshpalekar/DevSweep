@@ -8,6 +8,7 @@ GetFileInformationByHandleEx
 SetFileInformationByHandle
 GetFinalPathNameByHandle
 GetLongPathName
+GetShortPathName
 FILE_ID_INFO
 FILE_STANDARD_INFO
 FILE_COMPRESSION_INFO

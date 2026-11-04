@@ -247,7 +247,7 @@ public sealed class Cleaner(
         string message = result switch
         {
             { StartError: { } start } => start,
-            { TimedOut: true } => $"{commandLine} did not finish within {_options.CommandTimeout.TotalMinutes:0.#} minutes and was stopped.",
+            { TimedOut: true } => string.Create(CultureInfo.InvariantCulture, $"{commandLine} did not finish within {_options.CommandTimeout.TotalSeconds:0} seconds and was stopped."),
             { ExitCode: not 0 } => result.StandardError.Trim() is { Length: > 0 } err ? err : string.Create(CultureInfo.InvariantCulture, $"{commandLine} failed (exit {result.ExitCode})."),
             _ => $"Ran {commandLine}",
         };

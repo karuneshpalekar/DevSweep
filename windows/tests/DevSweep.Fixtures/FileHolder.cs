@@ -9,6 +9,7 @@ namespace DevSweep.Fixtures;
 public sealed class FileHolder : IDisposable
 {
     private readonly Process _process;
+    private bool _disposed;
 
     private FileHolder(Process process) => _process = process;
 
@@ -46,6 +47,12 @@ public sealed class FileHolder : IDisposable
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         if (!_process.HasExited)
         {
             _process.Kill(entireProcessTree: true);

@@ -18,12 +18,25 @@ internal static unsafe class AlternateStreams
     private const string MainStream = "::$DATA";
     private const string WofStream = ":WofCompressedData:$DATA";
     private const int ErrorBadLength = 24;
+    private const int StackBuffer = 512;
     private const int FirstBuffer = 4 * 1024;
     private const int LargestBuffer = 4 * 1024 * 1024;
 
     /// <summary>The totals, or zeros when the file system has no streams or does not say.</summary>
     public static StreamTotals Read(SafeFileHandle handle)
     {
+        // Nearly every file has only its main stream: try a small stack buffer first.
+        long* small = stackalloc long[StackBuffer / sizeof(long)];
+        if (NativeFile.Query(handle, FILE_INFO_BY_HANDLE_CLASS.FileStreamInfo, small, StackBuffer, out int first))
+        {
+            return Sum((byte*)small);
+        }
+
+        if (first is not (Win32Errors.MoreData or ErrorBadLength))
+        {
+            return default;
+        }
+
         for (int size = FirstBuffer; size <= LargestBuffer; size *= 8)
         {
             byte* buffer = (byte*)NativeMemory.AlignedAlloc((nuint)size, 8);

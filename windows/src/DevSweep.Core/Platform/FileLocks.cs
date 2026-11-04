@@ -25,7 +25,12 @@ public sealed record LockingProcess(int ProcessId, string Name, string? Executab
 /// <param name="Processes">The processes, each once.</param>
 /// <param name="FilesChecked">Files registered with Restart Manager.</param>
 /// <param name="Truncated">True when the item had more files than were checked.</param>
-public sealed record LockReport(IReadOnlyList<LockingProcess> Processes, int FilesChecked, bool Truncated)
+/// <param name="FilesUnchecked">
+/// Files Restart Manager cannot take: paths of 260 characters or more with no
+/// short form under that length. A process holding one makes the removal fail
+/// cleanly instead (a rename or delete of an open file is refused by Windows).
+/// </param>
+public sealed record LockReport(IReadOnlyList<LockingProcess> Processes, int FilesChecked, bool Truncated, int FilesUnchecked = 0)
 {
     public bool IsLocked => Processes.Count > 0;
 
@@ -46,13 +51,15 @@ public static class FileLocks
     public const int DefaultFileLimit = 20_000;
 
     private const int Batch = 500;
+    private const int MaxRmPath = 260;
 
     /// <summary>Checks every file in <paramref name="path"/> (a file or a folder), up to <paramref name="fileLimit"/> files.</summary>
     /// <exception cref="Win32Exception">Restart Manager failed.</exception>
     public static LockReport Check(string path, int fileLimit = DefaultFileLimit)
     {
         IReadOnlyList<string> files = ItemFiles.Collect(path, fileLimit, out bool truncated);
-        return new LockReport(Find(files), files.Count, truncated);
+        List<string> usable = [.. files.Select(RmPath).OfType<string>()];
+        return new LockReport(Find(usable), usable.Count, truncated, files.Count - usable.Count);
     }
 
     /// <summary>The processes holding any of <paramref name="files"/> open.</summary>
@@ -71,7 +78,7 @@ public static class FileLocks
         {
             for (int i = 0; i < files.Count; i += Batch)
             {
-                string[] batch = [.. files.Skip(i).Take(Batch).Select(RmPath)];
+                string[] batch = [.. files.Skip(i).Take(Batch)];
                 Throw(PInvoke.RmRegisterResources(session, batch, default, default), "RmRegisterResources");
             }
 
@@ -141,11 +148,28 @@ public static class FileLocks
         }
     }
 
-    /// <summary>Restart Manager takes ordinary paths; long ones keep the <c>\\?\</c> form.</summary>
-    private static string RmPath(string path)
+    /// <summary>
+    /// Restart Manager takes paths shorter than MAX_PATH only (it fails with
+    /// ERROR_WRITE_FAULT otherwise): a long path is replaced by its 8.3 short form
+    /// when that is short enough, otherwise it cannot be checked (null).
+    /// </summary>
+    private static string? RmPath(string path)
     {
         string display = LongPath.StripPrefix(path);
-        return display.Length < 260 ? display : LongPath.ToExtended(display);
+        if (display.Length < MaxRmPath)
+        {
+            return display;
+        }
+
+        Span<char> buffer = new char[display.Length + 8];
+        uint length = PInvoke.GetShortPathName(LongPath.ToExtended(display), buffer);
+        if (length == 0 || length > buffer.Length)
+        {
+            return null;
+        }
+
+        string shortForm = LongPath.StripPrefix(buffer[..(int)length].ToString());
+        return shortForm.Length < MaxRmPath ? shortForm : null;
     }
 
     private static void Throw(WIN32_ERROR result, string call)

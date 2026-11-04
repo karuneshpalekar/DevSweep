@@ -89,7 +89,10 @@ public sealed class SecondVolumeTests(ExFatVolume volume, ITestOutputHelper outp
         output.WriteLine($"parent of mount: bytes={result.Bytes} files={result.Files} reparse={string.Join(", ", result.ReparsePoints.Select(r => $"{r.Kind} {r.Path}"))}");
         ReparsePointRecord mount = Assert.Single(result.ReparsePoints, r => string.Equals(r.Path, Mount, StringComparison.OrdinalIgnoreCase));
         Assert.Equal(ReparseTags.MountPoint, mount.Tag);
-        Assert.True(result.Bytes < 3 * 1024 * 1024, "bytes on the mounted volume were counted");
+        // The only file counted is the virtual disk's own .vhdx beside the mount folder.
+        string vhdx = Assert.Single(Directory.GetFiles(parent, "*.vhdx"));
+        Assert.Equal(1, result.Files);
+        Assert.Equal(FileInspector.Inspect(vhdx).AllocationSize, result.Bytes);
         Assert.True(ReparseGuard.IsVolumeMountPoint(Mount));
     }
 

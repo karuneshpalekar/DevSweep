@@ -11,6 +11,7 @@ public static class ReparseGuard
     /// cannot be shown not to be one. Null when the path is direct.
     /// </summary>
     /// <remarks>
+    /// A cloud-provider folder is not a link either (it is the user's own folder).
     /// A volume mounted in a folder (a mount point whose target is a volume, not
     /// a folder) is not a link in this sense: the path below it is the direct path
     /// to items on that volume, so it does not block them. It is still never
@@ -36,7 +37,7 @@ public static class ReparseGuard
                 return ancestor;
             }
 
-            if (entry.IsReparsePoint && !(entry.ReparseTag == ReparseTags.MountPoint && IsVolumeMountPoint(ancestor)))
+            if (entry.IsReparsePoint && !IsDirectPathFolder(ancestor, in entry))
             {
                 return ancestor;
             }
@@ -44,6 +45,15 @@ public static class ReparseGuard
 
         return null;
     }
+
+    /// <summary>
+    /// Reparse folders that are the direct path to what is below them: a volume
+    /// mount point, and a cloud-provider folder (OneDrive and the like), which is
+    /// the user's real folder, not a link to somewhere else.
+    /// </summary>
+    private static bool IsDirectPathFolder(string path, in DirectoryEntry entry)
+        => entry.ReparseKind == ReparseKind.Cloud
+            || (entry.ReparseTag == ReparseTags.MountPoint && IsVolumeMountPoint(path));
 
     /// <summary>
     /// True when <paramref name="directory"/> is where a volume is mounted (as

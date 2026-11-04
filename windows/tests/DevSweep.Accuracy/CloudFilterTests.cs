@@ -89,7 +89,7 @@ public sealed class CloudFilterTests(ITestOutputHelper output) : IDisposable
         output.WriteLine($"outcome: {outcome.Message}");
         Assert.False(outcome.Succeeded);
         Assert.True(outcome.NothingChanged);
-        Assert.Contains("cloud", outcome.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("cloud-only files", outcome.Message, StringComparison.Ordinal);
         Assert.True(File.Exists(Path.Combine(target, "only-in-cloud.bin")));
         Assert.Equal(0, root.FetchDataRequests);
         Assert.Empty(history.Entries);
