@@ -1,6 +1,6 @@
 # DevSweep for Windows: plan
 
-Status: **approved** (decisions in section 7). M0, M1, M2, M3a and M3b merged into `windows`; M3c and M4 in progress in parallel. This branch (`windows`)
+Status: **approved** (decisions in section 7). M0, M1, M2, M3a, M3b and M3c merged into `windows`; M4 in progress. This branch (`windows`)
 holds the plan; code lands here milestone by milestone.
 
 ## 1. Goal
@@ -200,7 +200,7 @@ parallel; each ends with a PR into `windows`.
 | **M2** (done, CI green; see README) | Rules engine + inventory | M1 | YAML loader (shared schema), location resolvers (Known Folders, env, tool config), installed-apps inventory (4.3), `paths`/`versionedSiblings`/`staleProjectArtifacts`/`orphanedAppData` detectors, CLI `scan` | Inventory matches on 3 reference machines; no false leftovers |
 | **M3a** (done, CI green; see docs/m3a-rules.md; real-machine checks pending reference VMs) | Windows rule packs | M2 | Section 4.5 packs, WSL/Docker vhdx detector, .NET SDK detector, Android detector, explanations | Each rule has a fixture test + a real-machine check |
 | **M3b** (done, CI green; see docs/m3b-health.md; off by default until reviewed) | Health | M2 | Runtimes (nvm-windows, fnm, Volta, pyenv-win, `py` launcher, conda, uv, SDKMAN-alt, rustup, Scoop/winget/choco installs, Store aliases), registry PATH, EOL, project requirements, Security scan, Ports (`GetExtendedTcpTable` + firewall reachability) | Runtime inventory correct on reference machines; Store alias never reported as install |
-| **M3c** | Projects | M2 | git/gh multi-account, safe removal checks, download strategies, per-account identity, CRLF/case-insensitivity handling | Same checks as Mac test suite, ported |
+| **M3c** (done, CI green; see docs/m3c-projects.md; off by default until reviewed) | Projects | M2 | git/gh multi-account, safe removal checks, download strategies, per-account identity, CRLF/case-insensitivity handling | Same checks as Mac test suite, ported |
 | **M4** | WinUI 3 app | M2 (stubs), then M3* | Home, Clean up (+ⓘ inspector), Review sheet, Projects tabs, Health tabs, History, Settings, Welcome, light/dark | Every Mac screen has a Windows equivalent; review shows exact commands |
 | **M5** | Tray, schedule, alerts, updates | M4 | Tray icon + menu, open at login, scheduled read-only scans, toast alerts, update check | Alerts fire once with reminders, like Mac |
 | **M6** | Packaging & release | M4 | Unsigned per-user installer + portable zip, `release.ps1`, GitHub release, README section | Clean install and uninstall on fresh Windows 11 22H2 and 24H2/25H2 x64 VMs, no admin prompt |
