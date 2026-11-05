@@ -87,3 +87,30 @@ WIN32_ERROR
 FO_DELETE
 // Installed apps (inventory)
 MsiGetShortcutTarget
+// Health (M3b): app execution aliases, version resources, ports, processes
+DeviceIoControl
+FSCTL_GET_REPARSE_POINT
+GetFileVersionInfoSize
+GetFileVersionInfo
+VerQueryValue
+VS_FIXEDFILEINFO
+GetExtendedTcpTable
+GetExtendedUdpTable
+OpenProcess
+QueryFullProcessImageName
+NtQueryInformationProcess
+ReadProcessMemory
+IsWow64Process
+OpenProcessToken
+GetTokenInformation
+TOKEN_USER
+EqualSid
+TerminateProcess
+GetExitCodeProcess
+WaitForSingleObject
+PostMessage
+WM_CLOSE
+AttachConsole
+FreeConsole
+SetConsoleCtrlHandler
+GenerateConsoleCtrlEvent

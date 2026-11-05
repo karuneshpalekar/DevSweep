@@ -57,6 +57,9 @@ public sealed class DevSweepEngine
 
     public ISystemEnvironment Environment => _parts.Environment;
 
+    /// <summary>The registry the engine reads (fake hives in tests).</summary>
+    public IRegistryReader Registry => _parts.Registry;
+
     /// <summary>The standard engine: core locations, the inventory and Clean up.</summary>
     public static DevSweepEngine CreateDefault(
         FeatureFlags? flags = null, ISystemEnvironment? environment = null, IRegistryReader? registry = null, IRunningProcesses? processes = null)
