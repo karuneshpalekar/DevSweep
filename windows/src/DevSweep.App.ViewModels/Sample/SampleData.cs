@@ -3,6 +3,10 @@ using DevSweep.Core.Cleaning;
 using DevSweep.Core.Health.Ports;
 using DevSweep.Core.Health.Runtimes;
 using DevSweep.Core.Health.Security;
+using DevSweep.Core.Projects;
+using DevSweep.Core.Projects.Git;
+using DevSweep.Core.Projects.GitHub;
+using DevSweep.Core.Projects.Storage;
 using DevSweep.Core.Platform;
 using DevSweep.Core.Platform.Quarantine;
 using DevSweep.Core.Health.Alerts;
@@ -280,25 +284,56 @@ public static class SampleData
             ],
         });
 
-    public static ProjectsReport Projects { get; } = new(
+    public static ProjectsSnapshot Projects { get; } = new()
+    {
+        Date = Now,
+        Accounts = new GitHubAccounts(GitHubStatus.SignedIn, [new GitHubAccount("alex", true), new GitHubAccount("alex-acme", false)]),
+        Identities = new Dictionary<string, GitIdentity> { ["alex"] = new("Alex Doe", "alex@example.com"), ["alex-acme"] = new("Alex Doe", "alex.doe@acme.example") },
+        Projects =
         [
-            new ProjectInfo("alex/web-shop", "alex", @"D:\src\web-shop", 1_420 * MB, Now.AddHours(-3), "2 commits not pushed", false),
-            new ProjectInfo("alex/inventory-api", "alex", @"D:\src\inventory-api", 380 * MB, Now.AddDays(-2), "Fully pushed", true),
-            new ProjectInfo("acme/payments", "alex-acme", @"D:\work\payments", 2_210 * MB, Now.AddDays(-41), "Fully pushed", true),
-            new ProjectInfo("acme/design-system", "alex-acme", @"D:\work\design-system", 940 * MB, Now.AddDays(-95), "Uncommitted changes", false),
-            new ProjectInfo("alex/old-web", "alex", @"D:\src\old-web", 1_160 * MB, Now.AddDays(-122), "Fully pushed", true),
-            new ProjectInfo("alex/dotfiles", "alex", null, 0, Now.AddDays(-12), "On GitHub only", true),
+            Repo("alex/web-shop", "alex", @"D:\src\web-shop", 1_420 * MB, Now.AddHours(-3), Safe(Now.AddHours(-5)) with { State = SafetyState.NotSafe, UnpushedCommits = 2, UnpushedByRef = [new RefUnpushed("main", 2, "origin/main")] }),
+            Repo("alex/inventory-api", "alex", @"D:\src\inventory-api", 380 * MB, Now.AddDays(-2), Safe(Now.AddDays(-2))),
+            Repo("acme/payments", "alex-acme", @"D:\work\payments", 2_210 * MB, Now.AddDays(-41), Safe(Now.AddDays(-40))),
+            Repo("acme/design-system", "alex-acme", @"D:\work\design-system", 940 * MB, Now.AddDays(-95), Safe(Now.AddDays(-96)) with { State = SafetyState.NotSafe, ChangedFiles = 3, ChangedSample = ["src/Button.tsx"], Stashes = 1 }),
+            Repo("alex/old-web", "alex", @"D:\src\old-web", 1_160 * MB, Now.AddDays(-122), Safe(Now.AddDays(-122))),
+            Repo("alex/ml-notebooks", "alex", @"C:\Users\alex\OneDrive\Code\ml-notebooks", 610 * MB, Now.AddDays(-60),
+                new RemovalSafety { State = SafetyState.NotChecked, Path = @"C:\Users\alex\OneDrive\Code\ml-notebooks", NotCheckedReason = "Some files are online-only in OneDrive; running git would download them." }) with { InCloudFolder = true },
+            Repo("alex/lfs-assets", "alex", @"D:\src\lfs-assets", 3_400 * MB, Now.AddDays(-70), Safe(Now.AddDays(-70)) with { State = SafetyState.Unknown, UsesLfs = true, Problems = ["Uses Git LFS: whether every LFS file is on the server can only be answered by the server."] }),
+            new Project { Id = "alex/dotfiles", Name = "dotfiles", NameWithOwner = "alex/dotfiles", Owner = "alex", Account = "alex", OnGitHub = true, RemoteKB = 2_048, LastActivity = Now.AddDays(-12) },
         ],
-        [
-            new AccountInfo("alex", "Alex Doe", "alex@example.com", 24, 3, 2_960 * MB, true),
-            new AccountInfo("alex-acme", "Alex Doe", "alex.doe@acme.example", 61, 2, 3_150 * MB, true),
-        ],
-        [
-            new ActivityInfo(Now.AddHours(-3), "Pushed 3 commits to alex/web-shop", "push"),
-            new ActivityInfo(Now.AddDays(-1), "Downloaded acme/payments with alex-acme", "download"),
-            new ActivityInfo(Now.AddDays(-4), "Removed alex/tutorial-app from this PC (fully pushed; in the Recycle Bin)", "remove"),
-            new ActivityInfo(Now.AddDays(-9), "Signed in as alex-acme", "account"),
-        ]);
+    };
+
+    public static IReadOnlyList<ActivityEntry> Activity { get; } =
+    [
+        new ActivityEntry { Date = Now.AddHours(-3), Kind = ActivityKind.Push, Subject = "alex/web-shop", Detail = "Started pushing 3 commits as alex" },
+        new ActivityEntry { Date = Now.AddDays(-1), Kind = ActivityKind.Download, Subject = "acme/payments", Detail = "Downloaded (blobless) as alex-acme into D:\\work\\payments" },
+        new ActivityEntry { Date = Now.AddDays(-4), Kind = ActivityKind.Remove, Subject = "alex/tutorial-app", Detail = "Removed from this PC (fully pushed); in the Recycle Bin" },
+        new ActivityEntry { Date = Now.AddDays(-9), Kind = ActivityKind.SignIn, Subject = "alex-acme", Detail = "Signed in" },
+    ];
+
+    private static Project Repo(string slug, string account, string path, long bytes, DateTimeOffset lastUsed, RemovalSafety safety) => new()
+    {
+        Id = slug,
+        Name = slug.Split('/')[1],
+        NameWithOwner = slug,
+        Owner = slug.Split('/')[0],
+        Account = account,
+        OnGitHub = true,
+        LocalPath = path,
+        LocalSize = bytes,
+        LastActivity = lastUsed,
+        Safety = safety with { Path = path },
+    };
+
+    private static RemovalSafety Safe(DateTimeOffset lastFetch) => new()
+    {
+        State = SafetyState.Safe,
+        Inspected = true,
+        HasRemote = true,
+        Remotes = ["origin"],
+        LastFetchUtc = lastFetch,
+        CheckedAt = Now,
+    };
 
     private static Finding Make(
         string id, string title, Category category, Risk risk, string path, long size,

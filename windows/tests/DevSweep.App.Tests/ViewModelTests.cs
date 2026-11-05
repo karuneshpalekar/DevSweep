@@ -256,7 +256,9 @@ public sealed class EngineBackendTests
         Assert.Equal(ModuleState.On, modules.Single(m => m.Id == "cleanup").State);
         Assert.Equal(ModuleState.On, modules.Single(m => m.Id == "packs").State);
         Assert.Equal(ModuleState.TurnedOff, modules.Single(m => m.Id == "health").State);
-        Assert.Equal(ModuleState.NotInThisBuild, modules.Single(m => m.Id == "projects").State);
+        Assert.Equal(ModuleState.TurnedOff, modules.Single(m => m.Id == "projects").State);
+        Assert.Contains(modules, m => m.Id == "projects.cleanup");
+        Assert.DoesNotContain(MainViewModel.BuildPlaces(modules), p => p.Id == "projects");
         Assert.Contains(modules, m => m.Id == "health.ports");
         Assert.DoesNotContain(MainViewModel.BuildPlaces(modules), p => p.Id == "health");
 
@@ -264,5 +266,30 @@ public sealed class EngineBackendTests
         Assert.NotNull(ViewModels.Places.CoreHealthSource.From(on, () => null));
         Assert.False(ViewModels.Places.CoreHealthSource.From(on, () => null)!.Features.Ports);
         Assert.Contains(MainViewModel.BuildPlaces(EngineBackend.DescribeModules(on)), p => p.Id == "health");
+
+        var projects = Core.Modules.DevSweepEngine.CreateDefault(Core.Modules.FeatureFlags.Default.With("+module:projects -module:projects.activity"));
+        ViewModels.Places.CoreProjectsSource? source = ViewModels.Places.CoreProjectsSource.From(projects, () => null);
+        Assert.NotNull(source);
+        Assert.False(source.Features.Activity);
+        Assert.Equal([ProjectsTab.Projects, ProjectsTab.Cleanup, ProjectsTab.Accounts], new ProjectsViewModel(source).Tabs);
+    }
+
+    [Fact]
+    public async Task Projects_never_call_unknown_or_unchecked_safe_and_show_the_fetch_note()
+    {
+        var vm = new ProjectsViewModel(new SampleBackend().Projects);
+        await vm.LoadAsync();
+        Assert.Equal(PlaceState.Ready, vm.State);
+        List<Core.Projects.Project> projects = [.. vm.Report!.Snapshot.Projects];
+        Assert.Equal("In OneDrive, not checked", ProjectsViewModel.Safety(projects.Single(p => p.Name == "ml-notebooks")).Text);
+        Assert.Equal("Unknown: not safe", ProjectsViewModel.Safety(projects.Single(p => p.Name == "lfs-assets")).Text);
+        Assert.Equal("Safe to remove", ProjectsViewModel.Safety(projects.Single(p => p.Name == "old-web")).Text);
+        Assert.Contains("as of the last fetch", ProjectsViewModel.Safety(projects.Single(p => p.Name == "old-web")).Tooltip, StringComparison.Ordinal);
+        Assert.NotNull(vm.Idle);
+        Assert.DoesNotContain(vm.Idle.Safe, p => p.Project.Name is "ml-notebooks" or "lfs-assets" or "design-system");
+        vm.IdleDays = 90;
+        await vm.RefreshIdleAsync();
+        Assert.Equal(90, vm.Idle!.Days);
+        Assert.Contains("safe to remove", vm.IdleSummary, StringComparison.Ordinal);
     }
 }

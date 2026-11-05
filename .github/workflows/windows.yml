@@ -434,17 +434,17 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "DevSweep --smoke failed ($($p.ExitCode))" }
           if (-not (Select-String -Path (Join-Path $env:TEMP 'devsweep-app-smoke.txt') -Pattern 'smoke: ok' -Quiet)) { throw "smoke log has no 'smoke: ok'" }
 
-      - name: App - smoke test with Health on
+      - name: App - smoke test with Health and Projects on
         env:
-          DEVSWEEP_FEATURES: '+module:health'
+          DEVSWEEP_FEATURES: '+module:health +module:projects'
         run: |
           Remove-Item (Join-Path $env:TEMP 'devsweep-app-smoke.txt') -ErrorAction SilentlyContinue
           $p = Start-Process -FilePath (Resolve-Path artifacts/app/DevSweep.exe) -ArgumentList '--smoke' -PassThru
           if (-not $p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force; throw "did not exit within 120 s" }
           $p.WaitForExit()
           Get-Content (Join-Path $env:TEMP 'devsweep-app-smoke.txt')
-          if ($p.ExitCode -ne 0) { throw "DevSweep --smoke with Health failed ($($p.ExitCode))" }
-          if (-not (Select-String -Path (Join-Path $env:TEMP 'devsweep-app-smoke.txt') -Pattern 'health' -Quiet)) { throw "Health place was not rendered" }
+          if ($p.ExitCode -ne 0) { throw "DevSweep --smoke with Health and Projects failed ($($p.ExitCode))" }
+          if (-not (Select-String -Path (Join-Path $env:TEMP 'devsweep-app-smoke.txt') -Pattern 'places \(home, cleanup, projects, health, history, settings\)' -Quiet)) { throw "Projects and Health places were not rendered" }
 
       - name: App - screenshots (light, dark, high contrast)
         env:

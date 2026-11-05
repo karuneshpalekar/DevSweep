@@ -27,6 +27,10 @@ public sealed class EngineBackend : IDevSweepBackend
     public static readonly IReadOnlyList<(string Flag, string Title)> HealthTabFlags =
         [(HealthFeatures.RuntimesFlag, "Health: Tools and versions"), (HealthFeatures.SecurityFlag, "Health: Security"), (HealthFeatures.PortsFlag, "Health: Ports")];
 
+    /// <summary>Projects' tab flags and their titles in Settings.</summary>
+    public static readonly IReadOnlyList<(string Flag, string Title)> ProjectsTabFlags =
+        [(Core.Projects.ProjectsFeatures.CleanupFlag, "Projects: Cleanup"), (Core.Projects.ProjectsFeatures.AccountsFlag, "Projects: Accounts (GitHub)"), (Core.Projects.ProjectsFeatures.ActivityFlag, "Projects: Activity")];
+
     private readonly DevSweepEngine _engine;
     private readonly AppSettingsStore _settings;
     private readonly HistoryStore _history;
@@ -47,7 +51,7 @@ public sealed class EngineBackend : IDevSweepBackend
         _featuresFile = Path.Join(dataFolder, "features.json");
         Modules = DescribeModules(engine);
         Health = CoreHealthSource.From(engine, () => _settings.Current.ProjectFolders.Count == 0 ? null : _settings.Current.ProjectFolders);
-        Projects = engine.Modules.Any(m => m.Id == "projects") ? PlaceAdapters.Projects(engine) : null;
+        Projects = CoreProjectsSource.From(engine, () => _settings.Current.ProjectFolders.Count == 0 ? null : _settings.Current.ProjectFolders);
     }
 
     /// <summary>The engine with the user's flags (<c>features.json</c> and <c>DEVSWEEP_FEATURES</c>), as the CLI builds it.</summary>
@@ -91,12 +95,15 @@ public sealed class EngineBackend : IDevSweepBackend
             list.Add(new ModuleInfo(id, title, ModuleState.NotInThisBuild));
         }
 
-        // Health's tabs have flags of their own (module:health.runtimes/.security/.ports, on by default).
-        if (list.Find(m => m.Id == "health") is { State: not ModuleState.NotInThisBuild })
+        // Health's and Projects' tabs have flags of their own (module:health.ports...), on by default.
+        foreach ((string parent, IReadOnlyList<(string Flag, string Title)> tabs) in (ReadOnlySpan<(string, IReadOnlyList<(string, string)>)>)[("health", HealthTabFlags), ("projects", ProjectsTabFlags)])
         {
-            foreach ((string flag, string title) in HealthTabFlags)
+            if (list.Find(m => m.Id == parent) is { State: not ModuleState.NotInThisBuild })
             {
-                list.Add(new ModuleInfo(flag["module:".Length..], title, engine.Flags.IsEnabled(flag) ? ModuleState.On : ModuleState.TurnedOff));
+                foreach ((string flag, string title) in tabs)
+                {
+                    list.Add(new ModuleInfo(flag["module:".Length..], title, engine.Flags.IsEnabled(flag) ? ModuleState.On : ModuleState.TurnedOff));
+                }
             }
         }
 

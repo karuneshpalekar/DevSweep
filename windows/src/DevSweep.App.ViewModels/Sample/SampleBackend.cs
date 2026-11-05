@@ -3,6 +3,8 @@ using DevSweep.App.ViewModels.Services;
 using DevSweep.Core.Cleaning;
 using DevSweep.Core.Health;
 using DevSweep.Core.Health.Runtimes;
+using DevSweep.Core.Projects;
+using DevSweep.Core.Projects.GitHub;
 using DevSweep.Core.Platform;
 using DevSweep.Core.Platform.Quarantine;
 using DevSweep.Core.Platform.Recycling;
@@ -29,6 +31,7 @@ public sealed class SampleBackend : IDevSweepBackend, IHealthSource, IProjectsSo
         new("cleanup", "Clean up", ModuleState.On),
         new("packs", "Windows rule packs", ModuleState.On),
         new("projects", "Projects", ModuleState.On),
+        new("projects.cleanup", "Projects: Cleanup", ModuleState.On),
         new("health", "Health", ModuleState.On),
     ];
 
@@ -140,7 +143,21 @@ public sealed class SampleBackend : IDevSweepBackend, IHealthSource, IProjectsSo
 
     Task<HealthReport> IHealthSource.LoadAsync(CancellationToken cancellationToken) => Task.FromResult(SampleData.Health);
 
-    Task<ProjectsReport> IProjectsSource.LoadAsync(CancellationToken cancellationToken) => Task.FromResult(SampleData.Projects);
+    ProjectsFeatures IProjectsSource.Features { get; } = ProjectsFeatures.All;
+
+    Task<ProjectsReport> IProjectsSource.LoadAsync(CancellationToken cancellationToken)
+        => Task.FromResult(new ProjectsReport(SampleData.Projects, SampleData.Activity));
+
+    Task<IdleCleanupResult> IProjectsSource.IdleAsync(ProjectsSnapshot snapshot, int days, CancellationToken cancellationToken)
+        => Task.FromResult(IdleCleanup.List(snapshot.Projects, days, SampleData.Now));
+
+    void IProjectsSource.Push(Project project, GitHubAccounts? accounts)
+    {
+    }
+
+    void IProjectsSource.SignIn(string? activeBefore)
+    {
+    }
 
     /// <summary>A made-up machine: everything allowed, Chrome running, the Android image too big for the Recycle Bin.</summary>
     private sealed class SampleProbe : IReviewProbe

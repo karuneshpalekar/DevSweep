@@ -84,7 +84,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         if (model.Places.Any(p => p.Id == "projects"))
         {
             model.Go("projects");
-            foreach (ProjectsTab tab in Enum.GetValues<ProjectsTab>())
+            foreach (ProjectsTab tab in model.Projects.Tabs)
             {
                 model.Projects.Tab = tab;
                 await ShotAsync("projects-" + tab.ToString().ToLowerInvariant(), suffix);
