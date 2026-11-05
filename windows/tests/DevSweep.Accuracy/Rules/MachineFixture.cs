@@ -3,6 +3,8 @@ using DevSweep.Core.Inventory.Collectors;
 using DevSweep.Core.Inventory.Registry;
 using DevSweep.Core.Locations;
 using DevSweep.Core.Modules;
+using DevSweep.Core.Packs;
+using DevSweep.Core.Packs.Tools;
 using DevSweep.Core.Rules;
 using DevSweep.Core.Scanning;
 using DevSweep.Fixtures;
@@ -50,8 +52,19 @@ internal sealed class MachineFixture : IDisposable
 
     public string Temp => Environment.TempPath;
 
+    /// <summary>Tool output and Recycle Bins of this machine (the packs module never asks the real one).</summary>
+    public FixedMachineQueries Machine { get; } = new();
+
     public DevSweepEngine Engine(string? flags = null)
-        => DevSweepEngine.CreateDefault(FeatureFlags.Default.With(flags), Environment, Registry, new FixedProcesses([.. Processes]));
+    {
+        var builder = new EngineBuilder(FeatureFlags.Default.With(flags));
+        foreach (IDevSweepModule module in BuiltInModules.All)
+        {
+            builder.AddModule(module is PacksModule ? new PacksModule(Machine) : module);
+        }
+
+        return builder.Build(Environment, Registry, new FixedProcesses([.. Processes]));
+    }
 
     /// <summary>A file whose clusters are allocated (end of file set, not sparse) without writing every byte.</summary>
     public static string Allocate(string path, long bytes)

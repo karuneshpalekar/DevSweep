@@ -1,0 +1,61 @@
+# Large files (module:packs). NTFS often doesn't record when a file was opened; each finding
+# says which date was used.
+rules:
+  - id: old-installers
+    title: "{{name}}"
+    category: largeFiles
+    risk: oldVersion
+    minSizeMB: 20
+    detector:
+      kind: largeOldFiles
+      roots: ['{Downloads}']
+      extensions: ["msi", "exe", "msix", "msixbundle", "appx", "appxbundle", "iso"]
+      fileMinMB: 20
+      unusedDays: 14
+    actions:
+      - kind: trash
+    explain:
+      what: "An installer or disk image in {{folder}}."
+      why: "{{size}}, {{dateKind}} {{ago}} ({{date}}). Once an app is installed, its installer is rarely needed again."
+      ifDeleted: "To install it again, download a fresh copy, which is usually a newer version anyway."
+      before: "{{dateNote}}."
+      undo: "Restore it from the Recycle Bin (History)."
+
+  - id: old-disk-images
+    title: "{{name}}"
+    category: largeFiles
+    risk: oldVersion
+    minSizeMB: 100
+    detector:
+      kind: largeOldFiles
+      roots: ['{Desktop}']
+      extensions: ["iso"]
+      fileMinMB: 100
+      unusedDays: 30
+    actions:
+      - kind: trash
+    explain:
+      what: "A disk image (.iso) on your desktop."
+      why: "{{size}}, {{dateKind}} {{ago}} ({{date}})."
+      ifDeleted: "To use it again, download it again. A virtual machine that still mounts it would lose its virtual DVD."
+      before: "{{dateNote}}."
+      undo: "Restore it from the Recycle Bin (History)."
+
+  - id: large-old-files
+    title: "{{name}}"
+    category: largeFiles
+    risk: holdsData
+    minSizeMB: 200
+    detector:
+      kind: largeOldFiles
+      roots: ['{Downloads}', '{Desktop}', '{Documents}']
+      fileMinMB: 200
+      unusedDays: 120
+    actions:
+      - kind: trash
+    explain:
+      what: "A large file in {{folder}} that hasn't been used in a while."
+      why: "{{size}}, {{dateKind}} {{ago}} ({{date}})."
+      ifDeleted: "It's gone from this PC once you empty the Recycle Bin. DevSweep can't tell whether it's backed up elsewhere."
+      before: "{{dateNote}}. If you might need it again, move it to an external drive or cloud storage instead."
+      undo: "Restore it from the Recycle Bin (History)."

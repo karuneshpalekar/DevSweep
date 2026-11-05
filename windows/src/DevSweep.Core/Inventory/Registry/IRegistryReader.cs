@@ -22,6 +22,9 @@ public interface IRegistryKeyReader : IDisposable
     object? Value(string name);
 
     IRegistryKeyReader? OpenSubKey(string name);
+
+    /// <summary>The names of the key's values (added for M3a; empty for readers that do not list them).</summary>
+    IReadOnlyList<string> ValueNames() => [];
 }
 
 /// <summary>The real registry (<see cref="RegistryKey.OpenBaseKey"/>), read only.</summary>
@@ -43,6 +46,8 @@ public sealed class WindowsRegistryReader : IRegistryReader
         public IReadOnlyList<string> SubKeyNames() => key.GetSubKeyNames();
 
         public object? Value(string name) => key.GetValue(name, null, RegistryValueOptions.None);
+
+        public IReadOnlyList<string> ValueNames() => key.GetValueNames();
 
         public IRegistryKeyReader? OpenSubKey(string name)
         {

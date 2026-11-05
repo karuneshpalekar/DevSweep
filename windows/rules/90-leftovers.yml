@@ -40,6 +40,72 @@ rules:
           folders: ["insomnia"]
           paths: ['{RoamingAppData}\Insomnia']
           note: "May contain requests you never synced."
+        # Added in M3a. Apps that install into AppData (Squirrel, per-user installers) are protected
+        # by the detector: a folder holding an installed program is never a leftover.
+        - name: Discord
+          names: ["Discord"]
+          packageIds: ["Discord.Discord", "discord"]
+          exes: ["Discord.exe"]
+          folders: ["Discord"]
+          paths: ['{RoamingAppData}\discord']
+        - name: Figma
+          names: ["Figma"]
+          packageIds: ["Figma.Figma", "figma"]
+          exes: ["Figma.exe"]
+          folders: ["Figma", "FigmaAgent"]
+          paths: ['{RoamingAppData}\Figma']
+        - name: Notion
+          names: ["Notion"]
+          packageIds: ["Notion.Notion", "notion"]
+          exes: ["Notion.exe"]
+          folders: ["Notion"]
+          paths: ['{RoamingAppData}\Notion']
+        - name: Cursor
+          names: ["Cursor"]
+          packageIds: ["Anysphere.Cursor", "cursor"]
+          exes: ["Cursor.exe"]
+          folders: ["cursor"]
+          paths: ['{RoamingAppData}\Cursor', '{Profile}\.cursor']
+          note: "Cursor's chats and settings are here."
+        - name: Visual Studio Code
+          names: ["Microsoft Visual Studio Code", "Visual Studio Code"]
+          packageIds: ["Microsoft.VisualStudioCode", "vscode"]
+          exes: ["Code.exe"]
+          folders: ["Microsoft VS Code"]
+          paths: ['{RoamingAppData}\Code', '{Profile}\.vscode']
+          note: "Settings and extensions you never synced are here."
+        - name: Docker Desktop
+          names: ["Docker Desktop"]
+          packageIds: ["Docker.DockerDesktop", "docker-desktop"]
+          exes: ["Docker Desktop.exe"]
+          folders: ["Docker"]
+          paths: ['{RoamingAppData}\Docker Desktop', '{RoamingAppData}\Docker', '{LocalAppData}\Docker']
+          note: "Docker's images, containers and volumes are kept here (in a virtual disk)."
+        - name: Obsidian
+          names: ["Obsidian"]
+          packageIds: ["Obsidian.Obsidian", "obsidian"]
+          exes: ["Obsidian.exe"]
+          folders: ["Obsidian"]
+          paths: ['{RoamingAppData}\obsidian']
+          note: "Your vaults are not here (they are wherever you created them); only Obsidian's settings are."
+        - name: Spotify
+          names: ["Spotify"]
+          packageFamilies: ["SpotifyAB.SpotifyMusic_zpdnekdrzrea0"]
+          packageIds: ["Spotify.Spotify", "spotify"]
+          exes: ["Spotify.exe"]
+          folders: ["Spotify"]
+          paths: ['{RoamingAppData}\Spotify', '{LocalAppData}\Spotify']
+        - name: Unity Hub
+          names: ["Unity Hub"]
+          packageIds: ["Unity.UnityHub", "unity-hub"]
+          exes: ["Unity Hub.exe"]
+          folders: ["Unity Hub"]
+          paths: ['{RoamingAppData}\UnityHub']
+        - name: Oracle Java
+          names: ["Java 8", "Java(TM)"]
+          publishers: ["Oracle Corporation"]
+          exes: ["javaws.exe"]
+          paths: ['{LocalLow}\Sun\Java', '{LocalLow}\Oracle\Java']
     actions:
       - kind: trash
     explain:

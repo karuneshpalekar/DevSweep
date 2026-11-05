@@ -1,0 +1,159 @@
+# Toolchains (module:packs): old Java, Node, Python and Rust versions, Windows SDKs.
+rules:
+  - id: old-jdks-user
+    title: Old Java version
+    category: toolchains
+    risk: oldVersion
+    minSizeMB: 50
+    detector:
+      kind: oldJdks
+      paths: ['{Profile}\.jdks\*', '{UserProgramFiles}\Eclipse Adoptium\*']
+      references: ['{ProgramFiles}\Eclipse Adoptium\*', '{ProgramFiles}\Microsoft\jdk-*', '{ProgramFiles}\Java\*', '{ProgramFiles}\Zulu\*',
+                   '{ProgramFiles}\Amazon Corretto\*', '{ProgramFiles}\BellSoft\*', '{ProgramFiles}\Semeru\*']
+      minMajor: 11
+    actions:
+      - kind: trash
+    explain:
+      what: "Java {{major}}, installed just for you as {{name}} (by IntelliJ IDEA's JDK download, for example)."
+      why: "{{size}}. You also have Java {{newer}}, and Java {{major}} no longer gets free updates."
+      ifDeleted: "Apps or projects that need exactly Java {{major}} won't start until you pick a newer JDK for them. That's rare today."
+      undo: "Restore it from History, or download it again from your IDE's JDK settings."
+
+  - id: old-jdks-machine
+    title: Old Java version
+    category: toolchains
+    risk: needsAdmin
+    minSizeMB: 50
+    detector:
+      kind: oldJdks
+      paths: ['{ProgramFiles}\Eclipse Adoptium\*', '{ProgramFiles}\Microsoft\jdk-*', '{ProgramFiles}\Java\*', '{ProgramFiles}\Zulu\*',
+              '{ProgramFiles}\Amazon Corretto\*', '{ProgramFiles}\BellSoft\*', '{ProgramFiles}\Semeru\*']
+      references: ['{Profile}\.jdks\*', '{UserProgramFiles}\Eclipse Adoptium\*']
+      minMajor: 11
+    actions:
+      - kind: manual
+        label: Uninstall in Settings
+        command: ["explorer.exe", "ms-settings:appsfeatures"]
+        detail: "Find the JDK for Java {{major}} ({{name}}) in Installed apps and choose Uninstall. If winget installed it, winget uninstall works too."
+    explain:
+      what: "Java {{major}}, installed for all users as {{name}}."
+      why: "{{size}}. You also have Java {{newer}}, and Java {{major}} no longer gets free updates."
+      ifDeleted: "Apps or projects that need exactly Java {{major}} won't start until you pick a newer JDK for them."
+      before: "Its installer may have set JAVA_HOME or PATH; the checks say if it did."
+
+  - id: nvm-old-node
+    title: Old Node.js version
+    category: toolchains
+    risk: oldVersion
+    minSizeMB: 30
+    detector:
+      kind: toolVersions
+      manager: nvm
+    actions:
+      - kind: trash
+      - kind: manual
+        label: Show nvm's command
+        command: ["nvm", "uninstall", "{{version}}"]
+        detail: "Or run nvm uninstall {{version}} in a terminal."
+    explain:
+      what: "Node.js {{version}}, installed with nvm for Windows."
+      why: "{{size}}. Node.js {{newest}} is a newer release of the same major version, and {{version}} is not the active one."
+      ifDeleted: "nvm use {{version}} stops working until you nvm install it again. The active version is never touched."
+      wontLose: "Your projects. Global npm packages installed under {{version}} go with it."
+      undo: "Restore it from the Recycle Bin (History), or nvm install {{version}}."
+
+  - id: fnm-old-node
+    title: Old Node.js version
+    category: toolchains
+    risk: oldVersion
+    minSizeMB: 30
+    detector:
+      kind: toolVersions
+      manager: fnm
+    actions:
+      - kind: trash
+    explain:
+      what: "Node.js {{version}}, installed with fnm."
+      why: "{{size}}. Node.js {{newest}} is a newer release of the same major version, and no fnm alias points to {{version}}."
+      ifDeleted: "A project whose .node-version or .nvmrc asks for exactly {{version}} makes fnm ask to install it again."
+      wontLose: "Your projects."
+      undo: "Restore it from the Recycle Bin (History), or fnm install {{version}}."
+
+  - id: volta-old-node
+    title: Old Node.js version
+    category: toolchains
+    risk: oldVersion
+    minSizeMB: 30
+    detector:
+      kind: toolVersions
+      manager: volta
+    actions:
+      - kind: trash
+    explain:
+      what: "Node.js {{version}}, downloaded by Volta."
+      why: "{{size}}. Node.js {{newest}} is a newer release of the same major version, and {{version}} is not Volta's default."
+      ifDeleted: "A project pinned to {{version}} makes Volta download it again the next time you run node there."
+      wontLose: "Your projects."
+
+  - id: pyenv-old-python
+    title: Old Python version
+    category: toolchains
+    risk: oldVersion
+    minSizeMB: 30
+    detector:
+      kind: toolVersions
+      manager: pyenv
+      projectRoots: ['{Profile}\source', '{Profile}\Projects', '{Profile}\projects', '{Profile}\repos',
+                     '{Profile}\code', '{Profile}\src', '{Profile}\dev', '{Documents}\GitHub', '{Documents}\Projects']
+    actions:
+      - kind: trash
+    explain:
+      what: "Python {{version}}, installed with pyenv-win."
+      why: "{{size}}. Python {{newest}} is a newer patch of the same version; {{version}} is not pyenv's global version and no .python-version DevSweep found asks for it."
+      ifDeleted: "Virtual environments made from {{version}} stop working; recreate them with {{newest}}."
+      wontLose: "Your projects."
+      undo: "Restore it from the Recycle Bin (History), or pyenv install {{version}}."
+
+  - id: rustup-toolchains
+    title: Rust toolchain
+    category: toolchains
+    risk: oldVersion
+    minSizeMB: 100
+    detector:
+      kind: rustToolchains
+      projectRoots: ['{Profile}\source', '{Profile}\Projects', '{Profile}\projects', '{Profile}\repos',
+                     '{Profile}\code', '{Profile}\src', '{Profile}\dev', '{Documents}\GitHub', '{Documents}\Projects']
+    actions:
+      - kind: command
+        label: Run rustup toolchain uninstall
+        command: ["rustup", "toolchain", "uninstall", "{{toolchain}}"]
+        detail: "Runs rustup toolchain uninstall {{toolchain}}."
+      - kind: trash
+    explain:
+      what: "The Rust toolchain {{toolchain}}, installed with rustup."
+      why: "{{size}}. It isn't your default ({{default}}), and no rust-toolchain file DevSweep found pins it."
+      ifDeleted: "A project that pins it makes rustup download it again on its next build."
+      wontLose: "Your default toolchain or your projects."
+
+  - id: windows-sdks
+    title: "Windows SDK {{version}}"
+    category: toolchains
+    risk: needsAdmin
+    minSizeMB: 100
+    detector:
+      kind: versionedSiblings
+      parents: ['{ProgramFilesX86}\Windows Kits\10\Include', '{ProgramFilesX86}\Windows Kits\10\Lib', '{ProgramFilesX86}\Windows Kits\10\bin',
+                '{ProgramFilesX86}\Windows Kits\10\Source', '{ProgramFilesX86}\Windows Kits\10\UnionMetadata', '{ProgramFilesX86}\Windows Kits\10\Redist']
+      pattern: "^(?<version>10\\.0\\.[0-9]+\\.[0-9]+)$"
+      keep: 2
+      groupEach: true
+    actions:
+      - kind: manual
+        label: Uninstall in Settings
+        command: ["explorer.exe", "ms-settings:appsfeatures"]
+        detail: "Find Windows Software Development Kit - Windows {{version}} and choose Uninstall. If Visual Studio installed it, use the Visual Studio Installer (Modify, Individual components)."
+    explain:
+      what: "Headers, libraries and tools of Windows SDK {{version}}, used to build C++ and Windows apps that target it."
+      why: "{{size}}. The newest SDKs, {{kept}}, stay installed."
+      ifDeleted: "A project that names {{version}} as its Windows SDK version asks for it, or you retarget it (Project, Retarget solution)."
+      wontLose: "Your projects or the newer SDKs."

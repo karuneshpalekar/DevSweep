@@ -1,4 +1,5 @@
 using DevSweep.Core.Inventory;
+using DevSweep.Core.Inventory.Registry;
 using DevSweep.Core.Locations;
 
 namespace DevSweep.Core.Scanning;
@@ -35,6 +36,9 @@ public sealed class ScanContext
     /// may not be removed, or null. Findings it refuses lose their remove actions.
     /// </summary>
     public Func<string, string?>? SafetyCheck { get; init; }
+
+    /// <summary>The registry the engine reads (read only; a fake one in tests).</summary>
+    public IRegistryReader Registry { get; init; } = WindowsRegistryReader.Instance;
 
     public bool HasInventory => _inventory is not null;
 

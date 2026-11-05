@@ -22,13 +22,17 @@ public static class EmbeddedRulePacks
 {
     public const string Prefix = "DevSweep.Rules.";
 
-    public static IReadOnlyList<RulePackText> From(Assembly assembly)
+    public static IReadOnlyList<RulePackText> From(Assembly assembly) => From(assembly, Prefix);
+
+    /// <summary>Packs embedded as <c>&lt;prefix&gt;&lt;file&gt;.yml</c> (a module that keeps its packs apart from Clean up's).</summary>
+    public static IReadOnlyList<RulePackText> From(Assembly assembly, string prefix)
     {
         ArgumentNullException.ThrowIfNull(assembly);
+        ArgumentNullException.ThrowIfNull(prefix);
         var packs = new List<RulePackText>();
         foreach (string name in assembly.GetManifestResourceNames().Order(StringComparer.OrdinalIgnoreCase))
         {
-            if (!name.StartsWith(Prefix, StringComparison.Ordinal)
+            if (!name.StartsWith(prefix, StringComparison.Ordinal)
                 || !(name.EndsWith(".yml", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase)))
             {
                 continue;
@@ -36,7 +40,7 @@ public static class EmbeddedRulePacks
 
             using Stream stream = assembly.GetManifestResourceStream(name)!;
             using var reader = new StreamReader(stream, Encoding.UTF8);
-            packs.Add(new RulePackText(name[Prefix.Length..], reader.ReadToEnd(), IsUser: false));
+            packs.Add(new RulePackText(name[prefix.Length..], reader.ReadToEnd(), IsUser: false));
         }
 
         return packs;

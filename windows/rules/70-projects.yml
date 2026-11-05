@@ -11,7 +11,7 @@ rules:
       roots: ['{Profile}\source', '{Profile}\Projects', '{Profile}\projects', '{Profile}\repos',
               '{Profile}\code', '{Profile}\src', '{Profile}\dev', '{Documents}\GitHub', '{Documents}\Projects',
               '{Profile}\IdeaProjects', '{Profile}\AndroidStudioProjects', '{Profile}\RiderProjects', '{Downloads}']
-      names: ["node_modules", ".venv", "venv", "bin", "obj", "target", ".gradle"]
+      names: ["node_modules", ".venv", "venv", "bin", "obj", "target", ".gradle", ".next", ".turbo", "build", "dist"]
       staleDays: 30
     actions:
       - kind: delete

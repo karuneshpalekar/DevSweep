@@ -1,0 +1,78 @@
+# More leftovers (module:packs). Runs after orphaned-app-data (90-leftovers.yml).
+# Nothing here is removed by DevSweep: ProgramData, scheduled tasks and startup entries are
+# shown with the command to remove them.
+rules:
+  - id: orphaned-program-data
+    title: Leftovers from a removed app (all users)
+    category: leftovers
+    risk: needsAdmin
+    minSizeMB: 10
+    detector:
+      kind: orphanedAppData
+      knownApps:
+        - name: Docker Desktop
+          names: ["Docker Desktop"]
+          packageIds: ["Docker.DockerDesktop", "docker-desktop"]
+          exes: ["Docker Desktop.exe", "com.docker.service"]
+          folders: ["Docker"]
+          paths: ['{ProgramData}\DockerDesktop']
+        - name: Oracle VirtualBox
+          names: ["Oracle VirtualBox", "Oracle VM VirtualBox"]
+          packageIds: ["Oracle.VirtualBox", "virtualbox"]
+          exes: ["VirtualBox.exe"]
+          folders: ["VirtualBox"]
+          paths: ['{ProgramData}\VirtualBox']
+        - name: Postman
+          names: ["Postman"]
+          packageIds: ["Postman.Postman", "postman"]
+          exes: ["Postman.exe"]
+          folders: ["Postman"]
+          paths: ['{ProgramData}\Postman']
+    actions:
+      - kind: manual
+        label: Show the command (administrator)
+        command: ["powershell", "-NoProfile", "-Command", "Remove-Item -LiteralPath '{{path}}' -Recurse"]
+        detail: "In PowerShell run as administrator. Removes {{path}}; run it again for each folder listed."
+    explain:
+      what: "Data {{app}} left for all users in {{places}} after it was uninstalled."
+      why: "{{size}}. {{app}} is not installed: DevSweep checked {{sourceCount}} places apps are installed from and none lists it."
+      ifDeleted: "Nothing changes. If you install {{app}} again, it starts fresh."
+      wontLose: "Anything of another app."
+      undo: "Can't be undone once removed with the command."
+
+  - id: orphaned-scheduled-tasks
+    title: Scheduled task of a removed app
+    category: leftovers
+    risk: leftover
+    minSizeMB: 0
+    detector:
+      kind: orphanedScheduledTasks
+      tasks: ['{Windows}\System32\Tasks']
+    actions:
+      - kind: manual
+        label: Show the command
+        command: ["schtasks", "/delete", "/tn", "{{task}}", "/f"]
+        detail: "Run in a terminal; tasks created by an installer need a terminal run as administrator."
+    explain:
+      what: "The scheduled task {{task}}, which starts {{program}}."
+      why: "That program no longer exists, so the task fails every time it runs. It takes no space; it's listed so you can tidy up."
+      ifDeleted: "Nothing changes: the task couldn't run anyway."
+      undo: "Can't be undone. Reinstalling the app usually creates the task again."
+
+  - id: orphaned-startup-entries
+    title: Startup entry of a removed app
+    category: leftovers
+    risk: leftover
+    minSizeMB: 0
+    detector:
+      kind: orphanedRunEntries
+    actions:
+      - kind: manual
+        label: Show the command
+        command: ["reg", "delete", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "/v", "{{name}}", "/f"]
+        detail: "Run in a terminal. Removes only the entry {{name}}."
+    explain:
+      what: "The entry {{name}}, which asks Windows to start {{program}} when you sign in."
+      why: "That program no longer exists, so the entry does nothing. It takes no space; it's listed so you can tidy up."
+      ifDeleted: "Nothing changes at sign-in."
+      undo: "Can't be undone. Reinstalling the app usually creates the entry again."

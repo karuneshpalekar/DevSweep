@@ -12,6 +12,21 @@ rules:
       pattern: "^(?<key>[A-Za-z]+)(?<version>20[0-9]{2}\\.[0-9]+)$"
       keep: 1
       groupEach: true
+      # A version still installed side by side (Toolbox, or two installers) keeps its folders.
+      installedAs:
+        - { key: IntelliJIdea, names: ["IntelliJ IDEA"] }
+        - { key: IdeaIC, names: ["IntelliJ IDEA Community"] }
+        - { key: PyCharm, names: ["PyCharm"] }
+        - { key: PyCharmCE, names: ["PyCharm Community"] }
+        - { key: WebStorm, names: ["WebStorm"] }
+        - { key: Rider, names: ["JetBrains Rider", "Rider"] }
+        - { key: CLion, names: ["CLion"] }
+        - { key: GoLand, names: ["GoLand"] }
+        - { key: PhpStorm, names: ["PhpStorm"] }
+        - { key: RubyMine, names: ["RubyMine"] }
+        - { key: DataGrip, names: ["DataGrip"] }
+        - { key: RustRover, names: ["RustRover"] }
+        - { key: DataSpell, names: ["DataSpell"] }
     actions:
       - kind: trash
     explain:

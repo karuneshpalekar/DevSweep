@@ -97,6 +97,8 @@ public sealed class InMemoryRegistry : IRegistryReader
 
         public object? Value(string valueName) => node.Values.TryGetValue(valueName, out object? value) ? value : null;
 
+        public IReadOnlyList<string> ValueNames() => node.Values.Keys.ToList();
+
         public IRegistryKeyReader? OpenSubKey(string subKey)
             => node.Children.TryGetValue(subKey, out Node? child) ? new Reader(child, $"{Name}\\{subKey}") : null;
 

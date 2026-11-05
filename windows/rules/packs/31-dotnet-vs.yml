@@ -1,0 +1,171 @@
+# .NET and Visual Studio (module:packs). Anything installed for all users (Program Files,
+# ProgramData) is shown with the installer's own way to remove it; DevSweep never deletes it.
+rules:
+  - id: dotnet-sdks
+    title: ".NET SDK {{version}}"
+    category: dotnet
+    risk: needsAdmin
+    minSizeMB: 50
+    detector:
+      kind: dotnetInstalls
+      what: sdk
+      roots: ['{ProgramFiles}\dotnet']
+      projectRoots: ['{Profile}\source', '{Profile}\Projects', '{Profile}\projects', '{Profile}\repos',
+              '{Profile}\code', '{Profile}\src', '{Profile}\dev', '{Documents}\GitHub', '{Documents}\Projects',
+              '{Profile}\RiderProjects', '{Documents}\Visual Studio 2022\Projects']
+    actions:
+      - kind: manual
+        label: Uninstall in Settings
+        command: ["explorer.exe", "ms-settings:appsfeatures"]
+        detail: "Find Microsoft .NET SDK {{version}} in Installed apps and choose Uninstall. If Visual Studio installed it, use the Visual Studio Installer instead (Modify, Individual components)."
+      - kind: manual
+        label: Remove with dotnet-core-uninstall (administrator)
+        command: ["dotnet-core-uninstall", "remove", "--sdk", "{{version}}"]
+        detail: "Microsoft's .NET Uninstall Tool, if you have it, in a terminal run as administrator."
+    explain:
+      what: ".NET SDK {{version}}, installed for all users in {{root}}."
+      why: "{{size}}. SDK {{newest}} is newer, and no global.json DevSweep found pins {{version}}."
+      ifDeleted: "Projects keep building with .NET SDK {{newest}}, which also builds older target frameworks. A project whose global.json pins {{version}} would ask for it again."
+      wontLose: "Your projects or the .NET runtimes apps use."
+      before: "Close Visual Studio and any running dotnet builds."
+
+  - id: dotnet-sdks-user
+    title: ".NET SDK {{version}} (your copy)"
+    category: dotnet
+    risk: oldVersion
+    minSizeMB: 50
+    detector:
+      kind: dotnetInstalls
+      what: sdk
+      roots: ['{LocalAppData}\Microsoft\dotnet', '{Profile}\.dotnet']
+      projectRoots: ['{Profile}\source', '{Profile}\Projects', '{Profile}\projects', '{Profile}\repos',
+              '{Profile}\code', '{Profile}\src', '{Profile}\dev', '{Documents}\GitHub', '{Documents}\Projects',
+              '{Profile}\RiderProjects', '{Documents}\Visual Studio 2022\Projects']
+    actions:
+      - kind: trash
+    explain:
+      what: ".NET SDK {{version}}, installed just for you (by dotnet-install or an IDE) in {{root}}."
+      why: "{{size}}. SDK {{newest}} in the same folder is newer, and no global.json DevSweep found pins {{version}}."
+      ifDeleted: "Projects keep building with SDK {{newest}}."
+      undo: "Restore it from the Recycle Bin (History)."
+
+  - id: dotnet-runtimes
+    title: "{{framework}} {{version}}"
+    category: dotnet
+    risk: needsAdmin
+    minSizeMB: 20
+    detector:
+      kind: dotnetInstalls
+      what: runtime
+      roots: ['{ProgramFiles}\dotnet']
+    actions:
+      - kind: manual
+        label: Uninstall in Settings
+        command: ["explorer.exe", "ms-settings:appsfeatures"]
+        detail: "Find the .NET runtime {{version}} in Installed apps and choose Uninstall. A runtime that came with an SDK goes when that SDK is uninstalled."
+      - kind: manual
+        label: Remove with dotnet-core-uninstall (administrator)
+        command: ["dotnet-core-uninstall", "remove", "--runtime", "{{version}}"]
+        detail: "Microsoft's .NET Uninstall Tool, if you have it, in a terminal run as administrator (--aspnet-runtime or --hosting-bundle for ASP.NET Core)."
+    explain:
+      what: "{{framework}} {{version}}, a .NET runtime installed for all users."
+      why: "{{size}}. {{newest}} is a newer patch of the same version, and apps built for it run on the newest patch."
+      ifDeleted: "Apps keep running on {{newest}}. An app set to never roll forward to a newer patch (rare) would ask for {{version}}."
+      wontLose: "Your apps or projects."
+
+  - id: dotnet-workload-packs
+    title: "Workload pack {{pack}} {{version}}"
+    category: dotnet
+    risk: needsAdmin
+    minSizeMB: 20
+    detector:
+      kind: dotnetInstalls
+      what: workloadPacks
+      roots: ['{ProgramFiles}\dotnet']
+      records: ['{ProgramData}\dotnet\workloads']
+    actions:
+      - kind: manual
+        label: Run dotnet workload clean (administrator)
+        command: ["dotnet", "workload", "clean"]
+        detail: "In a terminal run as administrator. Removes workload pack versions no installed workload uses."
+    explain:
+      what: "Version {{version}} of {{pack}}, left behind when a .NET workload (MAUI, Android, iOS, WebAssembly...) was updated or removed."
+      why: "{{size}}. No installed workload records this version; they use {{kept}}."
+      ifDeleted: "Nothing changes for installed workloads."
+      wontLose: "Installed workloads or your projects."
+
+  - id: vs-component-model-cache
+    title: Visual Studio component cache
+    category: visualStudio
+    risk: rebuilds
+    minSizeMB: 20
+    blockers: ["devenv"]
+    detector:
+      kind: paths
+      paths: ['{LocalAppData}\Microsoft\VisualStudio\*\ComponentModelCache']
+    actions:
+      - kind: delete
+    explain:
+      what: "Visual Studio's cache of its extensions' parts (MEF), rebuilt on start."
+      why: "{{size}} across {{count}} Visual Studio instances."
+      ifDeleted: "Visual Studio starts a little slower once while it rebuilds it. Deleting it also fixes many \"package did not load\" errors."
+      wontLose: "Settings, extensions or projects."
+      before: "Close Visual Studio."
+
+  - id: vs-old-instances
+    title: Visual Studio instance no longer installed
+    category: visualStudio
+    risk: leftover
+    minSizeMB: 10
+    blockers: ["devenv"]
+    detector:
+      kind: visualStudioInstances
+      parents: ['{LocalAppData}\Microsoft\VisualStudio']
+      instances: ['{ProgramData}\Microsoft\VisualStudio\Packages\_Instances']
+    actions:
+      - kind: trash
+    explain:
+      what: "Settings, caches and logs Visual Studio {{major}}.0 kept for instance {{instance}}, which is no longer installed."
+      why: "{{size}}. Visual Studio's own setup records list the installed instances, and {{instance}} isn't one of them ({{installed}})."
+      ifDeleted: "Nothing changes in the Visual Studio you have now."
+      wontLose: "Your projects or the settings of installed instances."
+      undo: "Restore it from the Recycle Bin (History)."
+
+  - id: vs-package-cache
+    title: Visual Studio installer cache
+    category: visualStudio
+    risk: needsAdmin
+    minSizeMB: 500
+    detector:
+      kind: paths
+      paths: ['{ProgramData}\Microsoft\VisualStudio\Packages\*']
+      exclude: ['_*']
+    actions:
+      - kind: manual
+        label: Open the Visual Studio Installer
+        command: ["powershell", "-NoProfile", "-Command", "Start-Process \"${env:ProgramFiles(x86)}\\Microsoft Visual Studio\\Installer\\setup.exe\""]
+        detail: "Or search Visual Studio Installer in Start. Choose Modify on each instance, tick Remove downloaded setup files after installation at the bottom, then Modify."
+    explain:
+      what: "Packages the Visual Studio Installer downloaded and kept, used to repair or modify Visual Studio without downloading again."
+      why: "{{size}} of setup packages in ProgramData."
+      ifDeleted: "Repairing or changing Visual Studio downloads what it needs again. Visual Studio itself keeps working."
+      wontLose: "Visual Studio, its workloads or your projects."
+      better: "Let the installer remove them itself (the setting above), so it knows they're gone."
+
+  - id: resharper-caches
+    title: ReSharper solution caches
+    category: visualStudio
+    risk: rebuilds
+    minSizeMB: 100
+    blockers: ["devenv"]
+    detector:
+      kind: paths
+      paths: ['{LocalAppData}\JetBrains\Transient\*\*\SolutionCaches']
+    actions:
+      - kind: delete
+    explain:
+      what: "Indexes ReSharper builds for each solution you open in Visual Studio."
+      why: "{{size}} across {{count}} caches."
+      ifDeleted: "ReSharper indexes a solution again the next time you open it, which takes a moment."
+      wontLose: "ReSharper's settings or your solutions."
+      before: "Close Visual Studio."
