@@ -67,7 +67,7 @@ public sealed class ProjectStore
 
             try
             {
-                _state = JsonSerializer.Deserialize(File.ReadAllBytes(FilePath), ProjectsJsonContext.Default.ProjectsState) ?? new ProjectsState();
+                _state = (JsonSerializer.Deserialize(File.ReadAllBytes(FilePath), ProjectsJsonContext.Default.ProjectsState) ?? new ProjectsState()).Normalised();
             }
             catch (JsonException)
             {

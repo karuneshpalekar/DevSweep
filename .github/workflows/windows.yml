@@ -204,6 +204,94 @@ jobs:
           "{0} ports listed, {1} of other users hidden" -f $p.ports.Count, $p.othersHidden
       # --- end Health (M3b) ---
 
+      # --- Projects (M3c): git safety, idle cleanup, removal, GitHub ---
+      - name: Projects (M3c) live read-only GitHub smoke test
+        env:
+          DEVSWEEP_LIVE_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          dotnet test tests/DevSweep.Core.Tests/DevSweep.Core.Tests.csproj -c Release --no-build
+          --filter "FullyQualifiedName~GitHubLiveSmokeTests" --logger "console;verbosity=detailed"
+
+      - name: Smoke test devsweep projects (Projects, M3c)
+        run: |
+          $exe = Resolve-Path artifacts/cli/devsweep.exe
+          $golden = New-Item -ItemType Directory -Force artifacts/golden
+          "git: $((Get-Command git).Source) $(git --version); gh: $((Get-Command gh -ErrorAction SilentlyContinue).Source)"
+          "== Projects is off by default (module:projects)"
+          $env:DEVSWEEP_FEATURES = ''
+          & $exe projects --offline 2>&1 | Out-Host
+          if ($LASTEXITCODE -ne 3) { throw "expected exit code 3 with Projects off, got $LASTEXITCODE" }
+          $env:DEVSWEEP_FEATURES = '+module:projects'
+
+          $root = Join-Path $env:RUNNER_TEMP 'devsweep-projects'
+          Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
+          $code = New-Item -ItemType Directory -Force "$root\Code"
+          $env:GIT_AUTHOR_NAME = 'CI'; $env:GIT_AUTHOR_EMAIL = 'ci@example.com'; $env:GIT_COMMITTER_NAME = 'CI'; $env:GIT_COMMITTER_EMAIL = 'ci@example.com'
+          $env:GIT_AUTHOR_DATE = '2026-01-05T10:00:00Z'; $env:GIT_COMMITTER_DATE = '2026-01-05T10:00:00Z'
+          git init -q --bare -b main "$root\remote-old.git"
+          foreach ($name in 'old-pushed', 'old-dirty') {
+            git init -q -b main "$code\$name"
+            git -C "$code\$name" remote add origin "$root\remote-old.git"
+            [IO.File]::WriteAllBytes("$code\$name\data.bin", [byte[]]::new(3MB))
+            git -C "$code\$name" add -A
+            git -C "$code\$name" commit -q -m first
+          }
+          git -C "$code\old-pushed" push -q -u origin main
+          Set-Content "$code\old-dirty\notes.txt" 'only here'
+          foreach ($name in 'old-pushed', 'old-dirty') { foreach ($f in 'HEAD', 'index') { (Get-Item "$code\$name\.git\$f").LastWriteTimeUtc = [datetime]'2026-01-05' } }
+          Remove-Item Env:GIT_AUTHOR_DATE, Env:GIT_COMMITTER_DATE
+
+          "== projects --offline --json"
+          & $exe projects --root $code --offline --json > "$golden/projects-admin.json"
+          if ($LASTEXITCODE -ne 0) { throw "devsweep projects failed ($LASTEXITCODE)" }
+          $list = Get-Content -Raw "$golden/projects-admin.json" | ConvertFrom-Json
+          foreach ($p in $list.projects) { "  {0,-12} {1,-40} {2,12:N0} bytes  {3}" -f $p.name, $p.statusText, $p.localSize, $p.safety.state }
+          if ($list.projects.Count -ne 2) { throw "expected 2 projects, got $($list.projects.Count)" }
+          if (($list.projects | Where-Object name -eq 'old-pushed').safety.state -ne 'Safe') { throw "the pushed project is not safe" }
+          if (($list.projects | Where-Object name -eq 'old-dirty').safety.state -ne 'NotSafe') { throw "the project with unpushed work is not flagged" }
+
+          "== projects check"
+          & $exe projects check "$code\old-pushed"
+          if ($LASTEXITCODE -ne 0) { throw "check of the pushed project: expected 0, got $LASTEXITCODE" }
+          & $exe projects check "$code\old-dirty"
+          if ($LASTEXITCODE -ne 1) { throw "check of the dirty project: expected 1, got $LASTEXITCODE" }
+
+          "== projects cleanup (exact sizes)"
+          & $exe projects cleanup --root $code --days 7 --json > "$golden/projects-cleanup-admin.json"
+          if ($LASTEXITCODE -ne 0) { throw "devsweep projects cleanup failed ($LASTEXITCODE)" }
+          $idle = Get-Content -Raw "$golden/projects-cleanup-admin.json" | ConvertFrom-Json
+          foreach ($p in $idle.projects) { "  {0,-12} {1,12:N0} bytes exact={2} safe={3} {4}" -f $p.project.name, $p.freeableBytes, $p.exact, $p.isSafe, ($p.reasons -join '; ') }
+          if ($idle.projects.Count -ne 2) { throw "expected both old projects in the idle list" }
+          $safe = @($idle.projects | Where-Object isSafe)
+          if ($safe.Count -ne 1 -or $safe[0].project.name -ne 'old-pushed') { throw "expected only old-pushed to be safe" }
+          if (-not $safe[0].exact -or $safe[0].freeableBytes -lt 3MB) { throw "expected an exact size of at least 3 MiB, got $($safe[0].freeableBytes)" }
+          & $exe projects cleanup --root $code --days 7 | Out-Host
+
+          "== projects remove"
+          & $exe projects remove "$code\old-dirty" --yes
+          if ($LASTEXITCODE -ne 1 -or -not (Test-Path "$code\old-dirty\notes.txt")) { throw "a project with unpushed work was removed" }
+          & $exe projects remove "$code\old-pushed" --yes --json > "$golden/projects-remove-admin.json"
+          if ($LASTEXITCODE -ne 0) { throw "removing the safe project failed ($LASTEXITCODE): $(Get-Content -Raw "$golden/projects-remove-admin.json")" }
+          $removed = Get-Content -Raw "$golden/projects-remove-admin.json" | ConvertFrom-Json
+          "removed: {0}; freed {1:N0}; went to {2}; History {3}" -f $removed.message, $removed.freed, ($removed.wentTo -join ', '), $removed.historyId
+          if (Test-Path "$code\old-pushed") { throw "the folder is still there" }
+          $history = & $exe history --json | ConvertFrom-Json
+          if (-not ($history | Where-Object { $_.id -eq $removed.historyId })) { throw "the removal is not in History" }
+
+          "== projects activity / accounts / download --dry-run"
+          & $exe projects activity
+          if ($LASTEXITCODE -ne 0) { throw "devsweep projects activity failed" }
+          & $exe projects accounts
+          if ($LASTEXITCODE -ne 0) { throw "devsweep projects accounts failed" }
+          & $exe projects download octocat/Hello-World --to "$root\dl\hello" --strategy shallow --dry-run
+          if ($LASTEXITCODE -ne 0) { throw "devsweep projects download --dry-run failed" }
+          $env:DEVSWEEP_FEATURES = '+module:projects -module:projects.cleanup'
+          & $exe projects cleanup --root $code 2>&1 | Out-Host
+          if ($LASTEXITCODE -ne 3) { throw "expected exit code 3 with the cleanup tab off" }
+          $global:LASTEXITCODE = 0
+          Remove-Item Env:DEVSWEEP_FEATURES
+      # --- end Projects (M3c) ---
+
       # --- M3a (Windows rule packs): golden scan with every pack, and the scan-time budget ---
       - name: M3a packs golden scan and scan-time budget (administrator)
         run: |

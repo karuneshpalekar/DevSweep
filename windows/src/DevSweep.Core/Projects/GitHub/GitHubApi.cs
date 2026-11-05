@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace DevSweep.Core.Projects.GitHub;
 
@@ -78,7 +79,7 @@ public sealed class GitHubApiException : Exception
 /// (<c>affiliation=owner,collaborator,organization_member</c>, the 0.9.8 behaviour), all
 /// pages, archived ones left out, newest push first.
 /// </summary>
-public sealed class GitHubApi(HttpClient http, Uri? baseUri = null)
+public sealed partial class GitHubApi(HttpClient http, Uri? baseUri = null)
 {
     public const int MaxPages = 50;
 
@@ -93,7 +94,7 @@ public sealed class GitHubApi(HttpClient http, Uri? baseUri = null)
         {
             using HttpResponseMessage response = await SendAsync(HttpMethod.Get, next, token, null, cancellationToken).ConfigureAwait(false);
             List<GitHubRepoDto> items = await ReadAsync(response, GitHubJsonContext.Default.ListGitHubRepoDto, cancellationToken).ConfigureAwait(false) ?? [];
-            repos.AddRange(items.Where(r => !r.Archived).Select(r => ToRemote(r, token.Login)));
+            repos.AddRange(items.Where(r => r is not null && !r.Archived && r.FullName is { Length: > 0 }).Select(r => ToRemote(r, token.Login)));
             next = NextPage(response);
         }
 
@@ -166,7 +167,7 @@ public sealed class GitHubApi(HttpClient http, Uri? baseUri = null)
         return order.Select(k => best[k]).ToList();
     }
 
-    /// <summary>The <c>rel="next"</c> URL of a <c>Link</c> header.</summary>
+    /// <summary>The <c>rel="next"</c> URL of a <c>Link</c> header (URLs may hold commas, so each link is read between its angle brackets).</summary>
     public static Uri? NextPage(HttpResponseMessage response)
     {
         ArgumentNullException.ThrowIfNull(response);
@@ -175,27 +176,21 @@ public sealed class GitHubApi(HttpClient http, Uri? baseUri = null)
             return null;
         }
 
-        foreach (string part in string.Join(',', values).Split(','))
-        {
-            string[] pieces = part.Split(';');
-            if (pieces.Length >= 2 && pieces.Skip(1).Any(p => p.Trim() == "rel=\"next\""))
-            {
-                string url = pieces[0].Trim().TrimStart('<').TrimEnd('>');
-                return Uri.TryCreate(url, UriKind.Absolute, out Uri? next) ? next : null;
-            }
-        }
-
-        return null;
+        Match next = NextLink().Match(string.Join(", ", values));
+        return next.Success && Uri.TryCreate(next.Groups["url"].Value, UriKind.Absolute, out Uri? uri) ? uri : null;
     }
+
+    [GeneratedRegex(@"<(?<url>[^>]+)>\s*;[^<]*\brel=""?next""?")]
+    private static partial Regex NextLink();
 
     private static RemoteRepo ToRemote(GitHubRepoDto r, string account) => new()
     {
-        Name = r.Name,
-        NameWithOwner = r.FullName,
+        Name = r.Name ?? string.Empty,
+        NameWithOwner = r.FullName ?? string.Empty,
         Description = r.Description ?? string.Empty,
         IsPrivate = r.Private,
         PushedAt = r.PushedAt,
-        Url = r.HtmlUrl,
+        Url = r.HtmlUrl ?? string.Empty,
         DiskUsageKB = r.Size ?? 0,
         Account = account,
     };

@@ -69,4 +69,21 @@ public sealed record ProjectsState
 
     /// <summary>Newest first; the last <see cref="ProjectStore.MaxActivity"/> kept.</summary>
     public List<ActivityEntry> Activity { get; init; } = [];
+
+    /// <summary>
+    /// Fills what an older (or hand-edited) file left out: source-generated JSON sets a missing
+    /// init-only property to null/0, not to its initializer, so every field is checked here.
+    /// </summary>
+    public ProjectsState Normalised() => this with
+    {
+        ProjectRoots = ProjectRoots ?? [],
+        IdleDays = IdleDays == 0 ? IdleCleanup.DefaultDays : IdleCleanup.Clamp(IdleDays),
+        Identities = new Dictionary<string, GitIdentity>(
+            (Identities ?? []).Where(p => p.Value is not null).Select(p => KeyValuePair.Create(p.Key, new GitIdentity(p.Value.Name ?? string.Empty, p.Value.Email ?? string.Empty))),
+            StringComparer.OrdinalIgnoreCase),
+        Strategies = new Dictionary<string, CloneStrategy>(Strategies ?? [], StringComparer.OrdinalIgnoreCase),
+        LastOpened = new Dictionary<string, DateTimeOffset>(LastOpened ?? [], StringComparer.OrdinalIgnoreCase),
+        Known = (Known ?? []).Where(k => k?.NameWithOwner is { Length: > 0 }).ToList(),
+        Activity = (Activity ?? []).Where(a => a?.Subject is not null).Select(a => a with { Detail = a.Detail ?? string.Empty }).ToList(),
+    };
 }
