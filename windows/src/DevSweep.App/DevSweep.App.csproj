@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DevSweep for Windows: WinUI 3 (Windows App SDK), unpackaged, self-contained, x64,
+    published with Native AOT. The views are built in C# (no XAML markup, so no XAML
+    compiler and no reflection bindings); view models are in DevSweep.App.ViewModels and
+    every decision about files is in DevSweep.Core.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>DevSweep.App</RootNamespace>
+    <AssemblyName>DevSweep</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <TargetPlatformMinVersion>10.0.22621.0</TargetPlatformMinVersion>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Platforms>x64</Platforms>
+    <UseWinUI>true</UseWinUI>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <!-- Native AOT: CsWinRT's AOT generator supplies the WinRT vtables; nothing uses reflection. -->
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DevSweep.Core\DevSweep.Core.csproj" />
+    <ProjectReference Include="..\DevSweep.App.ViewModels\DevSweep.App.ViewModels.csproj" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+
+</Project>

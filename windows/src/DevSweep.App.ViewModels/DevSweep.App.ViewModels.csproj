@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The app's view models and the services they call: no WinUI dependency, so they
+    are unit tested on any runner (tests/DevSweep.App.Tests) and the WinUI project
+    stays a thin layer of views. Every decision about files lives in DevSweep.Core.
+  -->
+  <PropertyGroup>
+    <RootNamespace>DevSweep.App.ViewModels</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DevSweep.Core\DevSweep.Core.csproj" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DevSweep.App.Tests" />
+  </ItemGroup>
+
+</Project>
