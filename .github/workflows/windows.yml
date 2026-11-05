@@ -148,6 +148,62 @@ jobs:
           if ($LASTEXITCODE -ne 2) { throw "an unknown category was not rejected" }
           $global:LASTEXITCODE = 0
 
+      # --- Health (M3b): runtimes, security, ports ---
+      - name: Smoke test devsweep runtimes, security and ports (Health, M3b)
+        run: |
+          $exe = Resolve-Path artifacts/cli/devsweep.exe
+          $golden = New-Item -ItemType Directory -Force artifacts/golden
+          "== Health is off by default (module:health)"
+          $env:DEVSWEEP_FEATURES = ''
+          & $exe runtimes --offline 2>&1 | Out-Host
+          if ($LASTEXITCODE -ne 3) { throw "expected exit code 3 with Health off, got $LASTEXITCODE" }
+          $env:DEVSWEEP_FEATURES = '+module:health'
+
+          "== runtimes --json"
+          & $exe runtimes --json > "$golden/runtimes-admin.json"
+          if ($LASTEXITCODE -ne 0) { throw "devsweep runtimes failed ($LASTEXITCODE)" }
+          $r = Get-Content -Raw "$golden/runtimes-admin.json" | ConvertFrom-Json
+          foreach ($t in $r.runtimes) {
+            "{0,-11} {1,3} installs  default: {2,-28} issues {3,2}  fixes {4,2}  sources: {5}" -f $t.name, $t.installs.Count, (($t.installs | Where-Object isDefault | ForEach-Object { "$($_.version) ($($_.source))" }) -join ', '), $t.issues.Count, $t.steps.Count, (($t.installs | ForEach-Object source | Sort-Object -Unique) -join ', ')
+          }
+          if ($r.windows) { "Windows: {0}, {1}, support {2}" -f $r.windows.name, $r.windows.installs[0].version, $r.windows.installs[0].support }
+          "support data offline: $($r.eolOffline); PATH folders: $($r.path.Count); projects checked: $($r.projects.Count)"
+          foreach ($id in 'node', 'python', 'java', 'dotnet') { if (-not ($r.runtimes | Where-Object id -eq $id)) { throw "no $id report on the runner" } }
+          if (@($r.runtimes | ForEach-Object installs | Where-Object { $_.path -like '*\Microsoft\WindowsApps*' -and $_.source -ne 'StorePython' }).Count -gt 0) { throw "a Store alias was reported as an install" }
+
+          "== runtimes (text, cached support data)"
+          & $exe runtimes --offline
+          if ($LASTEXITCODE -ne 0) { throw "devsweep runtimes (text) failed ($LASTEXITCODE)" }
+          $step = @($r.runtimes | ForEach-Object steps) + @($r.windows.steps) | Where-Object { $_ } | Select-Object -First 1
+          "first suggested fix: $($step.id) $($step.title)"
+          $script = & $exe runtimes --offline --script-step $step.id
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $script)) { throw "no script written for $($step.id)" }
+          Get-Content $script
+          if (-not (Select-String -Path $script -SimpleMatch "Read-Host 'Press Enter" -Quiet)) { throw "the fix script does not wait for Enter" }
+
+          "== security --json"
+          & $exe security --json > "$golden/security-admin.json"
+          if ($LASTEXITCODE -ne 0) { throw "devsweep security failed ($LASTEXITCODE)" }
+          $s = Get-Content -Raw "$golden/security-admin.json" | ConvertFrom-Json
+          "{0} findings; looked in {1}; cloud-only files skipped {2}; git: {3}" -f $s.findings.Count, ($s.looked -join '; '), $s.cloudFilesSkipped, $(if ($s.gitUnavailable) { $s.gitUnavailable } else { 'available' })
+
+          "== ports --json (with a listener of our own on 0.0.0.0)"
+          $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Any, 0)
+          $listener.Start()
+          $port = $listener.LocalEndpoint.Port
+          & $exe ports --json > "$golden/ports-admin.json"
+          $code = $LASTEXITCODE
+          & $exe ports
+          $listener.Stop()
+          if ($code -ne 0) { throw "devsweep ports failed ($code)" }
+          $p = Get-Content -Raw "$golden/ports-admin.json" | ConvertFrom-Json
+          $mine = $p.ports | Where-Object { $_.port -eq $port -and $_.pid -eq $PID }
+          if (-not $mine) { throw "our own listener on port $port (PID $PID) was not found" }
+          "our listener: {0} {1} [{2}] {3}; firewall: {4}" -f $mine.port, $mine.label, ($mine.addresses -join ', '), $mine.exposure, $mine.firewall.summary
+          if ($mine.exposure -ne 'AllInterfaces') { throw "expected AllInterfaces, got $($mine.exposure)" }
+          "{0} ports listed, {1} of other users hidden" -f $p.ports.Count, $p.othersHidden
+      # --- end Health (M3b) ---
+
       # --- M3a (Windows rule packs): golden scan with every pack, and the scan-time budget ---
       - name: M3a packs golden scan and scan-time budget (administrator)
         run: |

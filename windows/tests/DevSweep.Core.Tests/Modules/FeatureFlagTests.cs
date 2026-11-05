@@ -34,7 +34,7 @@ public sealed class FeatureFlagTests
              "rustToolchains", "staleProjectArtifacts", "toolVersions", "versionedSiblings", "vhdxDisks", "visualStudioInstances"],
             engine.Detectors.Kinds.Order(StringComparer.Ordinal));
         Assert.Equal(12, engine.InventoryCollectors.Count);
-        Assert.Empty(engine.Disabled);
+        Assert.Equal(["module:health"], engine.Disabled); // Health (M3b) is off until it passes its gate
     }
 
     [Fact]
