@@ -149,9 +149,50 @@ owners, search report, messages), `Project` (`StatusText`, `StatusLevel`, `LastU
 
 ## Numbers from CI
 
-See the final section added after the green run.
+Run [42057762178](https://github.com/karuneshpalekar/DevSweep/actions/runs/42057762178)
+(`windows-latest`, git 2.56.0.windows.4, gh installed but not signed in): unit tests 447 passed,
+1 skipped (the live test, which runs in its own step); accuracy suite 194 tests, all passed as
+administrator; as a fresh standard user 189 passed, 0 failed, the same 5 M1 skips. All 21
+Projects accuracy tests ran in both (no Projects skips: the Cloud Files filter, Restart Manager
+and `core.ignorecase=true` were available to both accounts).
+
+| Case | Result |
+|---|---|
+| Fully pushed (local bare origin) | Safe; "the remote is a folder on this PC" noted |
+| Unpushed on main, then also on `feature` | NotSafe, 1 then 2 commits, branches named |
+| Changed + untracked, then stash | NotSafe (3 lines), then 1 stash; safe after drop and push |
+| No remote / detached HEAD commit | NotSafe ("only copy") / 1 commit on "detached HEAD" |
+| `.env`, `node_modules`, `*.log` ignored | Safe; `.env` listed as ignored, artifacts not |
+| Main worktree + linked worktree | both NotSafe, each naming the other; Safe after `worktree remove` |
+| Submodule with a commit on a new branch | NotSafe "Submodule vendor/lib: 1 commit..." (a bug found: git lists a submodule's `.git\modules` folder as its main worktree; fixed) |
+| `.gitattributes` with `filter=lfs` | Unknown |
+| autocrlf=true checkout, stat-dirty | Safe (git says clean) |
+| LF file rewritten with CRLF, autocrlf off | NotSafe, "1 differ only in line endings"; a real edit: 0 |
+| `Readme.md` renamed to `README.md` | git status empty; NotSafe "Readme.md is now README.md" |
+| 300+ character path | Safe, 1 long path; an edit to that file is seen |
+| File held open | "Close Windows PowerShell (powershell.exe, PID 4480) first" (admin); "Close the program using ...\a.txt first (Windows did not say which program it is)" (standard user, Restart Manager denied) |
+| Merge conflict / not a repository | NotSafe ("merge", 1 conflict) / Unknown |
+| Commit only on a tag | Unknown |
+| Branch deleted on the server | Safe without fetch (stale ref, said so); NotSafe after `--fetch` (pruned) |
+| OneDrive sync root with one placeholder | NotChecked "In OneDrive, not checked: 1 file is only in the cloud"; provider got 0 FETCH_DATA requests, placeholder still 0 bytes on disk |
+| Remove + download | the shell refused to recycle the clone in %TEMP% (git's read-only objects, `0x78`); the cleaner now quarantines an intact item instead; History entry; listed as removed; downloaded back into the same folder with `user.name`/`user.email` and `core.longpaths` in the clone's config, no credential settings, global config byte-identical; Activity: Download, Remove, Identity |
+| Publish | files git would add: `.gitignore`, `app.py`, `deploy_key.pem` (an ignored `.pem` not listed); refused until confirmed; pushed commit authored "Octo Cat <octo@example.com>" |
+| Live API (`GITHUB_TOKEN`) | `karuneshpalekar/DevSweep`, public, 86,335 KB |
+
+CLI smoke (administrator, `D:\a\_temp`): with Projects off, exit 3; two clones of 3,210,704 and
+3,210,480 bytes, Safe and NotSafe ("1 commit not pushed · 1 untracked file"); `check` exit 0 / 1;
+`cleanup --days 7` both listed with exact sizes, only the pushed one safe; `remove` refused the
+dirty one (folder kept) and moved the safe one to `D:\$Recycle.Bin\<SID>\$R5G6FG4` with a History
+entry; with `-module:projects.cleanup`, `cleanup` exits 3.
 
 ## Decisions and deviations
+
+- Shared code touched: `Cleaning/CommandRunner.cs` (an additive overload with environment
+  variables, an output cap and a working folder) and `Cleaning/Cleaner.cs` (when the shell
+  refuses to recycle an item that is still whole, it goes to the quarantine instead of failing;
+  a partly recycled item is reported and left alone).
+- Downloads into folders that do not exist yet are checked for links only on the existing part
+  of the path (M1's `ReparseGuard` treats an unreadable ancestor as a possible link).
 
 - Git LFS repositories are `Unknown` (never removable through DevSweep): confirming LFS objects
   on the server needs the server, and `git lfs push --dry-run` does not answer that reliably.
