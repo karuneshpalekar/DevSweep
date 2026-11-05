@@ -101,11 +101,12 @@ public sealed class PortsAccuracyTests(ITestOutputHelper output)
         Assert.Equal("sent Ctrl+C to its console", polite.Method);
         Assert.True(ping.HasExited);
 
-        string powershell = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe");
-        using Process stubborn = StartInNewConsole(powershell, "-NoProfile -Command \"[Console]::TreatControlCAsInput = $true; Start-Sleep -Seconds 600\"");
+        // The Command Prompt at its prompt survives Ctrl+C (it only cancels the line), like a program that ignores it.
+        string cmd = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.System), "cmd.exe");
+        using Process stubborn = StartInNewConsole(cmd, "/k echo DevSweep test: ignores Ctrl+C");
         Thread.Sleep(2000);
         StopResult asked = stopper.AskToStop(stubborn.Id, TimeSpan.FromSeconds(3));
-        output.WriteLine($"powershell ignoring Ctrl+C: {asked}");
+        output.WriteLine($"cmd at its prompt (survives Ctrl+C): {asked}");
         Assert.Equal(StopOutcome.StillRunning, asked.Outcome);
         Assert.False(stubborn.HasExited);
         StopResult ended = stopper.End(stubborn.Id);
