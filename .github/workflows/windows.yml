@@ -324,6 +324,8 @@ jobs:
           $all = Get-ChildItem artifacts/app -Recurse -File
           "{0} files, {1:N0} bytes in the folder" -f $all.Count, ($all | Measure-Object Length -Sum).Sum
           if (Test-Path artifacts/app/DevSweep.dll) { throw "expected a Native AOT exe, found a managed DevSweep.dll" }
+          Get-ChildItem artifacts/app -Filter *.pri | ForEach-Object { "  {0} {1:N0} bytes" -f $_.Name, $_.Length }
+          if (-not (Test-Path artifacts/app/resources.pri) -and -not (Test-Path artifacts/app/DevSweep.pri)) { throw "no resources.pri in the published folder" }
           Compress-Archive -Path artifacts/app/* -DestinationPath artifacts/DevSweep-win-x64.zip -Force
           "zip: {0:N0} bytes" -f (Get-Item artifacts/DevSweep-win-x64.zip).Length
 
