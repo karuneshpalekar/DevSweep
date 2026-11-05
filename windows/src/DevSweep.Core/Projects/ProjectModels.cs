@@ -171,7 +171,13 @@ public sealed record Project
         _ => null,
     };
 
+    /// <summary>The list's status text.</summary>
+    public string StatusText => Status.Text;
+
+    public StatusLevel StatusLevel => Status.Level;
+
     /// <summary>A short status for the list (the Mac wording, "this PC" for "this Mac").</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
     public (string Text, StatusLevel Level) Status
     {
         get

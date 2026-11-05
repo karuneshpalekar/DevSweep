@@ -473,7 +473,8 @@ public sealed class SafetyChecker(IGit git)
     private static string Full(string basePath, string gitPath)
         => Path.GetFullPath(Path.IsPathFullyQualified(gitPath) ? gitPath : Path.Join(basePath, gitPath)).TrimEnd('\\', '/');
 
-    internal static bool SamePath(string a, string b)
+    /// <summary>Same folder (case-insensitive on Windows, separators and trailing slashes ignored).</summary>
+    public static bool SamePath(string a, string b)
         => string.Equals(
             Path.GetFullPath(a).TrimEnd('\\', '/'),
             Path.GetFullPath(b).TrimEnd('\\', '/'),
