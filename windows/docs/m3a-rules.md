@@ -151,4 +151,52 @@ chocolatey.config, then `{Temp}\chocolatey`), `{rustupHome}`, `{nvmHome}`, `{nvm
 
 ## Numbers from CI
 
-See the end of this file (filled in from the green run).
+CI run [41890543847](https://github.com/karuneshpalekar/DevSweep/actions/runs/41890543847)
+(`windows-latest`, NTFS, 4 KiB clusters), green:
+
+- Unit tests: 354 passed, including the parsers of every detector (docker sizes and rows, Lxss,
+  wsl UTF-16 output and df, SemVer prerelease order, global.json and feature bands, `dotnet --list-*`,
+  VS folder names and state.json, extensions.json/.obsolete, AVD config, JDK release files, nvm
+  settings, Volta, rustup settings and pins, `NtfsDisableLastAccessUpdate` values, Local State, Ollama
+  manifests, task XML (one file and `schtasks /xml ONE`), command lines, chocolatey.config,
+  `ToolLocator`) and the bundled rule list in claim order, with and without `module:packs`.
+- Accuracy suite: 164 passed, 0 skipped as administrator; 159 passed and the same 5 M1 skips as a
+  fresh standard user. M3a adds 68: 40 path-rule cases (one per `paths`/`versionedSiblings` rule) and
+  28 detector and rule tests. Every size asserted is the allocation within one cluster per path,
+  `Exact`, freeable = size, with no `{{` left in title, explanation, commands or details.
+- Examples: .NET SDKs 6.0.428, 8.0.100, 8.0.300, 8.0.404, 9.0.100-rc.2 and 9.0.100 with a global.json
+  pinning 8.0.301 offer exactly 8.0.100 and the rc; a 2,100 MiB `ext4.vhdx` gives a size-0 finding
+  "unknown until it is compacted", and a running distro with 1 GB used gives "at most ..."; two
+  Ollama models sharing a 150 MiB layer report 120 MiB and 110 MiB (plus their 2-byte configs); nvm
+  keeps its junction's target, and the junction itself is untouched.
+
+**Golden scan** (`golden-scan-windows-latest`: `scan-admin-packs-overview.json`,
+`scan-admin-packs-exact.json`, `scan-budget-admin.json`, and the standard user's scan):
+
+| | Checks | Findings | Bytes | Wall | Report |
+|---|---:|---:|---:|---:|---:|
+| Administrator, overview | 83 | 25 | 3,867,405,400 | 1.85 s | 1.78 s |
+| Administrator, exact | 83 | 25 | 3,867,405,400 | 1.94 s | 1.89 s |
+| Standard user | 83 | 19 | 2,701,349,984 | | 1.94 s |
+| `-module:packs` | 8 | | | | |
+
+Budget asserted in CI: every scan under 120 s, no check failed or timed out. The slowest part is
+measuring the runner's eight old .NET SDKs (about 4 s of measuring, in parallel with the rest).
+
+What the runner has: 8 old .NET SDKs and 10 old runtime patches (needsAdmin: Settings and
+`dotnet-core-uninstall` commands), the Visual Studio installer cache (993,953,960 bytes, needsAdmin),
+NuGet global packages (923,251,136 bytes) and download cache, the VS component cache, and three Edge
+Update scheduled tasks whose `MicrosoftEdgeUpdate.exe` the runner image removed (CI checks each with
+`Test-Path` and fails if the program exists). Docker is installed but its engine isn't running ("docker
+system df gave no answer", nothing offered). As the standard user the task folder can't be listed and
+`schtasks /query /xml ONE` gives no answer either, so no task is judged (the report says so).
+
+## Known gaps
+
+- No reference machines with WSL, Docker Desktop, Android Studio, JetBrains IDEs or browsers (PLAN 6):
+  those rules are proved on fixtures only; the CI runner has none of them.
+- Edge's on-device model folder names are the best known ones, not seen on a machine that has them.
+- The workload install-record layout is read conservatively (only packs with records for other
+  versions); a layout change makes it offer nothing, never too much.
+- Volta projects pinning a Node version are not looked for (Volta downloads a pinned version again by
+  itself); nvm and fnm have no project pins to read.

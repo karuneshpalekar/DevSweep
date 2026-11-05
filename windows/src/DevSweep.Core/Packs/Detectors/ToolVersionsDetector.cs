@@ -170,6 +170,12 @@ public sealed class ToolVersionsDetector : Detector<ToolVersionsDetector.Options
             return null;
         }
 
+        List<Version> versions = Versions(root, "v");
+        if (versions.Count < 2)
+        {
+            return null; // nvm for Windows is not used here (or has nothing to offer): its link is not looked at.
+        }
+
         var checks = new List<Check> { Check.Passed($"nvm for Windows keeps its versions in {root}{(settings is null ? "" : " (root in settings.txt)")}") };
         var inUse = new List<(string, string)>();
         if (link is not null && FileProbe.Stat(link) is { } entry)
@@ -188,7 +194,7 @@ public sealed class ToolVersionsDetector : Detector<ToolVersionsDetector.Options
             checks.Add(Check.Passed($"No active version ({link ?? "the nvm link"} does not exist)"));
         }
 
-        return new Inventory("nvm for Windows", Versions(root, "v"), inUse, checks);
+        return new Inventory("nvm for Windows", versions, inUse, checks);
     }
 
     private static Inventory? Fnm(DetectorRun run)
