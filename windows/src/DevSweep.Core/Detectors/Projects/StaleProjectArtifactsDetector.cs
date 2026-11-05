@@ -7,7 +7,8 @@ namespace DevSweep.Core.Detectors.Projects;
 
 /// <summary>
 /// <c>kind: staleProjectArtifacts</c>. Rebuildable folders (<c>node_modules</c>,
-/// <c>.venv</c>, <c>bin</c>+<c>obj</c>, <c>target</c>, <c>.gradle</c>) in projects nobody
+/// <c>.venv</c>, <c>bin</c>+<c>obj</c>, <c>target</c>, <c>.gradle</c>, <c>.next</c>, <c>.turbo</c>, and
+/// <c>build</c> / <c>dist</c> only when confirmed as Gradle or bundler output) in projects nobody
 /// has worked on for a while.
 /// <list type="bullet">
 /// <item><c>roots</c>: rule paths to look for projects in (Settings' project folders replace them);</item>
@@ -33,14 +34,14 @@ public sealed class StaleProjectArtifactsDetector : Detector<StaleProjectArtifac
         ArgumentNullException.ThrowIfNull(options);
         IReadOnlyList<PathTemplate> roots = options.Paths("roots", required: true);
         IReadOnlyList<string> names = options.TextList("names");
-        foreach (string name in names.Where(n => !ArtifactKinds.FolderNames.Contains(n)))
+        foreach (string name in names.Where(n => !ArtifactKinds.KnownNames.Contains(n)))
         {
-            options.Errors.Add(options.Node.Get("names"), $"names: \"{name}\" is not a known artifact folder (known: {string.Join(", ", ArtifactKinds.FolderNames)})");
+            options.Errors.Add(options.Node.Get("names"), $"names: \"{name}\" is not a known artifact folder (known: {string.Join(", ", ArtifactKinds.KnownNames)})");
         }
 
         int staleDays = options.Number("staleDays", 1, 3650) ?? 30;
         int maxDepth = options.Number("maxDepth", 1, 12) ?? 5;
-        return new Options(roots, names.Count == 0 ? ArtifactKinds.FolderNames : names.ToHashSet(StringComparer.OrdinalIgnoreCase), staleDays, maxDepth);
+        return new Options(roots, names.Count == 0 ? ArtifactKinds.KnownNames : names.ToHashSet(StringComparer.OrdinalIgnoreCase), staleDays, maxDepth);
     }
 
     protected override IReadOnlyList<Candidate> Detect(DetectorRun run, Options options)

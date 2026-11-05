@@ -585,4 +585,5 @@ by `rules validate` with 4 line-numbered problems.
 
 ## Milestone docs
 
+- [M3a: Windows rule packs](docs/m3a-rules.md)
 - [M3b: Health (runtimes, security, ports, alerts)](docs/m3b-health.md)

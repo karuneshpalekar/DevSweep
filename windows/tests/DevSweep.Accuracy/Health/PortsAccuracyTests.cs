@@ -126,7 +126,7 @@ public sealed class PortsAccuracyTests(ITestOutputHelper output)
         StopResult refused = stopper.End(service.Id);
         output.WriteLine($"{service.ProcessName}: {refused}");
         Assert.True(refused.Outcome is StopOutcome.NotYours or StopOutcome.NotAllowed);
-        Assert.False(service.HasExited);
+        Assert.Contains(Process.GetProcesses(), p => p.Id == service.Id); // still there (HasExited needs rights a standard user lacks)
     }
 
     private static Process StartInNewConsole(string program, string arguments)

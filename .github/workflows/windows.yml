@@ -204,12 +204,68 @@ jobs:
           "{0} ports listed, {1} of other users hidden" -f $p.ports.Count, $p.othersHidden
       # --- end Health (M3b) ---
 
+      # --- M3a (Windows rule packs): golden scan with every pack, and the scan-time budget ---
+      - name: M3a packs golden scan and scan-time budget (administrator)
+        run: |
+          $exe = Resolve-Path artifacts/cli/devsweep.exe
+          $golden = New-Item -ItemType Directory -Force artifacts/golden
+          $budget = 120
+          $runs = @()
+          foreach ($mode in 'overview', 'exact') {
+            $scanArgs = @('scan', '--json'); if ($mode -eq 'exact') { $scanArgs += '--exact' }
+            $clock = [Diagnostics.Stopwatch]::StartNew()
+            & $exe @scanArgs > "$golden/scan-admin-packs-$mode.json"
+            $clock.Stop()
+            if ($LASTEXITCODE -ne 0) { throw "devsweep scan ($mode) failed ($LASTEXITCODE)" }
+            $scan = Get-Content -Raw "$golden/scan-admin-packs-$mode.json" | ConvertFrom-Json
+            $runs += [pscustomobject]@{ Mode = $mode; WallSeconds = $clock.Elapsed.TotalSeconds; ReportSeconds = $scan.report.totalSeconds; Checks = $scan.report.checks.Count; Findings = $scan.findings.Count; Bytes = $scan.report.totalBytes }
+            "== {5}: {0} checks, {1} findings, {2:N0} bytes, {3:0.00} s wall, {4:0.00} s in the report" -f $scan.report.checks.Count, $scan.findings.Count, $scan.report.totalBytes, $clock.Elapsed.TotalSeconds, $scan.report.totalSeconds, $mode
+            "  slowest checks:"
+            foreach ($check in ($scan.report.checks | Sort-Object { $_.seconds + $_.measureSeconds } -Descending | Select-Object -First 12)) { "    {0,-30} {1,6:0.00} s + {2,6:0.00} s measuring  {3,-13} found {4}" -f $check.id, $check.seconds, $check.measureSeconds, $check.outcome, $check.found }
+            "  findings by category:"
+            $scan.findings | Group-Object category | ForEach-Object { "    {0,-18} {1,3}  {2,16:N0} bytes" -f $_.Name, $_.Count, ($_.Group | Measure-Object size -Sum).Sum }
+            foreach ($finding in $scan.findings) { "    {0,16:N0}  {1,-12} {2}  [{3}, {4}]" -f $finding.size, $finding.risk, $finding.title, $finding.measurement, $finding.ruleId }
+            $bad = @($scan.report.checks | Where-Object { $_.outcome -in 'Failed', 'TimedOut' })
+            if ($bad.Count -gt 0) { throw "checks failed or timed out: $(($bad | ForEach-Object { $_.id + ' ' + $_.outcome + ' ' + $_.error }) -join '; ')" }
+            if (@($scan.report.ruleErrors).Count -gt 0) { throw "rule errors in the scan" }
+            if ($scan.report.checks.Count -lt 80) { throw "expected every pack rule to run, got $($scan.report.checks.Count) checks" }
+            if ($clock.Elapsed.TotalSeconds -gt $budget) { throw "the $mode scan took $($clock.Elapsed.TotalSeconds) s, over the $budget s budget" }
+          }
+          $runs | Format-Table -AutoSize | Out-String
+          "== leftover checks, verified independently"
+          foreach ($finding in @($scan.findings | Where-Object { $_.ruleId -in 'orphaned-scheduled-tasks', 'orphaned-startup-entries' })) {
+            "  {0}: {1}" -f $finding.title, ($finding.checks.text -join ' | ')
+            foreach ($program in ($finding.facts.program -split ' and ')) { if (Test-Path -LiteralPath $program) { throw "$($finding.title): $program exists, so it is not orphaned" } }
+          }
+          foreach ($check in @($scan.report.checks | Where-Object { $_.notes.Count -gt 0 })) { "  notes {0}: {1}" -f $check.id, ($check.notes -join ' | ') }
+          $runs | ConvertTo-Json | Set-Content "$golden/scan-budget-admin.json"
+
+          "== the packs module turned off (DEVSWEEP_FEATURES=-module:packs)"
+          $env:DEVSWEEP_FEATURES = '-module:packs'
+          $off = & $exe scan --json | ConvertFrom-Json
+          Remove-Item Env:DEVSWEEP_FEATURES
+          "{0} checks, disabled: {1}" -f $off.report.checks.Count, ($off.report.disabled -join ', ')
+          if ($off.report.checks.Count -ne 8) { throw "with module:packs off, expected the 8 Clean up rules, got $($off.report.checks.Count)" }
+
       - name: Accuracy tests and devsweep as a standard (non-admin) user
         run: >
           ./eng/run-as-standard-user.ps1
           -TestDirectory tests/DevSweep.Accuracy/bin/Release
           -ResultsDirectory TestResults/standard-user
           -CliPath artifacts/cli/devsweep.exe
+
+      # --- M3a: the standard user's scan must also run every pack and stay within the budget ---
+      - name: M3a scan-time budget (standard user)
+        run: |
+          $scan = Get-Content -Raw TestResults/standard-user/scan-standard-user.json | ConvertFrom-Json
+          "standard user: {0} checks, {1} findings, {2:N0} bytes, {3:0.00} s" -f $scan.report.checks.Count, $scan.findings.Count, $scan.report.totalBytes, $scan.report.totalSeconds
+          foreach ($check in ($scan.report.checks | Sort-Object { $_.seconds + $_.measureSeconds } -Descending | Select-Object -First 8)) { "  {0,-30} {1,6:0.00} s + {2,6:0.00} s  {3}" -f $check.id, $check.seconds, $check.measureSeconds, $check.outcome }
+          foreach ($finding in $scan.findings) { "    {0,16:N0}  {1,-12} {2}  [{3}]" -f $finding.size, $finding.risk, $finding.title, $finding.ruleId }
+          foreach ($check in @($scan.report.checks | Where-Object { $_.notes.Count -gt 0 })) { "  notes {0}: {1}" -f $check.id, ($check.notes -join ' | ') }
+          $bad = @($scan.report.checks | Where-Object { $_.outcome -in 'Failed', 'TimedOut' })
+          if ($bad.Count -gt 0) { throw "checks failed or timed out as the standard user: $(($bad | ForEach-Object { $_.id + ' ' + $_.error }) -join '; ')" }
+          if ($scan.report.checks.Count -lt 80) { throw "expected every pack rule to run as the standard user" }
+          if ($scan.report.totalSeconds -gt 120) { throw "the standard user's scan took $($scan.report.totalSeconds) s, over the 120 s budget" }
 
       - name: Upload test results
         if: always()

@@ -27,8 +27,12 @@ public sealed class FeatureFlagTests
     {
         DevSweepEngine engine = TestSchema.Engine();
 
-        Assert.Equal(["locations", "inventory", "cleanup"], engine.Modules.Select(m => m.Id));
-        Assert.Equal(["orphanedAppData", "paths", "staleProjectArtifacts", "versionedSiblings"], engine.Detectors.Kinds.Order(StringComparer.Ordinal));
+        Assert.Equal(["locations", "inventory", "cleanup", "packs"], engine.Modules.Select(m => m.Id));
+        Assert.Equal(
+            ["androidSystemImages", "browserCaches", "browserProfiles", "docker", "dotnetInstalls", "editorExtensions", "largeOldFiles",
+             "oldJdks", "ollamaModels", "orphanedAppData", "orphanedRunEntries", "orphanedScheduledTasks", "paths", "recycleBin",
+             "rustToolchains", "staleProjectArtifacts", "toolVersions", "versionedSiblings", "vhdxDisks", "visualStudioInstances"],
+            engine.Detectors.Kinds.Order(StringComparer.Ordinal));
         Assert.Equal(12, engine.InventoryCollectors.Count);
         Assert.Equal(["module:health"], engine.Disabled); // Health (M3b) is off until it passes its gate
     }

@@ -1,0 +1,299 @@
+# More package-manager caches (module:packs). Everything here comes back on its own.
+# Locations come from each tool's own settings ({pnpmStore}, {goModCache}...), never fixed paths.
+# pnpm, yarn, composer and scoop are .cmd/.ps1 scripts on Windows, which DevSweep never runs
+# through a shell, so their own clean commands are shown (manual), not run.
+rules:
+  - id: npx-cache
+    title: npx tool cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ['{npmCache}\_npx']
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Tools you've run once with npx, like create-next-app, kept for the next run."
+      why: "{{size}} of one-off tools in {{npmCache}}."
+      ifDeleted: "The next time you run one of these tools with npx, it downloads again."
+      wontLose: "Globally installed npm packages or your projects."
+
+  - id: pnpm-store
+    title: pnpm store
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 200
+    detector:
+      kind: paths
+      paths: ['{pnpmStore}']
+    actions:
+      - kind: manual
+        label: Show pnpm's command
+        command: ["pnpm", "store", "prune"]
+        detail: "Run pnpm store prune in a terminal: it removes only packages no project uses."
+      - kind: delete
+    explain:
+      what: "Every package pnpm has downloaded. Projects' node_modules folders link to the files in it instead of copying them."
+      why: "{{size}} in {{pnpmStore}}. Files your projects still link to stay on disk until those projects go, so deleting frees only the rest; the size check says how much is shared."
+      ifDeleted: "The next pnpm install in each project downloads its packages again. Projects that are already installed keep working."
+      wontLose: "Your projects or their node_modules folders."
+      better: "pnpm store prune removes only what no project uses, which is usually most of the space."
+
+  - id: yarn-cache
+    title: Yarn cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ['{yarnCache}', '{LocalAppData}\Yarn\Berry\cache']
+    actions:
+      - kind: delete
+      - kind: manual
+        label: Show Yarn's command
+        command: ["yarn", "cache", "clean"]
+        detail: "Run yarn cache clean in a terminal (Yarn 2 and later: yarn cache clean --mirror)."
+    explain:
+      what: "Packages Yarn has downloaded, shared across your projects (Yarn 1's cache and the global cache of Yarn 2 and later)."
+      why: "{{size}} of downloaded packages."
+      ifDeleted: "The next yarn install downloads packages again."
+      wontLose: "Your projects, their node_modules folders, or a project's own .yarn\\cache."
+
+  - id: uv-cache
+    title: uv cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ['{uvCache}']
+    actions:
+      - kind: delete
+      - kind: command
+        label: Run uv cache clean
+        command: ["uv", "cache", "clean"]
+        detail: "Runs uv cache clean."
+    explain:
+      what: "Python packages and Python builds uv has downloaded, kept so new environments are created quickly."
+      why: "{{size}} in {{uvCache}}."
+      ifDeleted: "The next uv sync or uv pip install downloads packages again. Environments that already exist may need uv sync once if they link into the cache."
+      wontLose: "Your projects or their pyproject.toml and uv.lock."
+
+  - id: nuget-global-packages
+    title: NuGet global packages
+    category: dotnet
+    risk: rebuilds
+    minSizeMB: 500
+    blockers: ["devenv", "rider64"]
+    detector:
+      kind: paths
+      paths: ['{nugetPackages}']
+    actions:
+      - kind: command
+        label: Clear with dotnet
+        command: ["dotnet", "nuget", "locals", "global-packages", "--clear"]
+        detail: "Runs dotnet nuget locals global-packages --clear."
+      - kind: delete
+    explain:
+      what: "Every NuGet package your .NET projects have restored, shared by all of them."
+      why: "{{size}} of packages in {{nugetPackages}}."
+      ifDeleted: "The next build or restore of each project downloads its packages again, which can take a few minutes."
+      wontLose: "Your projects or their package references."
+      before: "Close Visual Studio and Rider: a project open there may fail to build until it restores again."
+
+  - id: nuget-other-caches
+    title: NuGet plugin and old caches
+    category: dotnet
+    risk: rebuilds
+    minSizeMB: 20
+    detector:
+      kind: paths
+      paths: ['{LocalAppData}\NuGet\plugins-cache', '{LocalAppData}\NuGet\Cache']
+    actions:
+      - kind: delete
+    explain:
+      what: "NuGet's credential-plugin cache and the download cache older NuGet versions used."
+      why: "{{size}} across {{count}} caches."
+      ifDeleted: "NuGet fills them again if it needs them."
+      wontLose: "Your global packages folder or the download cache current NuGet uses."
+
+  - id: gradle-wrappers
+    title: Old Gradle versions
+    category: packageCaches
+    risk: oldVersion
+    minSizeMB: 50
+    detector:
+      kind: versionedSiblings
+      parents: ['{gradleHome}\wrapper\dists']
+      pattern: "^gradle-(?<version>[0-9][0-9.]*(-rc-?[0-9]+)?)-(bin|all)$"
+      keep: 2
+    actions:
+      - kind: trash
+    explain:
+      what: "Copies of Gradle downloaded by projects' Gradle wrappers."
+      why: "{{size}} for Gradle {{versions}}. {{kept}} stay."
+      ifDeleted: "A project still on one of these versions downloads it again on its next build."
+      undo: "Restore it from the Recycle Bin (History), or let the wrapper download it again."
+
+  - id: gradle-daemon-logs
+    title: Gradle daemon logs
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 100
+    detector:
+      kind: paths
+      paths: ['{gradleHome}\daemon']
+    actions:
+      - kind: delete
+    explain:
+      what: "Logs and state from Gradle's background build processes."
+      why: "{{size}} of logs from past builds in {{gradleHome}}."
+      ifDeleted: "Nothing you'll notice. Gradle starts fresh daemons on the next build."
+      before: "Run gradle --stop first, or files of a running daemon stay behind."
+
+  - id: maven-repository
+    title: Maven local repository
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 500
+    detector:
+      kind: paths
+      paths: ['{mavenRepo}']
+    actions:
+      - kind: delete
+      - kind: trash
+    explain:
+      what: "Every library Maven has downloaded for your Java builds."
+      why: "{{size}} of libraries in {{mavenRepo}}."
+      ifDeleted: "The next build of each Maven project downloads everything again. Artifacts you only installed locally (mvn install of your own projects) must be built again."
+      wontLose: "Your projects or their pom.xml."
+      better: "If you build often, keep it: DevSweep does not judge single library versions, because any project may still need them."
+
+  - id: cargo-cache
+    title: Cargo download cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 100
+    detector:
+      kind: paths
+      paths: ['{cargoHome}\registry\cache', '{cargoHome}\registry\src', '{cargoHome}\git\checkouts']
+    actions:
+      - kind: delete
+    explain:
+      what: "Rust crates Cargo has downloaded and unpacked."
+      why: "{{size}} of downloaded crates in {{cargoHome}}."
+      ifDeleted: "The next cargo build downloads the crates it needs again."
+      wontLose: "Installed Rust toolchains or tools from cargo install."
+
+  - id: go-module-cache
+    title: Go module cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 200
+    detector:
+      kind: paths
+      paths: ['{goModCache}']
+    actions:
+      - kind: command
+        label: Run go clean -modcache
+        command: ["go", "clean", "-modcache"]
+        detail: "Runs go clean -modcache (Go makes these files read-only; its own command removes them cleanly)."
+      - kind: delete
+    explain:
+      what: "Source code of every Go module your projects have downloaded."
+      why: "{{size}} of modules in {{goModCache}}."
+      ifDeleted: "The next go build in each project downloads its modules again."
+      wontLose: "Your projects, go.mod or go.sum."
+
+  - id: go-build-cache
+    title: Go build cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 100
+    detector:
+      kind: paths
+      paths: ['{goBuildCache}']
+    actions:
+      - kind: command
+        label: Run go clean -cache
+        command: ["go", "clean", "-cache"]
+        detail: "Runs go clean -cache."
+      - kind: delete
+    explain:
+      what: "Compiled Go packages, kept so builds only recompile what changed."
+      why: "{{size}} of compiled output in {{goBuildCache}}."
+      ifDeleted: "The next go build compiles everything from scratch once."
+
+  - id: composer-cache
+    title: Composer cache
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ['{composerCache}']
+    actions:
+      - kind: delete
+      - kind: manual
+        label: Show Composer's command
+        command: ["composer", "clear-cache"]
+        detail: "Run composer clear-cache in a terminal."
+    explain:
+      what: "PHP packages Composer has downloaded, shared across your projects."
+      why: "{{size}} in {{composerCache}}."
+      ifDeleted: "The next composer install downloads packages again."
+      wontLose: "Your projects or their vendor folders."
+
+  - id: chocolatey-cache
+    title: Chocolatey downloads
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ['{chocolateyCache}']
+    actions:
+      - kind: delete
+    explain:
+      what: "Installers Chocolatey downloaded while installing or upgrading packages."
+      why: "{{size}} of downloads in {{chocolateyCache}}."
+      ifDeleted: "Nothing changes for installed packages. Reinstalling one downloads it again."
+      wontLose: "Any installed Chocolatey package."
+
+  - id: scoop-cache
+    title: Scoop downloads
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ['{scoop}\cache']
+    actions:
+      - kind: delete
+      - kind: manual
+        label: Show Scoop's command
+        command: ["scoop", "cache", "rm", "*"]
+        detail: "Run scoop cache rm * in PowerShell."
+    explain:
+      what: "Archives Scoop downloaded to install or update apps."
+      why: "{{size}} of downloads in {{scoop}}\\cache."
+      ifDeleted: "Nothing changes for installed apps. Reinstalling one downloads it again."
+      wontLose: "Installed apps or their persisted settings."
+
+  - id: winget-downloads
+    title: winget downloads
+    category: packageCaches
+    risk: rebuilds
+    minSizeMB: 50
+    detector:
+      kind: paths
+      paths: ['{Temp}\WinGet']
+    actions:
+      - kind: delete
+    explain:
+      what: "Installers winget downloaded into your temporary-files folder."
+      why: "{{size}} of downloaded installers."
+      ifDeleted: "Nothing changes for installed apps. winget downloads an installer again when it needs one."
+      before: "Let any winget install or upgrade finish first."

@@ -12,7 +12,11 @@ namespace DevSweep.Core.Detectors;
 /// <item><c>parents</c>: rule paths of the folders that hold them (required);</item>
 /// <item><c>pattern</c>: a regular expression with a <c>(?&lt;version&gt;...)</c> group and optionally <c>(?&lt;key&gt;...)</c> (one family per key);</item>
 /// <item><c>keep</c>: how many of the newest versions per key stay (default 1);</item>
-/// <item><c>groupEach</c>: one finding per old version instead of one per key.</item>
+/// <item><c>groupEach</c>: one finding per old version instead of one per key;</item>
+/// <item><c>installedAs</c>: a list of <c>{key, names}</c>: an old version of that key is left alone while
+/// the installed-apps inventory lists an app named one of <c>names</c> with that version
+/// ("IntelliJ IDEA 2024.1.4" keeps <c>IntelliJIdea2024.1</c>), and every key with a guard is left alone
+/// when the inventory could not be read completely.</item>
 /// </list>
 /// Versions compare number by number (2024.10 is newer than 2024.9). Only ordinary folders count; links are skipped.
 /// </summary>
@@ -27,7 +31,19 @@ public sealed class VersionedSiblingsDetector : Detector<VersionedSiblingsDetect
         Regex? pattern = options.Pattern("pattern", required: true, "version");
         int keep = options.Number("keep", 1, 100) ?? 1;
         bool groupEach = options.Flag("groupEach");
-        return pattern is null ? null : new Options(parents, pattern, keep, groupEach);
+        var installedAs = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (OptionReader guard in options.Mappings("installedAs"))
+        {
+            string? key = guard.Text("key", required: true);
+            IReadOnlyList<string> names = guard.TextList("names", required: true);
+            guard.Finish();
+            if (key is not null)
+            {
+                installedAs[key] = names;
+            }
+        }
+
+        return pattern is null ? null : new Options(parents, pattern, keep, groupEach) { InstalledAs = installedAs };
     }
 
     protected override IReadOnlyList<Candidate> Detect(DetectorRun run, Options options)
@@ -75,6 +91,15 @@ public sealed class VersionedSiblingsDetector : Detector<VersionedSiblingsDetect
             }
 
             string key = family.Key;
+            if (options.InstalledAs.TryGetValue(key, out IReadOnlyList<string>? appNames))
+            {
+                old = old.Where(version => !InstalledSideBySide(run, key, appNames, version)).ToList();
+                if (old.Count == 0)
+                {
+                    continue;
+                }
+            }
+
             var facts = new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["key"] = key,
@@ -115,8 +140,41 @@ public sealed class VersionedSiblingsDetector : Detector<VersionedSiblingsDetect
         return candidates;
     }
 
+    /// <summary>True when the inventory lists the app with this version, or cannot tell (then the version is left alone).</summary>
+    private static bool InstalledSideBySide(DetectorRun run, string key, IReadOnlyList<string> names, string version)
+    {
+        if (!run.Context.HasInventory)
+        {
+            run.Note($"{key} {version}: left alone because there is no installed-apps inventory to check it against");
+            return true;
+        }
+
+        Inventory.AppInventory inventory = run.Context.Inventory;
+        if (inventory.DisabledSources.Count > 0 || inventory.Sources.Any(s => !s.Complete))
+        {
+            run.Note($"{key} {version}: left alone because the installed-apps inventory could not be read completely");
+            return true;
+        }
+
+        var versionPattern = new Regex($"(^|[^0-9.]){Regex.Escape(version)}($|[^0-9]|\\.[0-9])", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+        Inventory.AppRecord? match = inventory.Records.FirstOrDefault(r =>
+            names.Any(n => r.Name.StartsWith(n, StringComparison.OrdinalIgnoreCase))
+            && (versionPattern.IsMatch(r.Name) || (r.InstallLocation is { } location && versionPattern.IsMatch(Path.GetFileName(Path.TrimEndingDirectorySeparator(location))))));
+        if (match is null)
+        {
+            return false;
+        }
+
+        run.Note($"{key} {version}: left alone because {match.Name} is installed ({Inventory.InventorySources.Title(match.Source)})");
+        return true;
+    }
+
     /// <summary>Bound options of a <c>versionedSiblings</c> rule.</summary>
-    public sealed record Options(IReadOnlyList<PathTemplate> Parents, Regex Pattern, int Keep, bool GroupEach);
+    public sealed record Options(IReadOnlyList<PathTemplate> Parents, Regex Pattern, int Keep, bool GroupEach)
+    {
+        /// <summary>Per key, app names whose installed versions are kept (<c>installedAs</c>).</summary>
+        public IReadOnlyDictionary<string, IReadOnlyList<string>> InstalledAs { get; init; } = new Dictionary<string, IReadOnlyList<string>>();
+    }
 }
 
 /// <summary>Compares version strings number by number ("2024.10" &gt; "2024.9" &gt; "2023.3"); ties by text.</summary>
