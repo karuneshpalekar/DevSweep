@@ -9,7 +9,7 @@ namespace DevSweep.Core.Modules;
 /// <summary>The modules M2 ships, in registration order.</summary>
 public static class BuiltInModules
 {
-    public static IReadOnlyList<IDevSweepModule> All { get; } = [new LocationsModule(), new InventoryModule(), new CleanUpModule(), new Packs.PacksModule()];
+    public static IReadOnlyList<IDevSweepModule> All { get; } = [new LocationsModule(), new InventoryModule(), new CleanUpModule(), new Packs.PacksModule(), new Health.HealthModule()];
 }
 
 /// <summary>The named roots: Known Folders, <c>{Temp}</c> and every tool location (<c>module:locations</c>).</summary>
