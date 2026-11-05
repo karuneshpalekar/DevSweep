@@ -1,7 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Markup;
 
-namespace DevSweep.App.Ui;
+namespace DevSweep.App.Toolkit;
 
 /// <summary>
 /// DevSweep's styles. Every colour is a Fluent theme resource (ThemeResource), so light,

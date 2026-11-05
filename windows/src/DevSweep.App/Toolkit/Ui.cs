@@ -6,7 +6,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 
-namespace DevSweep.App.Ui;
+namespace DevSweep.App.Toolkit;
 
 /// <summary>
 /// Change subscriptions owned by one built view; disposed when the view is replaced, so
