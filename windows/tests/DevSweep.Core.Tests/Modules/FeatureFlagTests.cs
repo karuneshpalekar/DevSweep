@@ -34,7 +34,7 @@ public sealed class FeatureFlagTests
              "rustToolchains", "staleProjectArtifacts", "toolVersions", "versionedSiblings", "vhdxDisks", "visualStudioInstances"],
             engine.Detectors.Kinds.Order(StringComparer.Ordinal));
         Assert.Equal(12, engine.InventoryCollectors.Count);
-        Assert.Equal(["module:health"], engine.Disabled); // Health (M3b) is off until it passes its gate
+        Assert.Equal(["module:health", "module:projects"], engine.Disabled); // Health (M3b) and Projects (M3c) are off until they pass their gates
     }
 
     [Fact]

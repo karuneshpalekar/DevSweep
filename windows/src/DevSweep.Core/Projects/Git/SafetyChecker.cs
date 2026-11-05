@@ -227,7 +227,8 @@ public sealed class SafetyChecker(IGit git)
                 }
 
                 string worktree = Full(path, lines[0]["worktree ".Length..]);
-                if (!SamePath(worktree, topLevel) && (linkedOf is null || !SamePath(worktree, linkedOf)))
+                // A submodule's repository lives in the superproject's .git\modules, and git lists that folder as its main worktree.
+                if (!SamePath(worktree, topLevel) && !SamePath(worktree, commonDir) && !SamePath(worktree, gitDir) && (linkedOf is null || !SamePath(worktree, linkedOf)))
                 {
                     otherWorktrees.Add(worktree);
                 }
