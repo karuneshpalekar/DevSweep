@@ -196,4 +196,82 @@ build inputs from Health results.
 
 ## Numbers from CI
 
-(filled in from the green run below)
+CI run [41993174247](https://github.com/karuneshpalekar/DevSweep/actions/runs/41993174247) (`windows-latest`, Windows
+Server 2025 Datacenter 24H2, build 26100), on the branch merged with M3a: unit tests 408 passed (Health
+adds 54); accuracy suite 175 passed as administrator (Health adds 11), and as a fresh standard user 175
+with the 5 earlier M1 skips and no Health skips. Native AOT `devsweep.exe`: 10,988,544 bytes, no trim or
+AOT warnings. No live network in any test (recorded endoflife.date responses only).
+
+**Runtime discovery vs ground truth** (`RuntimeGroundTruthTests`): every program `where.exe` finds on
+PATH for node, python, java, go, ruby, php, dotnet, psql, rustc, deno, bun and flutter belongs to a
+discovered install: 8 programs checked as administrator and as the standard user, **0 missed** (the
+runner's `WindowsApps\python.exe` is recognised as an alias and not counted). All 5 PEP 514
+registrations (PythonCore 3.11 to 3.15), `JAVA_HOME` and the 5 `JAVA_HOME_*` JDKs (8, 11, 17, 21, 25),
+and all 5 `py -0p` entries are discovered.
+
+`devsweep runtimes --json` on the runner (administrator):
+
+| Tool | Installs | Default (a new terminal runs) | Sources |
+|---|---:|---|---|
+| Node.js | 4 | 22.23.4 (nodejs.org MSI) | Visual Studio's node, nodejs.org, CI tool cache |
+| Python | 6 | 3.12.10 (tool cache) | conda (`C:\Miniconda`), CI tool cache |
+| Java | 5 | 17.0.20 (tool cache) | CI tool cache (Temurin 8, 11, 17, 21, 25) |
+| PostgreSQL | 1 | not on PATH | EDB installer |
+| Go | 3 | 1.24.13 | CI tool cache |
+| Ruby | 4 | 3.3.13 | CI tool cache |
+| PHP | 1 | 8.5.12 | Chocolatey (`C:\tools\php`) |
+| Rust | 1 | 1.99.1 | rustup (default from `settings.toml`) |
+| .NET SDK | 11 | 10.0.403 | `DOTNET_ROOT` (setup-dotnet) |
+| Windows | 1 | Windows Server 2025 Datacenter 24H2 (build 26100) | supported (endoflife.date `windows-server`) |
+
+72 PATH folders (system then user); support data downloaded live in CI (not offline). The first
+suggested fix's script (`--script-step`) lists its commands and waits for Enter.
+
+**Store aliases** (`StoreAliasTests`): real `IO_REPARSE_TAG_APPEXECLINK` reparse points created on NTFS
+(as administrator and as the standard user): the App Installer stub is read as
+`StoreInstallerStub` and reported only under "not an install" with the "opens the Microsoft Store"
+warning; the Python 3.12 package alias is reported as a Store Python install (release line 3.12,
+"patch release not known").
+
+**Ports** (`PortsAccuracyTests`): IPv4 TCP listeners equal `netstat -ano` exactly (0 missing, 0 extra);
+our own `127.0.0.1` and `0.0.0.0` listeners are found with our PID, owner = us, program path, command
+line and **working directory read through the PEB equal to `Environment.CurrentDirectory`**. Windows
+Firewall: 348 rules read, as administrator and as the standard user; our `0.0.0.0` listener is "Allowed
+through Windows Firewall on every network type" (the runner's rules allow it). `ping -t` in its own
+console stopped by Ctrl+C ("sent Ctrl+C to its console"); a Command Prompt (which survives Ctrl+C) is
+reported "still running" and ended only by the explicit `End` (the CLI's confirmation). PID 4, our own
+process and a service (`spoolsv`) are refused. CLI: `ports --json` lists our pwsh listener
+(`AllInterfaces`, firewall verdict) with 33-35 listeners of other users hidden.
+
+**Security** (`SecurityAccuracyTests`): with real git, `.env` files are "Committed to git", "Kept out of
+git", "Not ignored" and "Not in git" exactly as set up; a junction to a folder with recovery codes is not
+followed; three cloud-only placeholders (`github-recovery-codes.txt`, `id_rsa`, `.env`) in a real Cloud
+Files sync root are counted as skipped and keep 0 bytes of local data (never hydrated). The runner's own
+loose folders hold 0 findings.
+
+## Decisions and deviations
+
+- **Health is off by default** (`module:health`), as the M2 extension points ask, until the coordinator
+  accepts the gate; CI turns it on with `DEVSWEEP_FEATURES=+module:health` and checks that it exits 3
+  while off. The default-module unit test now expects `module:health` in `engine.Disabled`.
+- **Firewall from the registry**, not `INetFwPolicy2` (IDispatch, not usable from the AOT engine) or
+  `netsh` (localised output).
+- **Working directory through the PEB** (undocumented layout, x64 only, same-bitness processes that can
+  be opened for reading), with the source of every folder shown; Ctrl+C via a helper process in the CLI.
+- **winget** is never run: winget ownership comes from `WinGetPackageIdentifier` in the Uninstall keys
+  and winget's portable package folders (M2 inventory).
+- Programs are run for a version only when no file gives it, only trusted ones; in CI every version came
+  from files or version resources except PHP and PostgreSQL where the resource was used too.
+- The Mac app's Homebrew report and the guided PostgreSQL upgrade have no Windows counterpart yet
+  (EDB upgrades need `pg_upgrade` with service changes as administrator; left for later).
+
+## Known gaps
+
+- PATH: M2's registry reader returns `REG_EXPAND_SZ` already expanded with DevSweep's environment.
+- Shells: start-up files are read for known patterns only; what a profile really does is not executed.
+- Chocolatey vs nodejs.org MSI: an MSI in Program Files is called Chocolatey's only when a Chocolatey
+  package of the same version exists.
+- The PLAN 6 reference machines (nvm/fnm/Volta/Scoop/pyenv/Store Python) are not available to a
+  milestone run; those sources are proved with fixture machines, the CI runner covers tool caches,
+  conda, MSI installs, Chocolatey, rustup, PEP 514 and `py`.
+- Alerts are logic only; M5 wires the scheduler and toasts and records snapshots after each scan.
