@@ -159,12 +159,46 @@ public sealed class Downloader(IGit git, IGitHubCli gh, ProjectStore store, IIte
             return $"A file already exists at {destination}.";
         }
 
-        if (OperatingSystem.IsWindows() && ReparseGuard.FindReparseAncestor(destination) is { } link)
+        if (LinkOnTheWay(destination) is { } link)
         {
             return $"{link} is a junction or link; DevSweep doesn't download through links.";
         }
 
         return RemoteUrls.ParseSlug(request.NameWithOwner) is null && request.CloneUrl is null ? $"{request.NameWithOwner} isn't owner/name." : null;
+    }
+
+    /// <summary>A junction or link on the way to <paramref name="destination"/> (folders still to be created are not looked at).</summary>
+    internal static string? LinkOnTheWay(string destination)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return null;
+        }
+
+        string? existing = destination;
+        while (existing is not null && !Directory.Exists(existing))
+        {
+            existing = Path.GetDirectoryName(existing);
+        }
+
+        if (existing is null || Path.GetPathRoot(existing) == existing)
+        {
+            return null;
+        }
+
+        if (ReparseGuard.FindReparseAncestor(existing) is { } ancestor)
+        {
+            return ancestor;
+        }
+
+        try
+        {
+            return FileInspector.ReadEntry(existing).IsLink ? existing : null;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return existing;
+        }
     }
 
     private long Measure(string path, CancellationToken cancellationToken)
