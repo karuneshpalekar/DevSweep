@@ -229,9 +229,18 @@ internal static class Theme
         """;
 
     /// <summary>Parses the dictionary and merges it after the Fluent control resources.</summary>
+    /// <summary>The parsed dictionary (looked up directly by <see cref="Ui"/>).</summary>
+    public static ResourceDictionary? Dictionary { get; private set; }
+
     public static void Load(Application app)
     {
+        ArgumentNullException.ThrowIfNull(app);
         var dictionary = (ResourceDictionary)XamlReader.Load(Xaml);
         app.Resources.MergedDictionaries.Add(dictionary);
+        Dictionary = dictionary;
+        if (!dictionary.ContainsKey("DsBody"))
+        {
+            throw new InvalidOperationException($"DevSweep's styles did not load ({dictionary.Count} entries).");
+        }
     }
 }

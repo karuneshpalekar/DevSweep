@@ -63,24 +63,24 @@ internal static class Ui
 {
     public static T Resource<T>(string key)
         where T : class
-        => Find(Application.Current.Resources, key) as T ?? throw new InvalidOperationException($"Resource {key} is missing.");
+        => Find(key) as T ?? throw new InvalidOperationException($"Resource {key} is missing.");
 
-    private static object? Find(ResourceDictionary dictionary, string key)
+    /// <summary>DevSweep's own styles first (held by <see cref="Theme"/>), then the Fluent resources through the app's lookup.</summary>
+    private static object? Find(string key)
     {
-        if (dictionary.TryGetValue(key, out object? value))
+        if (Theme.Dictionary is { } own && own.ContainsKey(key))
         {
-            return value;
+            return own[key];
         }
 
-        foreach (ResourceDictionary merged in dictionary.MergedDictionaries)
+        try
         {
-            if (Find(merged, key) is { } found)
-            {
-                return found;
-            }
+            return Application.Current.Resources[key];
         }
-
-        return null;
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or KeyNotFoundException or ArgumentException)
+        {
+            return null;
+        }
     }
 
     public static Style Style(string key) => Resource<Style>(key);
