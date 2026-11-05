@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
-using DevSweep.App.ViewModels.Places;
+using DevSweep.Core.Health.Ports;
+using DevSweep.Core.Health.Runtimes;
+using DevSweep.Core.Health.Security;
 using DevSweep.App.ViewModels.Services;
 using DevSweep.App.ViewModels.Text;
 using DevSweep.Core.Cleaning;
-using DevSweep.Core.Review;
+using DevSweep.Core.Health.Alerts;
 using DevSweep.Core.Scanning;
 
 namespace DevSweep.App.ViewModels;
@@ -135,20 +137,20 @@ public sealed partial class HomeViewModel : ObservableObject
         Attention.Clear();
         if (_health.Report is { } health)
         {
-            foreach (SecurityItem item in health.Security.Where(s => s.Level >= Level.Warning).Take(2))
+            foreach (SecurityFinding item in _health.NeedsAction.OrderBy(f => f.Level).Take(2))
             {
-                Attention.Add(new AttentionRow("Security", item.Level == Level.Critical ? Tone.Critical : Tone.Caution, $"{item.Title}: {item.Detail}", "health"));
+                Attention.Add(new AttentionRow("Security", item.Level == SecurityLevel.Critical ? Tone.Critical : Tone.Caution, $"{item.Title}: {item.Status}. {item.WhatToDo}", "health"));
             }
 
-            foreach (ToolInfo tool in health.Tools.Where(t => t.Level == Level.Warning).Take(2))
+            foreach (RuntimeReport tool in (health.Versions?.Runtimes ?? []).Where(t => t.NeedsAttention).Take(2))
             {
-                ToolInstall active = tool.Installs.First(i => i.IsActive);
-                Attention.Add(new AttentionRow("Health", Tone.Caution, $"{tool.Name} {active.Version} is no longer supported.", "health"));
+                RuntimeIssue issue = tool.Issues.OrderBy(i => i.Level).First();
+                Attention.Add(new AttentionRow("Health", issue.Level == IssueLevel.Critical ? Tone.Critical : Tone.Caution, $"{tool.Name}: {issue.Text}", "health"));
             }
 
-            foreach (PortInfo port in health.Ports.Where(p => p.ReachableFromNetwork && p.IsDevelopment).Take(1))
+            foreach (ListeningPort port in _health.DevelopmentPorts.Where(p => p.ReachableFromNetwork).Take(1))
             {
-                Attention.Add(new AttentionRow("Ports", Tone.Caution, $"{port.Process} on port {port.Port} can be reached from other devices on your network.", "health"));
+                Attention.Add(new AttentionRow("Ports", Tone.Caution, $"{port.Label} on port {port.Port} listens on every network interface, so other devices may reach it.", "health"));
             }
         }
 

@@ -1,67 +1,31 @@
+using DevSweep.Core.Health;
+using DevSweep.Core.Health.Ports;
+using DevSweep.Core.Health.Runtimes;
+using DevSweep.Core.Health.Security;
 using DevSweep.Core.Modules;
 
 namespace DevSweep.App.ViewModels.Places;
 
-// The Health (M3b) and Projects (M3c) engines are built on other branches. The app's
-// pages are written against these small interfaces; after merging, an adapter from the
-// module's Core service to the interface is registered in PlaceAdapters (one line each),
-// and the page lights up. Until then a registered module without an adapter shows as
-// "unavailable", and a module that is not registered at all keeps the page out of the
-// navigation.
+// Health binds to M3b's Core types (VersionsResult, SecurityResult, PortsResult) through
+// IHealthSource (CoreHealthSource is the real one). The Projects engine (M3c) is built on
+// another branch: its page is written against IProjectsSource, and after merging an adapter
+// is registered in PlaceAdapters.Projects (one line) and the page lights up. Until then a
+// place whose module is not in this build shows as "unavailable"; a module turned off by a
+// flag keeps its place out of the navigation.
 
-/// <summary>How serious a row is.</summary>
-public enum Level
-{
-    Ok,
-    Info,
-    Warning,
-    Critical,
-}
-
-/// <summary>Whether a tool version is still supported (endoflife.date).</summary>
-public enum Support
-{
-    Supported,
-    EndingSoon,
-    EndOfLife,
-    Unknown,
-}
-
-/// <summary>One install of a tool.</summary>
-/// <param name="Version">The version.</param>
-/// <param name="Source">Where it came from ("winget", "nvm-windows", "py launcher", "Scoop"...).</param>
-/// <param name="Path">Its folder or program.</param>
-/// <param name="IsActive">The one PATH (as Explorer builds it) runs.</param>
-/// <param name="Support">Support status of this version.</param>
-public sealed record ToolInstall(string Version, string Source, string Path, bool IsActive, Support Support);
-
-/// <summary>A language, runtime or database, every install of it, and what projects ask for.</summary>
-public sealed record ToolInfo(string Name, IReadOnlyList<ToolInstall> Installs, string? Note, IReadOnlyList<string> ProjectsAsk, IReadOnlyList<string> Fixes)
-{
-    public Level Level => Installs.Any(i => i.IsActive && i.Support == Support.EndOfLife) ? Level.Warning
-        : Installs.Any(i => i.Support == Support.EndingSoon) ? Level.Info : Level.Ok;
-}
-
-/// <summary>A file that looks like a secret.</summary>
-public sealed record SecurityItem(string Title, string Path, string Detail, Level Level);
-
-/// <summary>A listening port.</summary>
-/// <param name="Port">The port.</param>
-/// <param name="Process">The program.</param>
-/// <param name="ProcessId">Its PID.</param>
-/// <param name="Project">The project folder it belongs to, if any.</param>
-/// <param name="Address">What it listens on (127.0.0.1, 0.0.0.0, ::).</param>
-/// <param name="ReachableFromNetwork">Listens on every interface and the firewall lets others in.</param>
-/// <param name="IsDevelopment">A dev server or database (rather than an app or Windows itself).</param>
-public sealed record PortInfo(int Port, string Process, int ProcessId, string? Project, string Address, bool ReachableFromNetwork, bool IsDevelopment);
-
-/// <summary>Everything the Health place shows.</summary>
-public sealed record HealthReport(IReadOnlyList<ToolInfo> Tools, IReadOnlyList<SecurityItem> Security, IReadOnlyList<PortInfo> Ports);
+/// <summary>What the Health place shows: M3b's own result types, one per tab (null when the tab is off).</summary>
+public sealed record HealthReport(VersionsResult? Versions, SecurityResult? Security, PortsResult? Ports);
 
 /// <summary>What the Health page needs from the Health module (M3b).</summary>
 public interface IHealthSource
 {
+    /// <summary>Which tabs are on (<c>module:health.runtimes/.security/.ports</c>).</summary>
+    HealthFeatures Features { get; }
+
     Task<HealthReport> LoadAsync(CancellationToken cancellationToken);
+
+    /// <summary>Writes the fix to a script and opens it in a visible PowerShell window that waits for Enter.</summary>
+    void OpenFix(RuntimeStep fix);
 }
 
 /// <summary>A repository on this PC or on GitHub.</summary>
@@ -92,12 +56,9 @@ public interface IProjectsSource
     Task<ProjectsReport> LoadAsync(CancellationToken cancellationToken);
 }
 
-/// <summary>Where the coordinator plugs module adapters in after merging M3b/M3c.</summary>
+/// <summary>Where the coordinator plugs the Projects adapter in after merging M3c.</summary>
 public static class PlaceAdapters
 {
-    /// <summary>Builds the Health source from an engine that has the <c>health</c> module; null when there is no adapter yet.</summary>
-    public static Func<DevSweepEngine, IHealthSource?> Health { get; set; } = _ => null;
-
-    /// <summary>Builds the Projects source from an engine that has the <c>projects</c> module.</summary>
+    /// <summary>Builds the Projects source from an engine that has the <c>projects</c> module; null when there is no adapter yet.</summary>
     public static Func<DevSweepEngine, IProjectsSource?> Projects { get; set; } = _ => null;
 }

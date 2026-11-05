@@ -2,10 +2,12 @@ using System.Text.Json;
 using DevSweep.App.ViewModels.Places;
 using DevSweep.App.ViewModels.Settings;
 using DevSweep.Core.Cleaning;
+using DevSweep.Core.Health;
 using DevSweep.Core.Modules;
 using DevSweep.Core.Platform;
 using DevSweep.Core.Platform.Quarantine;
 using DevSweep.Core.Platform.Recycling;
+using DevSweep.Core.Health.Alerts;
 using DevSweep.Core.Review;
 using DevSweep.Core.Rules;
 using DevSweep.Core.Safety;
@@ -20,6 +22,10 @@ public sealed class EngineBackend : IDevSweepBackend
     /// <summary>Modules that are places in the app, with their titles, whether or not this build has them.</summary>
     public static readonly IReadOnlyList<(string Id, string Title)> KnownPlaces =
         [("cleanup", "Clean up"), ("packs", "Windows rule packs"), ("inventory", "Installed apps"), ("health", "Health"), ("projects", "Projects")];
+
+    /// <summary>Health's tab flags and their titles in Settings.</summary>
+    public static readonly IReadOnlyList<(string Flag, string Title)> HealthTabFlags =
+        [(HealthFeatures.RuntimesFlag, "Health: Tools and versions"), (HealthFeatures.SecurityFlag, "Health: Security"), (HealthFeatures.PortsFlag, "Health: Ports")];
 
     private readonly DevSweepEngine _engine;
     private readonly AppSettingsStore _settings;
@@ -37,10 +43,10 @@ public sealed class EngineBackend : IDevSweepBackend
         DataFolder = dataFolder;
         _history = new HistoryStore();
         _quarantine = new QuarantineStore();
-        _snapshots = new ScanSnapshotStore();
+        _snapshots = new ScanSnapshotStore(Path.Join(dataFolder, "scans.json"));
         _featuresFile = Path.Join(dataFolder, "features.json");
         Modules = DescribeModules(engine);
-        Health = engine.Modules.Any(m => m.Id == "health") ? PlaceAdapters.Health(engine) : null;
+        Health = CoreHealthSource.From(engine, () => _settings.Current.ProjectFolders.Count == 0 ? null : _settings.Current.ProjectFolders);
         Projects = engine.Modules.Any(m => m.Id == "projects") ? PlaceAdapters.Projects(engine) : null;
     }
 
@@ -83,6 +89,15 @@ public sealed class EngineBackend : IDevSweepBackend
         foreach ((string id, string title) in KnownPlaces.Where(p => list.TrueForAll(m => m.Id != p.Id)))
         {
             list.Add(new ModuleInfo(id, title, ModuleState.NotInThisBuild));
+        }
+
+        // Health's tabs have flags of their own (module:health.runtimes/.security/.ports, on by default).
+        if (list.Find(m => m.Id == "health") is { State: not ModuleState.NotInThisBuild })
+        {
+            foreach ((string flag, string title) in HealthTabFlags)
+            {
+                list.Add(new ModuleInfo(flag["module:".Length..], title, engine.Flags.IsEnabled(flag) ? ModuleState.On : ModuleState.TurnedOff));
+            }
         }
 
         return list;
@@ -203,10 +218,26 @@ public sealed class EngineBackend : IDevSweepBackend
         return [.. list.OrderByDescending(v => v.IsSystem).ThenBy(v => v.Root, StringComparer.OrdinalIgnoreCase)];
     }
 
+    public void OpenInTerminal(string title, IReadOnlyList<string> commands, bool needsAdmin)
+    {
+        var step = new Core.Health.Runtimes.RuntimeStep
+        {
+            Id = "cleanup",
+            Kind = Core.Health.Runtimes.StepKind.Guided,
+            Title = title,
+            Detail = "From DevSweep's Clean up.",
+            Commands = commands,
+            NeedsAdmin = needsAdmin,
+        };
+        using System.Diagnostics.Process? process = Core.Health.Runtimes.TerminalScript.Open(Core.Health.Runtimes.TerminalScript.Write(step, Path.GetTempPath()));
+    }
+
     public ScanChanges? CompareAndRecord(IReadOnlyList<Finding> findings, long? diskFree)
     {
-        ScanChanges? changes = _snapshots.Changes(findings);
-        _snapshots.Record(findings, diskFree);
+        ArgumentNullException.ThrowIfNull(findings);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        ScanChanges? changes = _snapshots.Changes(findings, now);
+        _snapshots.Record(findings.Select(f => (f.Id, f.Title, f.Size)), diskFree, now);
         return changes;
     }
 

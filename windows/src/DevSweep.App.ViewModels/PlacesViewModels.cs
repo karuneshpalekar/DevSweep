@@ -2,6 +2,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DevSweep.App.ViewModels.Places;
 using DevSweep.App.ViewModels.Text;
+using DevSweep.Core.Health.Ports;
+using DevSweep.Core.Health.Runtimes;
+using DevSweep.Core.Health.Security;
 
 namespace DevSweep.App.ViewModels;
 
@@ -31,7 +34,7 @@ public enum ProjectsTab
     Activity,
 }
 
-/// <summary>Health: Tools and versions, Security, Ports (the M3b module, through <see cref="IHealthSource"/>).</summary>
+/// <summary>Health: Tools and versions, Security, Ports (M3b's <see cref="IHealthSource"/>, its own result types).</summary>
 public sealed partial class HealthViewModel(IHealthSource? source) : ObservableObject
 {
     [ObservableProperty]
@@ -46,6 +49,12 @@ public sealed partial class HealthViewModel(IHealthSource? source) : ObservableO
     [ObservableProperty]
     public partial string? Error { get; set; }
 
+    public IHealthSource? Source => source;
+
+    /// <summary>The tabs whose flags are on.</summary>
+    public IReadOnlyList<HealthTab> Tabs => source is null ? [HealthTab.Tools, HealthTab.Security, HealthTab.Ports]
+        : [.. ((HealthTab?[])[source.Features.Runtimes ? HealthTab.Tools : null, source.Features.Security ? HealthTab.Security : null, source.Features.Ports ? HealthTab.Ports : null]).OfType<HealthTab>()];
+
     public static string TabTitle(HealthTab tab) => tab switch
     {
         HealthTab.Tools => "Tools and versions",
@@ -53,19 +62,19 @@ public sealed partial class HealthViewModel(IHealthSource? source) : ObservableO
         _ => "Ports",
     };
 
-    public static string UnavailableText => "Health isn't part of this build yet. It will show every install of your languages and databases, which one your PATH runs and whether it's still supported, files that look like secrets, and what's listening on your ports.";
+    public static string UnavailableText => "Health is turned off. It shows every install of your languages and databases, which one a new terminal runs and whether it's still supported, files that look like secrets, and what's listening on your ports. Turn it on in Settings, Modules.";
 
-    public IReadOnlyList<SecurityItem> NeedsAction => Report is null ? [] : [.. Report.Security.Where(s => s.Level >= Level.Warning)];
+    public IReadOnlyList<SecurityFinding> NeedsAction => Report?.Security is { } s ? [.. s.Findings.Where(f => f.Level != SecurityLevel.Ok)] : [];
 
-    public IReadOnlyList<SecurityItem> LooksFine => Report is null ? [] : [.. Report.Security.Where(s => s.Level < Level.Warning)];
+    public IReadOnlyList<SecurityFinding> LooksFine => Report?.Security is { } s ? [.. s.Findings.Where(f => f.Level == SecurityLevel.Ok)] : [];
 
-    public IReadOnlyList<PortInfo> DevelopmentPorts => Report is null ? [] : [.. Report.Ports.Where(p => p.IsDevelopment)];
+    public IReadOnlyList<ListeningPort> DevelopmentPorts => Report?.Ports is { } p ? [.. p.Ports.Where(x => x.IsDevelopment)] : [];
 
-    public IReadOnlyList<PortInfo> OtherPorts => Report is null ? [] : [.. Report.Ports.Where(p => !p.IsDevelopment)];
+    public IReadOnlyList<ListeningPort> OtherPorts => Report?.Ports is { } p ? [.. p.Ports.Where(x => !x.IsDevelopment)] : [];
 
     public string Count(HealthTab tab) => Report is null ? string.Empty : tab switch
     {
-        HealthTab.Tools => Nonzero(Report.Tools.Count(t => t.Level >= Level.Warning)),
+        HealthTab.Tools => Nonzero(Report.Versions?.AttentionCount ?? 0),
         HealthTab.Security => Nonzero(NeedsAction.Count),
         _ => Nonzero(DevelopmentPorts.Count),
     };
@@ -80,12 +89,29 @@ public sealed partial class HealthViewModel(IHealthSource? source) : ObservableO
         OnPropertyChanged(nameof(OtherPorts));
     }
 
+    public void OpenFix(RuntimeStep step)
+    {
+        try
+        {
+            source?.OpenFix(step);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            Error = "Couldn't open the fix window: " + ex.Message;
+        }
+    }
+
     [RelayCommand]
     public async Task LoadAsync()
     {
         if (source is null || State == PlaceState.Loading)
         {
             return;
+        }
+
+        if (Tabs.Count > 0 && !Tabs.Contains(Tab))
+        {
+            Tab = Tabs[0];
         }
 
         State = PlaceState.Loading;

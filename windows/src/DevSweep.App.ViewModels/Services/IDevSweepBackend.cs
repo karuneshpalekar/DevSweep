@@ -1,6 +1,7 @@
 using DevSweep.App.ViewModels.Places;
 using DevSweep.Core.Cleaning;
 using DevSweep.Core.Platform.Quarantine;
+using DevSweep.Core.Health.Alerts;
 using DevSweep.Core.Review;
 using DevSweep.Core.Scanning;
 
@@ -101,6 +102,12 @@ public interface IDevSweepBackend
     Task<long> EmptyQuarantineAsync();
 
     IReadOnlyList<VolumeSpace> Volumes();
+
+    /// <summary>
+    /// Opens commands in a visible PowerShell window that lists them and waits for Enter
+    /// (M3b's TerminalScript); admin ones offer to reopen as administrator, so Windows asks (UAC).
+    /// </summary>
+    void OpenInTerminal(string title, IReadOnlyList<string> commands, bool needsAdmin);
 
     /// <summary>What grew or is new since an earlier scan (null on a first scan); records this scan.</summary>
     ScanChanges? CompareAndRecord(IReadOnlyList<Finding> findings, long? diskFree);

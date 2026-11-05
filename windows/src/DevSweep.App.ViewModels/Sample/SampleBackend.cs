@@ -1,9 +1,12 @@
 using DevSweep.App.ViewModels.Places;
 using DevSweep.App.ViewModels.Services;
 using DevSweep.Core.Cleaning;
+using DevSweep.Core.Health;
+using DevSweep.Core.Health.Runtimes;
 using DevSweep.Core.Platform;
 using DevSweep.Core.Platform.Quarantine;
 using DevSweep.Core.Platform.Recycling;
+using DevSweep.Core.Health.Alerts;
 using DevSweep.Core.Review;
 using DevSweep.Core.Safety;
 using DevSweep.Core.Scanning;
@@ -123,7 +126,17 @@ public sealed class SampleBackend : IDevSweepBackend, IHealthSource, IProjectsSo
 
     public IReadOnlyList<VolumeSpace> Volumes() => SampleData.Volumes;
 
+    public void OpenInTerminal(string title, IReadOnlyList<string> commands, bool needsAdmin)
+    {
+    }
+
     public ScanChanges? CompareAndRecord(IReadOnlyList<Finding> findings, long? diskFree) => SampleData.Changes;
+
+    HealthFeatures IHealthSource.Features { get; } = new(true, true, true);
+
+    void IHealthSource.OpenFix(RuntimeStep fix)
+    {
+    }
 
     Task<HealthReport> IHealthSource.LoadAsync(CancellationToken cancellationToken) => Task.FromResult(SampleData.Health);
 

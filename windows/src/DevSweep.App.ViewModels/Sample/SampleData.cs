@@ -1,7 +1,11 @@
 using DevSweep.App.ViewModels.Places;
 using DevSweep.Core.Cleaning;
+using DevSweep.Core.Health.Ports;
+using DevSweep.Core.Health.Runtimes;
+using DevSweep.Core.Health.Security;
 using DevSweep.Core.Platform;
 using DevSweep.Core.Platform.Quarantine;
+using DevSweep.Core.Health.Alerts;
 using DevSweep.Core.Review;
 using DevSweep.Core.Rules;
 using DevSweep.Core.Scanning;
@@ -189,38 +193,92 @@ public static class SampleData
     ];
 
     public static HealthReport Health { get; } = new(
-        [
-            new ToolInfo("Node.js",
-                [new ToolInstall("22.11.0", "nvm-windows", @"C:\Users\alex\AppData\Local\nvm\v22.11.0", true, Support.Supported),
-                 new ToolInstall("18.20.4", "nvm-windows", @"C:\Users\alex\AppData\Local\nvm\v18.20.4", false, Support.EndOfLife)],
-                "PATH runs nvm-windows' current link (C:\\nvm4w\\nodejs).", ["web-shop asks for 22 (.nvmrc)", "old-web asks for 18 (package.json engines)"],
-                ["nvm uninstall 18.20.4"]),
-            new ToolInfo("Python",
-                [new ToolInstall("3.8.10", "python.org", @"C:\Users\alex\AppData\Local\Programs\Python\Python38", true, Support.EndOfLife),
-                 new ToolInstall("3.12.7", "py launcher", @"C:\Users\alex\AppData\Local\Programs\Python\Python312", false, Support.Supported)],
-                "The Store's python.exe alias is not an install and is ignored.", ["ml-notebooks asks for 3.12 (.python-version)"],
-                ["py -3.12 -m pip --version", "winget uninstall Python.Python.3.8"]),
-            new ToolInfo(".NET SDK",
-                [new ToolInstall("10.0.100", "winget", @"C:\Program Files\dotnet\sdk\10.0.100", true, Support.Supported),
-                 new ToolInstall("8.0.404", "Visual Studio", @"C:\Program Files\dotnet\sdk\8.0.404", false, Support.EndingSoon)],
-                null, ["DevSweep asks for 10.0.100 (global.json)"], []),
-            new ToolInfo("PostgreSQL",
-                [new ToolInstall("16.4", "EDB installer", @"C:\Program Files\PostgreSQL\16", true, Support.Supported)],
-                null, [], []),
-        ],
-        [
-            new SecurityItem("AWS access key", @"C:\Users\alex\Downloads\credentials (1).csv", "A cloud key export in Downloads. Delete it once the key is stored safely.", Level.Critical),
-            new SecurityItem(".env that git would commit", @"D:\src\web-shop\.env", "Not in .gitignore; the next git add would include it.", Level.Warning),
-            new SecurityItem("GitHub recovery codes", @"C:\Users\alex\Documents\github-recovery-codes.txt", "Recovery codes belong in a password manager.", Level.Warning),
-            new SecurityItem("SSH private key", @"C:\Users\alex\.ssh\id_ed25519", "Protected by a passphrase, readable only by you.", Level.Ok),
-        ],
-        [
-            new PortInfo(5173, "node.exe", 4120, "web-shop", "0.0.0.0", true, true),
-            new PortInfo(5432, "postgres.exe", 3184, null, "127.0.0.1", false, true),
-            new PortInfo(8080, "java.exe", 9932, "inventory-api", "127.0.0.1", false, true),
-            new PortInfo(135, "svchost.exe", 1024, null, "0.0.0.0", false, false),
-            new PortInfo(5040, "svchost.exe", 7012, null, "0.0.0.0", false, false),
-        ]);
+        new VersionsResult
+        {
+            Date = Now,
+            Runtimes =
+            [
+                new RuntimeReport
+                {
+                    Id = "node",
+                    Name = "Node.js",
+                    Recommended = "22.21.1",
+                    Installs =
+                    [
+                        Install("22.21.0", "22", @"C:\Users\alex\AppData\Local\nvm\v22.21.0", InstallSource.Nvm, true, SupportStatus.Supported, "22.21.1", lts: true),
+                        Install("18.20.4", "18", @"C:\Users\alex\AppData\Local\nvm\v18.20.4", InstallSource.Nvm, false, SupportStatus.EndOfLife, "18.20.8"),
+                    ],
+                    Issues = [new RuntimeIssue(IssueLevel.Warning, "18.20.4 reached end of life on 30 April 2025; old-web still asks for 18.")],
+                    Steps =
+                    [
+                        new RuntimeStep { Id = "node:remove:1", Kind = StepKind.Remove, Title = "Remove Node.js 18.20.4", Detail = "nvm-windows installed it; nvm removes it.", Commands = ["nvm uninstall 18.20.4"] },
+                        new RuntimeStep { Id = "node:upgrade:1", Kind = StepKind.Upgrade, Title = "Update 22.21.0 to 22.21.1", Detail = "A newer patch of the same line.", Commands = ["nvm install 22.21.1", "nvm use 22.21.1"] },
+                    ],
+                    Resolution = new CommandResolution { Command = "node", Runs = @"C:\nvm4w\nodejs\node.exe", Via = "nvm-windows link" },
+                },
+                new RuntimeReport
+                {
+                    Id = "python",
+                    Name = "Python",
+                    Installs =
+                    [
+                        Install("3.12.7", "3.12", @"C:\Users\alex\AppData\Local\Programs\Python\Python312", InstallSource.PythonOrg, true, SupportStatus.Supported, "3.12.7"),
+                        Install("3.8.10", "3.8", @"C:\Users\alex\AppData\Local\Programs\Python\Python38", InstallSource.PythonOrg, false, SupportStatus.EndOfLife, "3.8.20"),
+                    ],
+                    Issues = [new RuntimeIssue(IssueLevel.Info, "The Store's python.exe alias is not an install; a new terminal runs Python 3.12.7.")],
+                    NotInstalls = [@"C:\Users\alex\AppData\Local\Microsoft\WindowsApps\python.exe (opens the Microsoft Store)"],
+                    Steps = [new RuntimeStep { Id = "python:remove:1", Kind = StepKind.Remove, Title = "Remove Python 3.8.10", Detail = "Installed from python.org for this user; removed with its own uninstaller.", Commands = ["winget uninstall --id Python.Python.3.8"] }],
+                },
+                new RuntimeReport
+                {
+                    Id = "dotnet",
+                    Name = ".NET SDK",
+                    Installs =
+                    [
+                        Install("10.0.100", "10.0", @"C:\Program Files\dotnet\sdk\10.0.100", InstallSource.DotnetInstaller, true, SupportStatus.Supported, "10.0.100", lts: true),
+                        Install("9.0.306", "9.0", @"C:\Program Files\dotnet\sdk\9.0.306", InstallSource.DotnetInstaller, false, SupportStatus.EndingSoon, "9.0.306"),
+                    ],
+                    Issues = [new RuntimeIssue(IssueLevel.Info, ".NET 9 support ends on 10 November 2026.")],
+                },
+                new RuntimeReport
+                {
+                    Id = "postgresql",
+                    Name = "PostgreSQL",
+                    Installs = [Install("16.4", "16", @"C:\Program Files\PostgreSQL\16", InstallSource.PostgresInstaller, true, SupportStatus.Supported, "16.10")],
+                    Issues = [new RuntimeIssue(IssueLevel.Info, "16.10 is available in the same line.")],
+                },
+            ],
+            Projects =
+            [
+                new ProjectRequirement { Project = "web-shop", Path = @"D:\src\web-shop", Tool = "node", ToolName = "Node.js", Spec = "22", File = ".nvmrc", Message = "22.21.0 is installed." },
+                new ProjectRequirement { Project = "old-web", Path = @"D:\src\old-web", Tool = "node", ToolName = "Node.js", Spec = ">=18 <19", File = "package.json", Status = RequirementStatus.EndOfLife, Message = "Asks for Node.js 18, which is past end of life." },
+                new ProjectRequirement { Project = "ml-notebooks", Path = @"D:\src\ml-notebooks", Tool = "python", ToolName = "Python", Spec = "3.13", File = ".python-version", Status = RequirementStatus.NotInstalled, Message = "Python 3.13 isn't installed.", Fix = ["winget install --id Python.Python.3.13"] },
+            ],
+        },
+        new SecurityResult
+        {
+            Date = Now,
+            Looked = [@"C:\Users\alex\Downloads", @"C:\Users\alex\Desktop", @"C:\Users\alex\Documents", @"D:\src"],
+            Findings =
+            [
+                Secret(SecurityKind.CloudAccessKeys, SecurityLevel.Critical, "AWS access keys", @"C:\Users\alex\Downloads\credentials (1).csv", "Plain text", "Anyone with this file can use your AWS account.", "Store the key in a password manager or the AWS CLI's credentials file, then delete this file."),
+                Secret(SecurityKind.EnvFile, SecurityLevel.Warning, ".env file", @"D:\src\web-shop\.env", "Not ignored", "It isn't in .gitignore, so one git add . away from being committed.", "Add .env to .gitignore."),
+                Secret(SecurityKind.RecoveryCodes, SecurityLevel.Warning, "GitHub recovery codes", @"C:\Users\alex\Documents\github-recovery-codes.txt", "Plain text", "Recovery codes let anyone past your two-factor sign-in.", "Keep them in a password manager, then delete this file."),
+                Secret(SecurityKind.PrivateKey, SecurityLevel.Ok, "SSH private key", @"C:\Users\alex\Documents\keys\deploy_ed25519", "Passphrase protected", "Protected by a passphrase.", "Nothing to do; consider moving it to .ssh."),
+            ],
+        },
+        new PortsResult
+        {
+            Date = Now,
+            OthersHidden = 31,
+            Ports =
+            [
+                Port(5173, 4120, "node", "Node.js", @"D:\src\web-shop", Exposure.AllInterfaces, true, "Allowed through Windows Firewall on Private networks"),
+                Port(5432, 3184, "postgres", "PostgreSQL", null, Exposure.Loopback, true, "Only this PC"),
+                Port(8080, 9932, "java", "Java", @"D:\src\inventory-api", Exposure.Loopback, true, "Only this PC"),
+                Port(5040, 7012, "svchost", "Windows service host", null, Exposure.AllInterfaces, false, "Blocked by Windows Firewall"),
+            ],
+        });
 
     public static ProjectsReport Projects { get; } = new(
         [
@@ -269,6 +327,45 @@ public static class SampleData
             Blockers = blockers ?? [],
             BlockingApps = blockers ?? [],
         };
+
+    private static Installation Install(string version, string cycle, string path, InstallSource source, bool isDefault, SupportStatus support, string latest, bool lts = false) => new()
+    {
+        Version = version,
+        Cycle = cycle,
+        Path = path,
+        Source = source,
+        IsDefault = isDefault,
+        Support = support,
+        LatestInCycle = latest,
+        IsLts = lts,
+    };
+
+    private static SecurityFinding Secret(SecurityKind kind, SecurityLevel level, string title, string path, string status, string why, string whatToDo) => new()
+    {
+        Kind = kind,
+        Level = level,
+        Title = title,
+        Path = path,
+        Status = status,
+        Why = why,
+        WhatToDo = whatToDo,
+    };
+
+    private static ListeningPort Port(int port, int pid, string process, string label, string? folder, Exposure exposure, bool development, string firewall) => new()
+    {
+        Port = port,
+        Protocol = PortProtocol.Tcp,
+        Pid = pid,
+        ProcessName = process,
+        Label = label,
+        Folder = folder,
+        FolderSource = folder is null ? FolderSource.Unknown : FolderSource.WorkingDirectory,
+        Addresses = [exposure == Exposure.Loopback ? "127.0.0.1" : "0.0.0.0"],
+        Exposure = exposure,
+        IsDevelopment = development,
+        OwnedByYou = development,
+        Firewall = new FirewallVerdict(true, [], firewall),
+    };
 
     private static CheckReport CheckRow(string id, string title, string category, string kind, double seconds, double measure, int found) => new()
     {
