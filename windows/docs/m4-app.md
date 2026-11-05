@@ -109,7 +109,22 @@ uploaded as `app-screenshots`.
 
 ## Numbers from CI
 
-(see the end of this file, filled in from the green run)
+CI run [42058684191](https://github.com/karuneshpalekar/DevSweep/actions/runs/42058684191)
+(`windows-latest`, Windows Server 2025), app job:
+
+| | |
+|---|---|
+| Build | Release, warnings as errors (CsWinRT AOT analyzers, trim/AOT analyzers, code style), no warnings |
+| View-model tests | 39 passed (Review planner against a fake machine, size badges for every confidence, kinds, places from modules, Review flow re-measure → groups → clean → reconciliation, Home, History restore/empty, settings round trip, the real engine's modules: Health off by default, on with `+module:health`, its Ports tab off with `-module:health.ports`) |
+| Native AOT publish | `DevSweep.exe` 17,675,264 bytes; folder 294 files, 212,735,548 bytes (Windows App SDK runtime included, self-contained); zip 71,262,937 bytes; no managed `DevSweep.dll`; `DevSweep.pri` built |
+| `--smoke` | exit 0 in 1.8 s: 4 modules (locations, inventory, cleanup, packs; health off), 83 rules from 16 packs, 0 errors, 5 places rendered in 1.4 s; with `+module:health`: 5 modules, 6 places (Health included) in 1.5 s |
+| Screenshots | 39 PNGs of the app window (1028×779 on the runner's 1024×768 desktop): 18 screens × light and dark, plus home, cleanup and review in high contrast (`AccessibilitySettings.HighContrast` = true while they were taken), 38-112 KB each |
+
+The first runs found two things only the real runtime shows: an unpackaged app with no XAML pages
+gets no `resources.pri` unless `EnableMsixTooling` is set (WinUI then cannot find its own
+`themeresources.xaml`), and under Native AOT a `Style` read back out of a `ResourceDictionary` does not
+come back typed, so each style is parsed on its own (`Theme.Style`) and accent buttons take
+`{ThemeResource AccentButtonStyle}` from XAML.
 
 ## Deviations and gaps
 
