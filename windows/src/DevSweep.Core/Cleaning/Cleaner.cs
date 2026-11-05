@@ -190,8 +190,7 @@ public sealed class Cleaner(
             RecycleOutcome recycled = RecycleBin.Recycle(assessment);
             if (!recycled.Recycled)
             {
-                errors.Add($"{item.Path}: {recycled.Error}");
-                return null;
+                return QuarantineAfterRefusal(item.Path, size, recycled.Error, errors);
             }
 
             RecycledItem? landed = RecycleBinIndex.FindNewest(item.Path, started.AddSeconds(-5));
@@ -206,10 +205,44 @@ public sealed class Cleaner(
         }
 
         // Would be permanent, unknown, or too long a path for the shell: DevSweep's own quarantine.
-        QuarantineResult result = quarantine.Move(item, size, assessment.Reason);
+        return Quarantine(item, size, assessment.Reason, errors);
+    }
+
+    /// <summary>
+    /// The shell refused to recycle (it does for some read-only files, such as the objects git
+    /// writes): when the item is still there whole (same file count as measured before), it goes
+    /// to the quarantine instead, so it stays restorable. A partly recycled item is reported, not moved.
+    /// </summary>
+    private MovedItem? QuarantineAfterRefusal(string path, WalkResult before, string? error, List<string> errors)
+    {
+        string reason = $"the Recycle Bin refused it ({error})";
+        SafetyVerdict verdict = guard.TryOpen(path, out VerifiedItem? again);
+        if (again is null)
+        {
+            errors.Add($"{path}: {error} It could not be opened again for the quarantine: {verdict.Reason}");
+            return null;
+        }
+
+        using (again)
+        {
+            WalkResult after = DirectoryWalker.Measure(again.Path);
+            if (after.Files != before.Files)
+            {
+                errors.Add(string.Create(CultureInfo.InvariantCulture,
+                    $"{path}: {error} Part of it may be in the Recycle Bin ({before.Files - after.Files:N0} of {before.Files:N0} files); the rest was left where it is."));
+                return null;
+            }
+
+            return Quarantine(again, after, reason, errors);
+        }
+    }
+
+    private MovedItem? Quarantine(VerifiedItem item, WalkResult size, string? reason, List<string> errors)
+    {
+        QuarantineResult result = quarantine.Move(item, size, reason);
         if (!result.Moved || result.Entry is null)
         {
-            errors.Add($"{item.Path}: the Recycle Bin would not keep it ({assessment.Reason}) and it could not be quarantined ({result.Message}). Nothing was changed.");
+            errors.Add($"{item.Path}: the Recycle Bin would not keep it ({reason}) and it could not be quarantined ({result.Message}). Nothing was changed.");
             return null;
         }
 
@@ -220,7 +253,7 @@ public sealed class Cleaner(
             Location = result.Entry.StoredPath,
             QuarantineId = result.Entry.Id,
             Bytes = size.Bytes,
-            Note = assessment.Reason,
+            Note = reason,
         };
     }
 

@@ -20,9 +20,14 @@ public static class CommandRunner
     /// <summary>Output kept per stream; the rest is dropped (with a note).</summary>
     public const int MaxCapturedChars = 64 * 1024;
 
-    public static async Task<CommandResult> RunAsync(IReadOnlyList<string> argv, TimeSpan timeout, CancellationToken cancellationToken = default)
+    public static Task<CommandResult> RunAsync(IReadOnlyList<string> argv, TimeSpan timeout, CancellationToken cancellationToken = default)
+        => RunAsync(argv, timeout, CommandOptions.Default, cancellationToken);
+
+    /// <summary>Runs with extra environment variables and a different output cap (M3c: git and gh).</summary>
+    public static async Task<CommandResult> RunAsync(IReadOnlyList<string> argv, TimeSpan timeout, CommandOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(argv);
+        ArgumentNullException.ThrowIfNull(options);
         if (argv.Count == 0 || string.IsNullOrWhiteSpace(argv[0]))
         {
             return new CommandResult(-1, string.Empty, string.Empty, false, TimeSpan.Zero, "No command to run.");
@@ -43,6 +48,16 @@ public static class CommandRunner
             start.ArgumentList.Add(argument);
         }
 
+        foreach ((string name, string? value) in options.Environment)
+        {
+            start.Environment[name] = value;
+        }
+
+        if (options.WorkingDirectory is { } directory)
+        {
+            start.WorkingDirectory = directory;
+        }
+
         var clock = Stopwatch.StartNew();
         using var process = new Process { StartInfo = start };
         try
@@ -55,8 +70,8 @@ public static class CommandRunner
         }
 
         process.StandardInput.Close();
-        Task<string> stdout = ReadCappedAsync(process.StandardOutput);
-        Task<string> stderr = ReadCappedAsync(process.StandardError);
+        Task<string> stdout = ReadCappedAsync(process.StandardOutput, options.MaxCapturedChars);
+        Task<string> stderr = ReadCappedAsync(process.StandardError, options.MaxCapturedChars);
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         limit.CancelAfter(timeout);
         bool timedOut = false;
@@ -79,7 +94,7 @@ public static class CommandRunner
             clock.Elapsed);
     }
 
-    private static async Task<string> ReadCappedAsync(StreamReader reader)
+    private static async Task<string> ReadCappedAsync(StreamReader reader, int maxChars)
     {
         var text = new StringBuilder();
         char[] buffer = new char[4096];
@@ -87,7 +102,7 @@ public static class CommandRunner
         int read;
         while ((read = await reader.ReadAsync(buffer).ConfigureAwait(false)) > 0)
         {
-            int keep = Math.Min(read, MaxCapturedChars - text.Length);
+            int keep = Math.Min(read, maxChars - text.Length);
             if (keep > 0)
             {
                 text.Append(buffer, 0, keep);
@@ -103,4 +118,19 @@ public static class CommandRunner
 
         return text.ToString();
     }
+}
+
+/// <summary>How <see cref="CommandRunner"/> starts a program, beyond its arguments.</summary>
+public sealed record CommandOptions
+{
+    public static CommandOptions Default { get; } = new();
+
+    /// <summary>Variables set (or, with a null value, removed) for the child only.</summary>
+    public IReadOnlyDictionary<string, string?> Environment { get; init; } = new Dictionary<string, string?>();
+
+    /// <summary>Output kept per stream; the rest is dropped and <c>[output truncated]</c> appended.</summary>
+    public int MaxCapturedChars { get; init; } = CommandRunner.MaxCapturedChars;
+
+    /// <summary>The child's working folder; null keeps this process's.</summary>
+    public string? WorkingDirectory { get; init; }
 }
