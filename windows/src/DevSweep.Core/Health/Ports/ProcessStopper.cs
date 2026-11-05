@@ -87,14 +87,16 @@ public sealed class ProcessStopper(IProcessDetails details, Func<int, bool>? sen
 
         string name = process.ProcessName;
         string method;
-        if (process.MainWindowHandle != IntPtr.Zero)
+        // A console program first gets Ctrl+C (closing its console window would also end everything
+        // else running in that terminal); a windowed one is asked to close its window.
+        if (_sendCtrlC(pid))
+        {
+            method = "sent Ctrl+C to its console";
+        }
+        else if (process.MainWindowHandle != IntPtr.Zero)
         {
             PInvoke.PostMessage((HWND)process.MainWindowHandle, PInvoke.WM_CLOSE, default, default);
             method = "asked its window to close";
-        }
-        else if (_sendCtrlC(pid))
-        {
-            method = "sent Ctrl+C to its console";
         }
         else
         {
