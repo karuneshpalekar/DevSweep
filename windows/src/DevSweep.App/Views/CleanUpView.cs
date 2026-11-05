@@ -134,7 +134,6 @@ internal static class CleanUpView
                 : null;
             if (all is not null)
             {
-                all.Style = Ui.Style("DefaultButtonStyle");
                 all.Padding = new Thickness(10, 2, 10, 2);
             }
 

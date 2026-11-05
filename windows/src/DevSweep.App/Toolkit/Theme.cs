@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Markup;
 
 namespace DevSweep.App.Toolkit;
@@ -131,6 +132,11 @@ internal static class Theme
             <Setter Property="Height" Value="1" />
             <Setter Property="Background" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
           </Style>
+          <Style x:Key="DsFooterBar" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="0,1,0,0" />
+            <Setter Property="Padding" Value="24,14,24,14" />
+          </Style>
           <Style x:Key="DsInspector" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource LayerFillColorDefaultBrush}" />
             <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
@@ -228,19 +234,35 @@ internal static class Theme
         </ResourceDictionary>
         """;
 
-    /// <summary>Parses the dictionary and merges it after the Fluent control resources.</summary>
-    /// <summary>The parsed dictionary (looked up directly by <see cref="Ui"/>).</summary>
-    public static ResourceDictionary? Dictionary { get; private set; }
+    private const string Namespaces = "xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\"";
 
+    private static readonly Dictionary<string, Style> Styles = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Merges the dictionary (so the theme dictionaries resolve) and parses every style on its own
+    /// for the C# views: a value read back out of a ResourceDictionary does not come back as a typed
+    /// <see cref="Style"/> under Native AOT, while the object XamlReader returns does.
+    /// </summary>
     public static void Load(Application app)
     {
         ArgumentNullException.ThrowIfNull(app);
-        var dictionary = (ResourceDictionary)XamlReader.Load(Xaml);
-        app.Resources.MergedDictionaries.Add(dictionary);
-        Dictionary = dictionary;
-        if (!dictionary.ContainsKey("DsBody"))
+        app.Resources.MergedDictionaries.Add((ResourceDictionary)XamlReader.Load(Xaml));
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(Xaml, "<Style x:Key=\"(?<key>[^\"]+)\"(?<rest>.*?)</Style>", System.Text.RegularExpressions.RegexOptions.Singleline))
         {
-            throw new InvalidOperationException($"DevSweep's styles did not load ({dictionary.Count} entries).");
+            string text = $"<Style {Namespaces}{match.Groups["rest"].Value}</Style>";
+            Styles[match.Groups["key"].Value] = (Style)XamlReader.Load(text);
+        }
+
+        if (!Styles.ContainsKey("DsBody"))
+        {
+            throw new InvalidOperationException("DevSweep's styles did not load.");
         }
     }
+
+    public static Style Style(string key)
+        => Styles.TryGetValue(key, out Style? style) ? style : throw new InvalidOperationException($"Style {key} is missing.");
+
+    /// <summary>A button with the Fluent accent style (resolved by ThemeResource when it enters the tree).</summary>
+    public static Button AccentButton()
+        => (Button)XamlReader.Load($"<Button {Namespaces} Style=\"{{ThemeResource AccentButtonStyle}}\" />");
 }

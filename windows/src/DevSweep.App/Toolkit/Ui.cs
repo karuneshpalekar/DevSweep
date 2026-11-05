@@ -61,29 +61,7 @@ internal sealed partial class Subscriptions : IDisposable
 /// <summary>Small builders for the C#-built views. Every interactive control gets an automation name.</summary>
 internal static class Ui
 {
-    public static T Resource<T>(string key)
-        where T : class
-        => Find(key) as T ?? throw new InvalidOperationException($"Resource {key} is missing.");
-
-    /// <summary>DevSweep's own styles first (held by <see cref="Theme"/>), then the Fluent resources through the app's lookup.</summary>
-    private static object? Find(string key)
-    {
-        if (Theme.Dictionary is { } own && own.ContainsKey(key))
-        {
-            return own[key];
-        }
-
-        try
-        {
-            return Application.Current.Resources[key];
-        }
-        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or KeyNotFoundException or ArgumentException)
-        {
-            return null;
-        }
-    }
-
-    public static Style Style(string key) => Resource<Style>(key);
+    public static Style Style(string key) => Theme.Style(key);
 
     public static TextBlock Text(string text, string style = "DsBody", int maxLines = 0)
     {
@@ -180,11 +158,8 @@ internal static class Ui
 
     public static Button Button(string text, Action click, string? automationName = null, bool accent = false)
     {
-        var button = new Button { Content = text };
-        if (accent)
-        {
-            button.Style = Style("AccentButtonStyle");
-        }
+        Button button = accent ? Theme.AccentButton() : new Button();
+        button.Content = text;
 
         AutomationProperties.SetName(button, automationName ?? text);
         button.Click += (_, _) => click();

@@ -43,9 +43,7 @@ internal static class ReviewSheet
         Button done = Ui.Button("Done", vm.Close, accent: true);
         var footerBar = new Border
         {
-            Padding = new Thickness(24, 14, 24, 14),
-            BorderThickness = new Thickness(0, 1, 0, 0),
-            BorderBrush = Ui.Resource<Microsoft.UI.Xaml.Media.Brush>("DividerStrokeColorDefaultBrush"),
+            Style = Ui.Style("DsFooterBar"),
             Child = Ui.Row(footer, cancel, clean, history, done),
         };
         Grid.SetRow(footerBar, 2);
