@@ -26,11 +26,12 @@ internal static class Program
             : Environment.GetEnvironmentVariable("DEVSWEEP_SHOTS") is { Length: > 0 } ? RunMode.Screenshots
             : RunMode.Normal;
         WinRT.ComWrappersSupport.InitializeComWrappers();
-        Application.Start(_ =>
+        Application.Start(p =>
         {
             var context = new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread());
             SynchronizationContext.SetSynchronizationContext(context);
-            _ = new App(mode);
+            var app = new App(mode);
+            GC.KeepAlive(app);
         });
         return ExitCode;
     }

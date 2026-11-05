@@ -2,3 +2,7 @@
 [*.cs]
 dotnet_diagnostic.CA2007.severity = none
 dotnet_diagnostic.CA1303.severity = none
+# Views return the element type they are composed into; concrete return types add nothing.
+dotnet_diagnostic.CA1859.severity = none
+# MainWindow disposes its subscriptions when the window closes (WinUI windows are not IDisposable).
+dotnet_diagnostic.CA1001.severity = none

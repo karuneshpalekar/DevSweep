@@ -7,6 +7,7 @@ using DevSweep.Core.Modules;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Markup;
+using Microsoft.UI.Xaml.XamlTypeInfo;
 
 namespace DevSweep.App;
 
@@ -121,7 +122,7 @@ internal sealed partial class App : Application, IXamlMetadataProvider
         Directory.CreateDirectory(folder);
         Log.File = Path.Join(folder, "shots.log");
         var settings = new AppSettingsStore(null);
-        settings.Update(s => s with { WelcomeDone = true, ProjectFolders = [@"D:\src", @"D:\work"], Ignored = [new IgnoredItem("chrome-profiles:Profile 3", "Chrome profile 3 (unused)")] });
+        settings.Update(s => s with { WelcomeDone = true, ProjectFolders = new List<string> { @"D:\src", @"D:\work" }, Ignored = new[] { new IgnoredItem("chrome-profiles:Profile 3", "Chrome profile 3 (unused)") } });
         var model = new MainViewModel(new SampleBackend(), settings);
         _window = new MainWindow(model, screenshots: true);
         _window.Activate();

@@ -12,7 +12,7 @@ namespace DevSweep.App.Toolkit;
 /// Change subscriptions owned by one built view; disposed when the view is replaced, so
 /// view models never keep dead views alive.
 /// </summary>
-internal sealed class Subscriptions : IDisposable
+internal sealed partial class Subscriptions : IDisposable
 {
     private readonly List<Action> _undo = [];
 
