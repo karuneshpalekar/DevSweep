@@ -139,10 +139,13 @@ Say 'Upgrade in place over the install (running DevSweep, a stale file, desktop 
 Set-Content "$app\stale-from-an-older-version.dll" 'old'
 New-Item -ItemType Directory -Force "$app\old-folder" | Out-Null
 Set-Content "$app\old-folder\old.txt" 'old'
-$running = Start-Process -FilePath "$app\DevSweep.exe" -PassThru -WorkingDirectory $env:USERPROFILE
-Start-Sleep -Seconds 5
+# --background is what the login entry passes: a long-lived tray instance with no window (M5). It must still
+# be running after 8 s (a GUI that exits quickly proves nothing), and Setup must stop it by name.
+$running = Start-Process -FilePath "$app\DevSweep.exe" -ArgumentList '--background' -PassThru -WorkingDirectory $env:USERPROFILE
+Start-Sleep -Seconds 8
 $wasRunning = -not $running.HasExited
-"  DevSweep started for the upgrade: still running after 5 s = $wasRunning"
+"  DevSweep (tray, --background) started for the upgrade: still running after 8 s = $wasRunning"
+Assert $wasRunning 'the tray instance (DevSweep.exe --background) stays running until Setup stops it
 Install -Extra @('/TASKS=desktopicon') -Name 'install-2-upgrade'
 if ($running.HasExited) { "  the GUI instance had exited with code $($running.ExitCode)" }
 Write-Host '  data folder now:'; Get-ChildItem $data -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object { "    $($_.FullName.Substring($data.Length))" }
