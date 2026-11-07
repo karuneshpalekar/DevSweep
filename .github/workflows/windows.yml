@@ -488,3 +488,77 @@ jobs:
           path: windows/TestResults
           if-no-files-found: warn
   # ---- end M4 ----
+
+  # ---- M6: packaging (self-contained block): installer built and tested as admin and as a standard user ----
+  installer:
+    name: Installer (build, install, upgrade, uninstall)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: windows/global.json
+
+      - name: Package (release.ps1, nothing is published)
+        id: package
+        run: ./scripts/release.ps1
+
+      - name: Installer - install, smoke, upgrade, uninstall as the runner (administrator account)
+        run: ./scripts/test-installer.ps1 -Setup "${{ steps.package.outputs.setup }}" -Version "${{ steps.package.outputs.version }}" -LogDirectory artifacts/installer-test/admin
+
+      - name: Installer - the same as a fresh standard user
+        run: >
+          ./scripts/test-installer-as-standard-user.ps1
+          -Setup "${{ steps.package.outputs.setup }}" -Version "${{ steps.package.outputs.version }}"
+          -ResultsDirectory artifacts/installer-test/standard-user
+
+      - name: Portable zip and CLI zip contents
+        run: |
+          $out = "${{ steps.package.outputs.outdir }}"
+          Get-ChildItem $out -File | ForEach-Object { "{0,-48} {1,14:N0} bytes" -f $_.Name, $_.Length }
+          Get-Content "$out/SHA256SUMS.txt"
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          foreach ($zip in Get-ChildItem $out -Filter *.zip) {
+            $names = [IO.Compression.ZipFile]::OpenRead($zip.FullName).Entries.FullName
+            "{0}: {1} entries; first: {2}" -f $zip.Name, $names.Count, (($names | Select-Object -First 3) -join ', ')
+            if (-not ($names | Where-Object { $_ -like '*README*' })) { throw "$($zip.Name) has no README" }
+          }
+          $portable = Join-Path $env:RUNNER_TEMP 'portable'
+          Expand-Archive (Get-ChildItem $out -Filter *-portable.zip).FullName $portable
+          $exe = Get-ChildItem $portable -Recurse -Filter DevSweep.exe | Select-Object -First 1
+          $p = Start-Process $exe.FullName -ArgumentList '--smoke' -PassThru
+          if (-not $p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force; throw 'portable --smoke did not exit' }
+          $p.WaitForExit()
+          if ($p.ExitCode -ne 0) { throw "the portable DevSweep.exe --smoke failed ($($p.ExitCode))" }
+          "portable --smoke: exit 0"
+          $cli = Join-Path $env:RUNNER_TEMP 'clizip'
+          Expand-Archive (Get-ChildItem $out -Filter devsweep-cli-*.zip).FullName $cli
+          & (Get-ChildItem $cli -Recurse -Filter devsweep.exe).FullName rules validate
+          if ($LASTEXITCODE -ne 0) { throw "devsweep.exe from the CLI zip failed ($LASTEXITCODE)" }
+
+      - name: Upload release candidate files
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: release-candidate
+          path: |
+            windows/artifacts/release/*/*.exe
+            windows/artifacts/release/*/*.zip
+            windows/artifacts/release/*/SHA256SUMS.txt
+          if-no-files-found: warn
+
+      - name: Upload installer test logs
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: installer-test-logs
+          path: windows/artifacts/installer-test
+          if-no-files-found: warn
+  # ---- end M6 ----

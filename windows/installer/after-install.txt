@@ -1,0 +1,29 @@
+DevSweep is installed.
+
+About the Windows warning
+-------------------------
+DevSweep for Windows is not code-signed yet, so Windows SmartScreen may say
+"Windows protected your PC" the first time you run the installer or DevSweep.
+That is expected for an unsigned download. To continue:
+
+  1. Click "More info".
+  2. Click "Run anyway".
+
+You only need to do this once per downloaded file. The SHA256SUMS.txt on the
+release page lets you check that your download is the one that was published.
+
+What DevSweep needs
+-------------------
+No administrator rights. It runs as you, reads file and folder information
+only, and nothing is cleaned until you review and confirm. Steps that would
+need an administrator are shown as a command for you to run yourself.
+
+Your data
+---------
+History, settings and the quarantine live in %LOCALAPPDATA%\DevSweep.
+Uninstalling DevSweep keeps them unless you choose to delete them.
+
+Upgrading
+---------
+Run a newer setup over this one. It closes DevSweep, replaces the program
+files and keeps your data.

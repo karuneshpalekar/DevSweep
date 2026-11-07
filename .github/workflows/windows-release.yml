@@ -1,0 +1,120 @@
+name: windows-release
+
+# Manual only: never runs on push. Builds the Windows installer, portable zip, CLI zip and
+# SHA256SUMS.txt and uploads them as workflow artifacts. A GitHub release is created only when
+# "publish" is ticked, and it is a DRAFT unless "draft" is unticked too.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version, like 0.1.0 (empty: the value in windows/version.props)'
+        required: false
+        default: ''
+        type: string
+      publish:
+        description: 'Create a GitHub release (windows-v<version>) with the files'
+        required: false
+        default: false
+        type: boolean
+      draft:
+        description: 'With publish: create the release as a draft'
+        required: false
+        default: true
+        type: boolean
+      run_tests:
+        description: 'Also run the unit, accuracy and app tests (slow; the normal workflow already does)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  build:
+    name: Build and package (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    outputs:
+      version: ${{ steps.package.outputs.version }}
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: windows/global.json
+
+      - name: Package
+        id: package
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_RUN_TESTS: ${{ inputs.run_tests }}
+        run: |
+          $opts = @{}
+          if ($env:INPUT_VERSION) { $opts.Version = $env:INPUT_VERSION }
+          if ($env:INPUT_RUN_TESTS -eq 'true') { $opts.RunTests = $true }
+          ./scripts/release.ps1 @opts
+
+      - name: Test the installer (install, smoke, upgrade, uninstall)
+        run: ./scripts/test-installer.ps1 -Setup "${{ steps.package.outputs.setup }}" -Version "${{ steps.package.outputs.version }}" -LogDirectory artifacts/installer-test
+
+      - name: Upload release files
+        uses: actions/upload-artifact@v5
+        with:
+          name: devsweep-windows-${{ steps.package.outputs.version }}
+          path: |
+            windows/artifacts/release/*/*.exe
+            windows/artifacts/release/*/*.zip
+            windows/artifacts/release/*/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Upload installer test logs
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: installer-test-logs
+          path: windows/artifacts/installer-test
+          if-no-files-found: warn
+
+  release:
+    name: Create the GitHub release
+    needs: build
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: devsweep-windows-${{ needs.build.outputs.version }}
+          path: files
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+          INPUT_DRAFT: ${{ inputs.draft }}
+        run: |
+          set -euo pipefail
+          ls -lR files
+          flags=()
+          if [ "$INPUT_DRAFT" = "true" ]; then flags+=(--draft); fi
+          case "$VERSION" in *-*) flags+=(--prerelease);; esac
+          notes="windows/docs/release-notes/$VERSION.md"
+          [ -f "$notes" ] || { echo "missing $notes"; exit 1; }
+          # --target makes the tag at this commit when the release is published; no tag is pushed here.
+          gh release create "windows-v$VERSION" --target "$GITHUB_SHA" --title "DevSweep for Windows $VERSION" \
+            --notes-file "$notes" "${flags[@]}" \
+            $(find files -type f \( -name '*.exe' -o -name '*.zip' -o -name SHA256SUMS.txt \))
