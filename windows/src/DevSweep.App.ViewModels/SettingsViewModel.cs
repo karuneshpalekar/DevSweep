@@ -171,7 +171,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public string DataFolder => _backend.DataFolder;
 
-    public static string Privacy => "DevSweep never sends anything about your PC anywhere. Scans read file and folder information only (names, sizes, dates), never the contents of your documents, and nothing is cleaned until you review and confirm. It runs as you, with no administrator rights; anything that needs one is shown as a command you run yourself.";
+    public static string Privacy => "DevSweep never sends anything about your PC anywhere. The only network requests are for public support dates from endoflife.date (Health) and, unless you turn it off in Updates, the latest release from GitHub; neither carries anything about your PC. Scans read file and folder information only (names, sizes, dates), never the contents of your documents, and nothing is cleaned until you review and confirm. It runs as you, with no administrator rights; anything that needs one is shown as a command you run yourself.";
 
     partial void OnAppearanceChanged(AppearanceMode value) => _settings.Update(s => s with { Appearance = value });
 
@@ -305,6 +305,21 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             await _background.Updates.CheckNowAsync();
         }
+    }
+
+    /// <summary>Opens the release page of the update the last check found.</summary>
+    public void OpenUpdateRelease() => _background?.Updates.OpenRelease();
+
+    /// <summary>What the "Send a test notification" button said happened.</summary>
+    [ObservableProperty]
+    public partial string? TestToastText { get; set; }
+
+    /// <summary>Shows a toast now, so the user can see Windows will display DevSweep's alerts.</summary>
+    [RelayCommand]
+    public void SendTestToast()
+    {
+        bool shown = _background?.Toasts.Show(new ToastMessage("DevSweep can send notifications", "This is a test. Click it to open DevSweep.", ToastTarget.Home)) ?? false;
+        TestToastText = shown ? "Sent. If you don't see it, check Windows' notification settings (and Focus)." : NotificationsText;
     }
 
     /// <summary>The update the last check found, if any (the sidebar card shows it too).</summary>

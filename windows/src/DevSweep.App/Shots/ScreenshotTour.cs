@@ -1,5 +1,7 @@
 using System.Runtime.InteropServices;
 using DevSweep.App.ViewModels;
+using DevSweep.App.ViewModels.Background;
+using DevSweep.App.ViewModels.Settings;
 using DevSweep.App.ViewModels.Sample;
 using DevSweep.Core.Cleaning;
 using DevSweep.Core.Scanning;
@@ -23,6 +25,14 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         await model.Health.LoadAsync();
         await model.Projects.LoadAsync();
         model.History.Refresh();
+        // The sidebar's update card and the tray menu's alerts, from the sample data (no network).
+        await model.Background.Updates.CheckNowAsync();
+        model.Background.Alerts.RefreshActive();
+        foreach (TrayItem item in model.Background.Tray.Items())
+        {
+            Log.Write("tray menu: " + (item.IsSeparator ? "----" : item.Text + (item.Enabled ? string.Empty : " (not clickable)")));
+        }
+
         foreach ((ElementTheme theme, string suffix) in new[] { (ElementTheme.Light, "light"), (ElementTheme.Dark, "dark") })
         {
             window.SetTheme(theme);
@@ -104,7 +114,13 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         model.Go("history");
         await ShotAsync("history", suffix);
         model.Go("settings");
-        await ShotAsync("settings", suffix);
+        foreach (SettingsTab tab in Enum.GetValues<SettingsTab>())
+        {
+            model.SettingsPage.Tab = tab;
+            await ShotAsync("settings-" + tab.ToString().ToLowerInvariant(), suffix);
+        }
+
+        model.SettingsPage.Tab = SettingsTab.General;
     }
 
     /// <summary>The scan progress panel, fed with progress events the way a real scan sends them.</summary>

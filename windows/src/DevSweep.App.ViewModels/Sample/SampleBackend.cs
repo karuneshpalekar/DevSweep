@@ -1,3 +1,4 @@
+using DevSweep.App.ViewModels.Background;
 using DevSweep.App.ViewModels.Places;
 using DevSweep.App.ViewModels.Services;
 using DevSweep.App.ViewModels.Updates;
@@ -190,4 +191,12 @@ public sealed class SampleUpdateChecker : IUpdateChecker
             UpdateOutcome.Available,
             new UpdateInfo("0.2.0", "windows-v0.2.0", new Uri("https://github.com/karuneshpalekar/DevSweep/releases/tag/windows-v0.2.0"), "Tray icon, scheduled scans and alerts.", SampleData.Now),
             "Version 0.2.0 is available."));
+}
+
+/// <summary>Says toasts work and swallows them (screenshots).</summary>
+public sealed class SampleToasts : IToastNotifier
+{
+    public ToastAvailability Availability => ToastAvailability.Available;
+
+    public bool Show(ToastMessage message) => true;
 }

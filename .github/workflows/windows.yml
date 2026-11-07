@@ -446,6 +446,16 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "DevSweep --smoke with Health and Projects failed ($($p.ExitCode))" }
           if (-not (Select-String -Path (Join-Path $env:TEMP 'devsweep-app-smoke.txt') -Pattern 'places \(home, cleanup, projects, health, history, settings\)' -Quiet)) { throw "Projects and Health places were not rendered" }
 
+      # ---- M5: tray, toast and login checks on the smoke log ----
+      - name: App - tray icon, toast payload and login entry (smoke log)
+        run: |
+          $log = Join-Path $env:TEMP 'devsweep-app-smoke.txt'
+          Get-Content $log | Select-String -Pattern '^\S+ (tray|toast|login):' | ForEach-Object { $_.Line }
+          foreach ($needle in 'tray: ok \(created and disposed\)', 'toast: payload built', 'login: open at login is Off') {
+            if (-not (Select-String -Path $log -Pattern $needle -Quiet)) { throw "smoke log has no '$needle'" }
+          }
+      # ---- end M5 ----
+
       - name: App - screenshots (light, dark, high contrast)
         env:
           DEVSWEEP_SHOTS_HIGH_CONTRAST: '1'
@@ -463,6 +473,17 @@ jobs:
           if ($png.Count -lt 30) { throw "expected at least 30 screenshots" }
           $small = @($png | Where-Object Length -lt 10000)
           if ($small.Count -gt 0) { throw "suspiciously small screenshots (blank?): $($small.Name -join ', ')" }
+
+      # ---- M5: the new Settings pages and the sidebar update card are in the tour ----
+      - name: App - Settings pages in the screenshot tour
+        run: |
+          $png = @(Get-ChildItem artifacts/screenshots -Filter 'settings-*.png')
+          "{0} Settings screenshots" -f $png.Count
+          if ($png.Count -lt 10) { throw "expected the five Settings pages in light and dark" }
+          $log = Get-Content artifacts/screenshots/shots.log
+          $log | Select-String -Pattern 'tray menu:' | ForEach-Object { $_.Line }
+          if (-not ($log | Select-String -Pattern 'tray menu: Open DevSweep' -Quiet)) { throw "the tray menu was not listed in the tour log" }
+      # ---- end M5 ----
 
       - name: Upload app
         if: always()
