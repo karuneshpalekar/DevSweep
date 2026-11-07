@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    The one place the Windows version lives. Directory.Build.props imports this file, so every
+    assembly (DevSweep.exe, devsweep.exe) gets it as file, product and informational version, which
+    Settings > About shows. scripts/release.ps1 reads it (and passes the same value to the installer
+    and the zip names); pass -p:DevSweepVersion=x.y.z (or release.ps1 -Version x.y.z) to override.
+  -->
+  <PropertyGroup>
+    <DevSweepVersion Condition="'$(DevSweepVersion)' == ''">0.1.0</DevSweepVersion>
+    <Version>$(DevSweepVersion)</Version>
+  </PropertyGroup>
+</Project>

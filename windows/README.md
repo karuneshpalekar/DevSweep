@@ -11,6 +11,31 @@ engine, named locations, the installed-apps inventory, the first detectors and
 
 Windows 11 (22H2, build 22621) or later, x64.
 
+## Install (Windows)
+
+1. Download `DevSweep-<version>-win-x64-setup.exe` from the
+   [Releases page](https://github.com/karuneshpalekar/DevSweep/releases) (releases tagged `windows-v<version>`).
+2. Run it. It installs for you only (`%LOCALAPPDATA%\Programs\DevSweep`), with no administrator
+   prompt, adds a Start Menu shortcut (and a desktop one if you tick it) and an entry in Settings, Apps.
+3. **SmartScreen:** DevSweep is not code-signed yet, so Windows may show "Windows protected your PC".
+   Click **More info**, then **Run anyway**. Check the download against `SHA256SUMS.txt` if you like
+   (`Get-FileHash .\DevSweep-<version>-win-x64-setup.exe`).
+
+To upgrade, run a newer setup over the old one (it closes DevSweep and keeps your data). To uninstall,
+use Settings, Apps; History, settings and the quarantine in `%LOCALAPPDATA%\DevSweep` are kept unless
+you choose to delete them. Silent install/uninstall switches are in [M6](docs/m6-packaging.md).
+
+**No installer:** `DevSweep-<version>-win-x64-portable.zip`. Right-click the zip, Properties, tick
+**Unblock** (or `Unblock-File` in PowerShell), extract, run `DevSweep.exe`. The command line is
+`devsweep-cli-<version>-win-x64.zip`. winget is planned for later.
+
+### Build from source
+
+.NET 10 SDK (see Build and test below). `./scripts/release.ps1` builds, packages and writes
+`SHA256SUMS.txt` into `artifacts/release/<version>` and publishes nothing; the installer needs
+[Inno Setup 6](https://jrsoftware.org/isdl.php) (`winget install JRSoftware.InnoSetup`). The version is
+in `version.props`. Details: [M6](docs/m6-packaging.md).
+
 ## Build and test
 
 You need the .NET 10 SDK (`global.json` pins 10.0.100 and rolls forward to
@@ -590,3 +615,4 @@ by `rules validate` with 4 line-numbered problems.
 - [M3c: Projects (git safety, GitHub accounts, downloads, cleanup)](docs/m3c-projects.md)
 - [M4: WinUI 3 app](docs/m4-app.md)
 - [M5: tray, scheduled scans, alerts, updates](docs/m5-tray.md)
+- [M6: Packaging and release (installer, portable zip, versioning)](docs/m6-packaging.md)

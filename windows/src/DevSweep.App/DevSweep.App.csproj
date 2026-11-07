@@ -29,7 +29,6 @@
     <CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
     <OptimizationPreference>Speed</OptimizationPreference>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>0.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
