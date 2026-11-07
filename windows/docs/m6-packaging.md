@@ -90,4 +90,8 @@ runs `gh release create windows-v<v> --target <sha>` (a draft has no tag until i
 ## Not covered
 
 - Code signing (SmartScreen will warn), winget, MSIX, auto-update (M5), ARM64, Windows 10.
+- As the standard user, `--smoke` runs in a scheduled-task session with no desktop, so the WinUI
+  window cannot be created (exit -1073741189 after the engine and rules lines). That cycle therefore
+  asserts the engine started and all rule packs loaded with 0 errors from the installed folder; the full
+  window smoke (exit 0, `smoke: ok`) is asserted in the administrator cycle on the runner's desktop.
 - Interactive wizard pages and the uninstall question are only checked by reading the script; CI runs silent.

@@ -17,7 +17,10 @@ param(
     [Parameter(Mandatory)] [string] $Setup,
     [Parameter(Mandatory)] [string] $Version,
     [string] $LogDirectory = (Join-Path $env:TEMP 'devsweep-installer-test'),
-    [switch] $ExpectStandardUser
+    [switch] $ExpectStandardUser,
+    # Non-interactive session (a scheduled task has no desktop): the WinUI window cannot be created,
+    # so --smoke is only expected to get through the engine and the rules (its first two log lines).
+    [switch] $NoWindow
 )
 
 $ErrorActionPreference = 'Stop'
@@ -95,6 +98,10 @@ function Run-Smoke {
     $p.WaitForExit()
     "  --smoke exit code $($p.ExitCode) after {0:0.0} s" -f $clock.Elapsed.TotalSeconds
     if (Test-Path $log) { Get-Content $log | ForEach-Object { "  smoke: $_" } }
+    if ($NoWindow) {
+        Assert ((Test-Path $log) -and (Select-String -Path $log -Pattern 'rules: \d+ loaded from \d+ packs, 0 errors' -Quiet)) 'the installed DevSweep.exe started, built the engine and loaded every rule pack with 0 errors (no desktop here for the window)'
+        return
+    }
     Assert ($p.ExitCode -eq 0) 'DevSweep.exe --smoke exits 0 from the installed folder'
     Assert ((Test-Path $log) -and (Select-String -Path $log -Pattern 'smoke: ok' -Quiet)) "the smoke log says 'smoke: ok'"
 }

@@ -67,7 +67,7 @@ try {
     Set-Content -Encoding ascii "$work\run.cmd" @"
 @echo off
 whoami /user /groups /priv > "$work\out\whoami.txt" 2>&1
-"$pwsh" -NoProfile -ExecutionPolicy Bypass -File "$work\test-installer.ps1" -Setup "$work\setup.exe" -Version $Version -LogDirectory "$work\out" -ExpectStandardUser > "$work\out\installer-test.log" 2>&1
+"$pwsh" -NoProfile -ExecutionPolicy Bypass -File "$work\test-installer.ps1" -Setup "$work\setup.exe" -Version $Version -LogDirectory "$work\out" -ExpectStandardUser -NoWindow > "$work\out\installer-test.log" 2>&1
 echo %ERRORLEVEL% > "$work\out\exit.txt"
 "@
 
