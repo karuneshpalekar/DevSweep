@@ -378,3 +378,113 @@ jobs:
         with:
           name: devsweep-cli-win-x64
           path: windows/artifacts/cli/devsweep.exe
+
+  # ---- M4: the WinUI 3 app (self-contained block) ----
+  app:
+    name: WinUI app (build, AOT publish, smoke, screenshots)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: windows/global.json
+
+      - name: App - build (Release, warnings as errors)
+        run: dotnet build src/DevSweep.App/DevSweep.App.csproj -c Release -warnaserror
+
+      - name: App - view model tests
+        run: >
+          dotnet test tests/DevSweep.App.Tests/DevSweep.App.Tests.csproj -c Release
+          --results-directory TestResults --logger "trx;LogFileName=app-tests.trx" --logger "console;verbosity=normal"
+
+      - name: App - publish self-contained x64 (Native AOT)
+        run: |
+          dotnet publish src/DevSweep.App/DevSweep.App.csproj -c Release -r win-x64 -o artifacts/app -warnaserror
+          $exe = Get-Item artifacts/app/DevSweep.exe
+          "DevSweep.exe: {0:N0} bytes" -f $exe.Length
+          $all = Get-ChildItem artifacts/app -Recurse -File
+          "{0} files, {1:N0} bytes in the folder" -f $all.Count, ($all | Measure-Object Length -Sum).Sum
+          if (Test-Path artifacts/app/DevSweep.dll) { throw "expected a Native AOT exe, found a managed DevSweep.dll" }
+          Get-ChildItem artifacts/app -Filter *.pri | ForEach-Object { "  {0} {1:N0} bytes" -f $_.Name, $_.Length }
+          if (-not (Test-Path artifacts/app/resources.pri) -and -not (Test-Path artifacts/app/DevSweep.pri)) { throw "no resources.pri in the published folder" }
+          Compress-Archive -Path artifacts/app/* -DestinationPath artifacts/DevSweep-win-x64.zip -Force
+          "zip: {0:N0} bytes" -f (Get-Item artifacts/DevSweep-win-x64.zip).Length
+
+      - name: App - smoke test (--smoke)
+        run: |
+          $exe = Resolve-Path artifacts/app/DevSweep.exe
+          $out = Join-Path $env:RUNNER_TEMP 'app-smoke-out.txt'
+          $err = Join-Path $env:RUNNER_TEMP 'app-smoke-err.txt'
+          $watch = [Diagnostics.Stopwatch]::StartNew()
+          $p = Start-Process -FilePath $exe -ArgumentList '--smoke' -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+          $exited = $p.WaitForExit(120000)
+          if (-not $exited) { Stop-Process -Id $p.Id -Force; Get-Content $out -ErrorAction SilentlyContinue; throw "DevSweep --smoke did not exit within 120 s" }
+          $p.WaitForExit()
+          "exit code $($p.ExitCode) after {0:0.0} s" -f $watch.Elapsed.TotalSeconds
+          Get-Content $out -ErrorAction SilentlyContinue
+          Get-Content $err -ErrorAction SilentlyContinue
+          Get-Content (Join-Path $env:TEMP 'devsweep-app-smoke.txt') -ErrorAction SilentlyContinue
+          if ($p.ExitCode -ne 0) { throw "DevSweep --smoke failed ($($p.ExitCode))" }
+          if (-not (Select-String -Path (Join-Path $env:TEMP 'devsweep-app-smoke.txt') -Pattern 'smoke: ok' -Quiet)) { throw "smoke log has no 'smoke: ok'" }
+
+      - name: App - smoke test with Health and Projects on
+        env:
+          DEVSWEEP_FEATURES: '+module:health +module:projects'
+        run: |
+          Remove-Item (Join-Path $env:TEMP 'devsweep-app-smoke.txt') -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath (Resolve-Path artifacts/app/DevSweep.exe) -ArgumentList '--smoke' -PassThru
+          if (-not $p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force; throw "did not exit within 120 s" }
+          $p.WaitForExit()
+          Get-Content (Join-Path $env:TEMP 'devsweep-app-smoke.txt')
+          if ($p.ExitCode -ne 0) { throw "DevSweep --smoke with Health and Projects failed ($($p.ExitCode))" }
+          if (-not (Select-String -Path (Join-Path $env:TEMP 'devsweep-app-smoke.txt') -Pattern 'places \(home, cleanup, projects, health, history, settings\)' -Quiet)) { throw "Projects and Health places were not rendered" }
+
+      - name: App - screenshots (light, dark, high contrast)
+        env:
+          DEVSWEEP_SHOTS_HIGH_CONTRAST: '1'
+        run: |
+          $shots = New-Item -ItemType Directory -Force artifacts/screenshots
+          $env:DEVSWEEP_SHOTS = $shots.FullName
+          $p = Start-Process -FilePath (Resolve-Path artifacts/app/DevSweep.exe) -PassThru
+          if (-not $p.WaitForExit(300000)) { Stop-Process -Id $p.Id -Force; Get-Content "$shots/shots.log" -ErrorAction SilentlyContinue; throw "screenshot mode did not finish within 300 s" }
+          $p.WaitForExit()
+          Get-Content "$shots/shots.log" -ErrorAction SilentlyContinue
+          $png = @(Get-ChildItem $shots -Filter *.png)
+          "{0} screenshots" -f $png.Count
+          $png | ForEach-Object { "  {0,-34} {1,10:N0} bytes" -f $_.Name, $_.Length }
+          if ($p.ExitCode -ne 0) { throw "screenshot mode failed ($($p.ExitCode))" }
+          if ($png.Count -lt 30) { throw "expected at least 30 screenshots" }
+          $small = @($png | Where-Object Length -lt 10000)
+          if ($small.Count -gt 0) { throw "suspiciously small screenshots (blank?): $($small.Name -join ', ')" }
+
+      - name: Upload app
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: devsweep-app-win-x64
+          path: windows/artifacts/DevSweep-win-x64.zip
+          if-no-files-found: warn
+
+      - name: Upload app screenshots
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: app-screenshots
+          path: windows/artifacts/screenshots
+          if-no-files-found: warn
+
+      - name: Upload app test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: app-test-results
+          path: windows/TestResults
+          if-no-files-found: warn
+  # ---- end M4 ----

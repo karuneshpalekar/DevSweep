@@ -588,3 +588,4 @@ by `rules validate` with 4 line-numbered problems.
 - [M3a: Windows rule packs](docs/m3a-rules.md)
 - [M3b: Health (runtimes, security, ports, alerts)](docs/m3b-health.md)
 - [M3c: Projects (git safety, GitHub accounts, downloads, cleanup)](docs/m3c-projects.md)
+- [M4: WinUI 3 app](docs/m4-app.md)

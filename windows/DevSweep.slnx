@@ -2,11 +2,14 @@
   <Folder Name="/src/">
     <Project Path="src/DevSweep.Core/DevSweep.Core.csproj" />
     <Project Path="src/DevSweep.Cli/DevSweep.Cli.csproj" />
+    <Project Path="src/DevSweep.App.ViewModels/DevSweep.App.ViewModels.csproj" />
+    <Project Path="src/DevSweep.App/DevSweep.App.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/DevSweep.Fixtures/DevSweep.Fixtures.csproj" />
     <Project Path="tests/DevSweep.Core.Tests/DevSweep.Core.Tests.csproj" />
     <Project Path="tests/DevSweep.Accuracy/DevSweep.Accuracy.csproj" />
+    <Project Path="tests/DevSweep.App.Tests/DevSweep.App.Tests.csproj" />
   </Folder>
   <Folder Name="/solution/">
     <File Path="Directory.Build.props" />
