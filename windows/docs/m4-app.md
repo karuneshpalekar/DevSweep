@@ -39,10 +39,11 @@ build):
 | Home, History, Settings | always |
 | Clean up | `module:cleanup` or `module:packs` is on |
 | Health | `module:health` is on (it is **off by default**, M3b); tabs follow `module:health.runtimes/.security/.ports` |
-| Projects | `module:projects` is on, **or** not in this build yet (M3c): then the page says "isn't available yet" |
+| Projects | `module:projects` is on (it is **off by default**, M3c); tabs Cleanup, Accounts, Activity follow `module:projects.cleanup/.accounts/.activity` |
 
-A place whose module a flag turned off is hidden. Settings, Modules lists every module and Health's
-three tab flags with switches; they write `%LOCALAPPDATA%\DevSweep\features.json` (Core's
+A place whose module a flag turned off is hidden (a place whose module is not in the build at all
+shows an "is off" page). Settings, Modules lists every module and the Health and Projects tab flags
+with switches; they write `%LOCALAPPDATA%\DevSweep\features.json` (Core's
 `FeatureSettings`, same file the CLI reads) and apply at the next start. `DEVSWEEP_FEATURES` still wins.
 
 ## What each place does (and the Core API it calls)
@@ -56,7 +57,7 @@ three tab flags with switches; they write `%LOCALAPPDATA%\DevSweep\features.json
 | ⓘ Inspector | What it is, Why it's flagged, What was checked (`Finding.Checks`, warnings marked), If you clean it, You won't lose, Before you do, blocking apps, Better option, How to undo, What to do (actions, or the manual command with Copy and "Open in PowerShell"), locations with sizes | `Explanation`, `TerminalScript` (M3b) |
 | Review | 1) `FindingRemeasurer` on every selected item (streams on); 2) `ReviewPlanner` (new, below) says what will actually happen; groups: Can't be cleaned right now, Deleted right away, Cleaned by the tool's own command, Moved to the Recycle Bin, Moved to DevSweep's quarantine, You run these yourself; exact operations ("Exactly what will be done"); blockers ("Close X first", Restart Manager); "can't be undone" warning when anything is deleted or run; 3) `Cleaner.RunAsync` with progress; outcomes with freed-space reconciliation ("Shown 3.3 GB · expected 3.3 GB · C: actually freed 3.3 GB, as expected", or "nothing is freed yet: it's in the Recycle Bin until you empty it") | `FindingRemeasurer`, `ReviewPlanner`, `Cleaner`, `FreedSpace` |
 | History | By day; Restore for Recycle Bin and quarantine items while they are still there; Restored / Rebuilds itself / No longer in the Recycle Bin; quarantine size and Empty (confirmed) | `HistoryStore.Restore`, `QuarantineStore.List/Empty` |
-| Projects | Tabs Projects, Cleanup (idle 1 week to 3 months), Accounts, Activity, against `IProjectsSource`; "isn't available yet" until M3c's adapter is registered | — (M3c) |
+| Projects | Tabs Projects (every clone and GitHub repo, size, safety badge, "Compared as of the last fetch (date UTC)" on every clone and a banner saying so; "Unknown: not safe", "In OneDrive, not checked"; Push… opens a visible terminal), Cleanup (1 week to 3 months, exact sizes, safe vs reasons), Accounts (per account repos, on this PC, identity or "Identity missing", active in gh, owners nobody is signed in as, Add account… in a terminal), Activity | `ProjectsService` (M3c): `ScanAsync`, `IdleAsync`, `Push`, `SignIn`, `Activity`; `ProjectsSnapshot`, `RemovalSafety`, `IdleCleanupResult` |
 | Health | Tools and versions (`VersionsResult`: installs, default, support badges, issues, `RuntimeStep` fixes with Copy and "Run in PowerShell" through `TerminalScript.Write` + `Open`, project requirements), Security (`SecurityResult`: Needs action / Looks fine), Ports (`PortsResult`: Development / Apps and Windows, exposure, firewall verdict) | `HealthChecks` (M3b) |
 | Settings | Appearance, project folders (type or Browse; used for scans and as the guard's dev roots), ignored items, modules and Health tab flags, scan options (overview/exact, check time limit), update check toggle and Check now (`IUpdateChecker`, a stub until M5 that contacts nothing), about and privacy | `FeatureSettings`, `SafetyGuard.ForCurrentUser(devRoots)` |
 
@@ -109,16 +110,17 @@ uploaded as `app-screenshots`.
 
 ## Numbers from CI
 
-CI run [42058684191](https://github.com/karuneshpalekar/DevSweep/actions/runs/42058684191)
-(`windows-latest`, Windows Server 2025), app job:
+CI run [42060982908](https://github.com/karuneshpalekar/DevSweep/actions/runs/42060982908)
+(`windows-latest`, Windows Server 2025, merged with M3a, M3b and M3c; both jobs green, the main
+job being the administrator and standard-user runs of everything else), app job:
 
 | | |
 |---|---|
 | Build | Release, warnings as errors (CsWinRT AOT analyzers, trim/AOT analyzers, code style), no warnings |
-| View-model tests | 39 passed (Review planner against a fake machine, size badges for every confidence, kinds, places from modules, Review flow re-measure → groups → clean → reconciliation, Home, History restore/empty, settings round trip, the real engine's modules: Health off by default, on with `+module:health`, its Ports tab off with `-module:health.ports`) |
-| Native AOT publish | `DevSweep.exe` 17,675,264 bytes; folder 294 files, 212,735,548 bytes (Windows App SDK runtime included, self-contained); zip 71,262,937 bytes; no managed `DevSweep.dll`; `DevSweep.pri` built |
-| `--smoke` | exit 0 in 1.8 s: 4 modules (locations, inventory, cleanup, packs; health off), 83 rules from 16 packs, 0 errors, 5 places rendered in 1.4 s; with `+module:health`: 5 modules, 6 places (Health included) in 1.5 s |
-| Screenshots | 39 PNGs of the app window (1028×779 on the runner's 1024×768 desktop): 18 screens × light and dark, plus home, cleanup and review in high contrast (`AccessibilitySettings.HighContrast` = true while they were taken), 38-112 KB each |
+| View-model tests | 40 passed (Review planner against a fake machine, size badges for every confidence, kinds, places from modules, Review flow re-measure, groups, clean, reconciliation; Home; History restore/empty; settings round trip; the real engine's modules: Health and Projects off by default, on with flags, tabs off with their sub-flags; Projects "Unknown" and "not checked" never safe, the last-fetch note) |
+| Native AOT publish | `DevSweep.exe` 18,682,368 bytes; folder 294 files, 217,798,696 bytes (Windows App SDK runtime included, self-contained); zip 72,415,131 bytes; no managed `DevSweep.dll`; `DevSweep.pri` built |
+| `--smoke` | exit 0 in 1.5 s: 4 places with default flags (Health and Projects off), 6 places with `+module:health +module:projects` (rendered in 1.6 s); 83 rules from 16 packs, 0 errors |
+| Screenshots | 39 PNGs of the app window (1028x779 on the runner's desktop): 18 screens in light and dark, plus home, cleanup and review in high contrast (`AccessibilitySettings.HighContrast` was true while they were taken), 38-112 KB each |
 
 The first runs found two things only the real runtime shows: an unpackaged app with no XAML pages
 gets no `resources.pri` unless `EnableMsixTooling` is set (WinUI then cannot find its own
@@ -135,5 +137,5 @@ come back typed, so each style is parsed on its own (`Theme.Style`) and accent b
 - The Mac part pickers (per-profile ticks in Review) have no Windows equivalent: Windows findings
   have no parts yet.
 - Menu bar / tray is M5; the update check is a stub interface (`IUpdateChecker`).
-- Projects is a page against `IProjectsSource` with sample data in screenshots; M3c adds an adapter
-  in `PlaceAdapters.Projects`.
+- Projects: download (strategy sheet), remove, publish and add-by-URL are in Core (M3c) and the CLI
+  but not yet in the app's page; the page lists, checks, measures idle projects, pushes and signs in.
