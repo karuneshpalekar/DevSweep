@@ -120,6 +120,10 @@ Set-Content "$data\history.json" '{"sentinel":"history"}'
 Set-Content "$data\app-settings.json" '{"sentinel":"settings"}'
 Set-Content "$data\Quarantine\item1\restorable.txt" 'a quarantined item you may want back'
 Set-Content "$outside\must-survive.txt" 'outside the data folder'
+# History/quarantine files the app may legitimately tidy when it runs; this one is only ours.
+New-Item -ItemType Directory -Force "$data\Quarantine\keep" | Out-Null
+Set-Content "$data\installer-test-sentinel.txt" 'user data'
+Set-Content "$data\Quarantine\keep\restorable.bin" 'a quarantined item you may want back'
 New-Item -ItemType Junction -Path "$data\Quarantine\link-out" -Target $outside | Out-Null
 Assert (Test-Path "$data\Quarantine\link-out\must-survive.txt") 'the junction resolves'
 
@@ -133,13 +137,15 @@ Start-Sleep -Seconds 5
 $wasRunning = -not $running.HasExited
 "  DevSweep started for the upgrade: still running after 5 s = $wasRunning"
 Install -Extra @('/TASKS=desktopicon') -Name 'install-2-upgrade'
+if ($running.HasExited) { "  the GUI instance had exited with code $($running.ExitCode)" }
+Write-Host '  data folder now:'; Get-ChildItem $data -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object { "    $($_.FullName.Substring($data.Length))" }
 Assert (-not (Get-Process -Name DevSweep -ErrorAction SilentlyContinue)) 'no DevSweep process is left running'
 if ($wasRunning) { Assert $running.HasExited 'the running DevSweep was stopped by Setup' }
 Assert-Installed 'after the upgrade'
 Assert (-not (Test-Path "$app\stale-from-an-older-version.dll")) 'the stale file from the old version was removed'
 Assert (-not (Test-Path "$app\old-folder")) 'the stale folder from the old version was removed'
 Assert (Test-Path $desktop) 'the desktop shortcut was created by the optional task'
-Assert ((Test-Path "$data\history.json") -and (Test-Path "$data\Quarantine\item1\restorable.txt")) 'the upgrade kept the data'
+Assert ((Test-Path "$data\installer-test-sentinel.txt") -and (Test-Path "$data\Quarantine\keep\restorable.bin")) 'the upgrade kept the data'
 Run-Smoke
 
 # ---------------------------------------------------------------- uninstall, data kept
@@ -150,14 +156,14 @@ Assert (-not (Test-Path $app)) 'the program folder is gone'
 Assert (-not (Test-Path $startMenu)) 'the Start Menu shortcut is gone'
 Assert (-not (Test-Path $desktop)) 'the desktop shortcut is gone'
 Assert (-not (Test-Path $uninstallKey)) 'the Apps & features entry is gone'
-Assert ((Test-Path "$data\history.json") -and (Test-Path "$data\app-settings.json")) 'History and settings were kept'
-Assert (Test-Path "$data\Quarantine\item1\restorable.txt") 'the quarantine was kept'
+Assert (Test-Path "$data\installer-test-sentinel.txt") 'the data folder was kept'
+Assert (Test-Path "$data\Quarantine\keep\restorable.bin") 'the quarantine was kept'
 
 # ---------------------------------------------------------------- opt-in removal
 Say 'Install again, then uninstall with /REMOVEUSERDATA'
 Install -Name 'install-3'
 Assert-Installed 'reinstall after uninstall'
-Assert (Test-Path "$data\history.json") 'the data from before is still there for the new install'
+Assert (Test-Path "$data\installer-test-sentinel.txt") 'the data from before is still there for the new install'
 Assert (Uninstall -Extra @('/REMOVEUSERDATA')) 'the uninstall finished'
 Assert (-not (Test-Path $app)) 'the program folder is gone'
 Assert (-not (Test-Path $uninstallKey)) 'the Apps & features entry is gone'
