@@ -1,6 +1,7 @@
 using System.Text.Json;
 using DevSweep.App.ViewModels.Places;
 using DevSweep.App.ViewModels.Settings;
+using DevSweep.App.ViewModels.Updates;
 using DevSweep.Core.Cleaning;
 using DevSweep.Core.Health;
 using DevSweep.Core.Modules;
@@ -67,7 +68,7 @@ public sealed class EngineBackend : IDevSweepBackend
 
     public IProjectsSource? Projects { get; }
 
-    public IUpdateChecker Updates { get; } = new NoUpdateChecker();
+    public IUpdateChecker Updates { get; } = new GitHubUpdateChecker(AppInfo.Version);
 
     public string? ProfilePath => KnownFolders.TryGetRoot("Profile");
 

@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DevSweep.App.ViewModels.Background;
+using DevSweep.Core.Health.Alerts;
 using DevSweep.Core.Storage;
 
 namespace DevSweep.App.ViewModels.Settings;
@@ -34,6 +36,21 @@ public sealed record AppSettings
     public int CheckTimeoutSeconds { get; init; } = 90;
 
     public bool CheckForUpdates { get; init; } = true;
+
+    /// <summary>When an update check last succeeded (about one a day).</summary>
+    public DateTimeOffset? LastUpdateCheck { get; init; }
+
+    /// <summary>When one was last tried, successful or not (so a failure is not retried every minute).</summary>
+    public DateTimeOffset? LastUpdateAttempt { get; init; }
+
+    /// <summary>The version the user chose "Later" for; it is not offered again.</summary>
+    public string? SkippedUpdate { get; init; }
+
+    /// <summary>Scheduled scans (off by default; read-only like every scan).</summary>
+    public ScanSchedule Schedule { get; init; } = new();
+
+    /// <summary>Which problems raise a notification, and when.</summary>
+    public AlertSettings Alerts { get; init; } = new();
 }
 
 /// <summary>Reads and writes <see cref="AppSettings"/> (source-generated JSON, atomic writes).</summary>

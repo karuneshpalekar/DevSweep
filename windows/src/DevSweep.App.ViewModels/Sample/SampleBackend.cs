@@ -1,5 +1,6 @@
 using DevSweep.App.ViewModels.Places;
 using DevSweep.App.ViewModels.Services;
+using DevSweep.App.ViewModels.Updates;
 using DevSweep.Core.Cleaning;
 using DevSweep.Core.Health;
 using DevSweep.Core.Health.Runtimes;
@@ -39,7 +40,7 @@ public sealed class SampleBackend : IDevSweepBackend, IHealthSource, IProjectsSo
 
     public IProjectsSource? Projects => this;
 
-    public IUpdateChecker Updates { get; } = new NoUpdateChecker();
+    public IUpdateChecker Updates { get; } = new SampleUpdateChecker();
 
     public string? ProfilePath => SampleData.Profile;
 
@@ -179,4 +180,14 @@ public sealed class SampleBackend : IDevSweepBackend, IHealthSource, IProjectsSo
 
         public IReadOnlyList<string> Running(IReadOnlyList<string> names) => [.. names.Where(n => n == "chrome")];
     }
+}
+
+/// <summary>Answers "version 0.2.0 is available" without any network (screenshots).</summary>
+public sealed class SampleUpdateChecker : IUpdateChecker
+{
+    public Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken)
+        => Task.FromResult(new UpdateCheckResult(
+            UpdateOutcome.Available,
+            new UpdateInfo("0.2.0", "windows-v0.2.0", new Uri("https://github.com/karuneshpalekar/DevSweep/releases/tag/windows-v0.2.0"), "Tray icon, scheduled scans and alerts.", SampleData.Now),
+            "Version 0.2.0 is available."));
 }

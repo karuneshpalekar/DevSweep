@@ -1,4 +1,5 @@
 using DevSweep.App.ViewModels.Places;
+using DevSweep.App.ViewModels.Updates;
 using DevSweep.Core.Cleaning;
 using DevSweep.Core.Platform.Quarantine;
 using DevSweep.Core.Health.Alerts;
@@ -32,24 +33,6 @@ public enum ModuleState
 public sealed record VolumeSpace(string Root, string Label, long FreeBytes, long TotalBytes, bool IsSystem)
 {
     public string Name => $"{Label} ({Root.TrimEnd('\\')})";
-}
-
-/// <summary>The update check M5 brings; a stub until then.</summary>
-public interface IUpdateChecker
-{
-    bool IsAvailable { get; }
-
-    /// <summary>A sentence for Settings ("You're up to date", "Version 1.1 is available").</summary>
-    Task<string> CheckAsync(CancellationToken cancellationToken);
-}
-
-/// <summary>Until M5: says so, contacts nothing.</summary>
-public sealed class NoUpdateChecker : IUpdateChecker
-{
-    public bool IsAvailable => false;
-
-    public Task<string> CheckAsync(CancellationToken cancellationToken)
-        => Task.FromResult("Checking for updates arrives in a later version. Nothing was sent anywhere.");
 }
 
 /// <summary>
