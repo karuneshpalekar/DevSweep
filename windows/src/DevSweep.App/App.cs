@@ -74,7 +74,7 @@ internal sealed partial class App : Application, IXamlMetadataProvider
                     break;
             }
         }
-        catch (Exception ex) when (_mode != RunMode.Normal)
+        catch (Exception ex)
         {
             Log.Write($"Failed: {ex}");
             Program.ExitCode = 1;
@@ -104,7 +104,9 @@ internal sealed partial class App : Application, IXamlMetadataProvider
         background.Tray.QuitRequested += (_, _) => Quit();
         background.Tray.RevealRequested += (_, path) => Toolkit.Shell.Reveal(path);
 
+        Log.Write("start: window created, adding the tray icon");
         _tray = new TrayIcon(background.Tray);
+        Log.Write($"start: tray icon added={_tray.Added}");
         background.Alerts.ActiveChanged += (_, _) => _tray?.UpdateTooltip();
         _model.Scan.Finished += (_, _) => _tray?.UpdateTooltip();
         _tooltipTimer = _dispatcher.CreateTimer();
