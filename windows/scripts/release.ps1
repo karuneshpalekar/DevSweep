@@ -170,7 +170,7 @@ if ($env:GITHUB_OUTPUT) {
 $notes = Join-Path $windows "docs/release-notes/$Version.md"
 if (-not $Publish) {
     Write-Host "`nDone. Nothing was tagged, pushed or uploaded (no -Publish)." -ForegroundColor Green
-    Write-Host "To create the draft release $tag:  ./scripts/release.ps1 -Version $Version -SkipBuild -Publish"
+    Write-Host "To create the draft release ${tag}:  ./scripts/release.ps1 -Version $Version -SkipBuild -Publish"
     return
 }
 
