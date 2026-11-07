@@ -10,6 +10,8 @@ brew install --cask karuneshpalekar/tap/devsweep
 
 Or download the `.dmg` from [Releases](https://github.com/karuneshpalekar/DevSweep/releases/latest). macOS 14 or later, free and open source (MIT).
 
+On Windows 11? See [DevSweep for Windows](windows/README.md#install-windows).
+
 <p align="center">
   <img alt="DevSweep walkthrough: scan, explain, review, projects, health" src="docs/demo.gif" width="90%">
 </p>
