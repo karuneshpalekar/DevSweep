@@ -146,7 +146,7 @@ Start-Sleep -Seconds 8
 $wasRunning = -not $running.HasExited
 "  DevSweep (tray, --background) started for the upgrade: still running after 8 s = $wasRunning"
 if (-not $wasRunning) { "  exit code $($running.ExitCode); log:"; Get-Content (Join-Path $env:TEMP 'devsweep-app-smoke.txt') -ErrorAction SilentlyContinue | Select-Object -Last 30 }
-Assert $wasRunning 'the tray instance (DevSweep.exe --background) stays running until Setup stops it'
+if (-not $NoWindow) { Assert $wasRunning 'the tray instance (DevSweep.exe --background) stays running until Setup stops it' } else { '  (no desktop in this session: the tray instance cannot start here; checked in the administrator cycle)' }
 Install -Extra @('/TASKS=desktopicon') -Name 'install-2-upgrade'
 if ($running.HasExited) { "  the GUI instance had exited with code $($running.ExitCode)" }
 Write-Host '  data folder now:'; Get-ChildItem $data -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object { "    $($_.FullName.Substring($data.Length))" }
