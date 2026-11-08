@@ -32,6 +32,7 @@ internal sealed partial class MainWindow : Window
     private Subscriptions _pageSubs = new();
     private Subscriptions _sheetSubs = new();
     private string? _sheetKind;
+    private bool _allowClose;
 
     public MainWindow(MainViewModel model, bool screenshots)
     {
@@ -69,6 +70,7 @@ internal sealed partial class MainWindow : Window
         Content = _root;
         SetTitleBar(titleBar);
 
+        AppWindow.Closing += OnAppWindowClosing;
         _windowSubs.On(model, nameof(MainViewModel.Current), ShowPage);
         _windowSubs.On(model, nameof(MainViewModel.ShowWelcome), UpdateSheet);
         _windowSubs.On(model.Review, nameof(ReviewViewModel.Stage), UpdateSheet);
@@ -82,6 +84,36 @@ internal sealed partial class MainWindow : Window
     }
 
     public FrameworkElement Root => _root;
+
+    /// <summary>
+    /// When this returns true, closing the window only hides it (DevSweep stays in the tray, so scheduled scans
+    /// and alerts keep running). The app sets it from the "open at login" switch; null (screenshots, smoke) closes normally.
+    /// </summary>
+    public Func<bool>? KeepInTray { get; set; }
+
+    /// <summary>Lets the next close really close the window (Quit from the tray).</summary>
+    public void AllowClose() => _allowClose = true;
+
+    /// <summary>Shows the window again (from the tray, a toast, or a second start), restoring it if it was minimised.</summary>
+    public void RevealWindow()
+    {
+        AppWindow.Show();
+        if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter)
+        {
+            presenter.Restore();
+        }
+
+        Activate();
+    }
+
+    private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
+    {
+        if (!_allowClose && KeepInTray?.Invoke() == true)
+        {
+            args.Cancel = true;
+            sender.Hide();
+        }
+    }
 
     public MainViewModel Model => _model;
 
@@ -181,6 +213,7 @@ internal sealed partial class MainWindow : Window
         _nav.IsPaneToggleButtonVisible = true;
         _nav.OpenPaneLength = 240;
         _nav.Content = _page;
+        _nav.PaneFooter = UpdateCard.Build(_model.Background.Updates, _windowSubs);
         AutomationProperties.SetName(_nav, "DevSweep places");
         foreach (Place place in _model.Places)
         {

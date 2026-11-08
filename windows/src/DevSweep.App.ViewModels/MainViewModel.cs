@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using DevSweep.App.ViewModels.Background;
 using DevSweep.App.ViewModels.Services;
 using DevSweep.App.ViewModels.Settings;
 using DevSweep.Core.Cleaning;
@@ -17,7 +18,10 @@ public sealed record Place(string Id, string Title, string Glyph);
 /// </summary>
 public sealed partial class MainViewModel : ObservableObject
 {
-    public MainViewModel(IDevSweepBackend backend, AppSettingsStore settings)
+    /// <param name="backend">The engine (or sample data).</param>
+    /// <param name="settings">App settings.</param>
+    /// <param name="integration">What Windows provides (login entry, toasts); null keeps everything in memory.</param>
+    public MainViewModel(IDevSweepBackend backend, AppSettingsStore settings, SystemIntegration? integration = null)
     {
         ArgumentNullException.ThrowIfNull(backend);
         ArgumentNullException.ThrowIfNull(settings);
@@ -30,7 +34,8 @@ public sealed partial class MainViewModel : ObservableObject
         CleanUp = new CleanUpViewModel(Scan, settings, backend.ProfilePath);
         Review = new ReviewViewModel(backend);
         History = new HistoryViewModel(backend);
-        SettingsPage = new SettingsViewModel(settings, backend);
+        Background = new BackgroundServices(this, integration ?? SystemIntegration.Memory());
+        SettingsPage = new SettingsViewModel(settings, backend, Background);
         Places = BuildPlaces(backend.Modules);
         ShowWelcome = !settings.Current.WelcomeDone;
         CleanUp.ReviewRequested += async (_, plan) => await Review.OpenAsync(plan);
@@ -61,6 +66,9 @@ public sealed partial class MainViewModel : ObservableObject
     public HealthViewModel Health { get; }
 
     public ProjectsViewModel Projects { get; }
+
+    /// <summary>Open at login, the schedule, alerts, the update check and the tray menu.</summary>
+    public BackgroundServices Background { get; }
 
     /// <summary>The places shown, in order; History and Settings are always there.</summary>
     public IReadOnlyList<Place> Places { get; }
@@ -122,6 +130,36 @@ public sealed partial class MainViewModel : ObservableObject
         Settings.Update(s => s with { WelcomeDone = true });
         ShowWelcome = false;
         await StartAsync();
+    }
+
+    /// <summary>Opens the screen a notification or a tray alert is about (Home when that place is not there).</summary>
+    public void Open(ToastTarget target)
+    {
+        switch (target)
+        {
+            case ToastTarget.CleanUp when Places.Any(p => p.Id == "cleanup"):
+                Go("cleanup");
+                break;
+            case ToastTarget.HealthTools when Places.Any(p => p.Id == "health"):
+                Go("health");
+                ShowHealthTab(HealthTab.Tools);
+                break;
+            case ToastTarget.HealthSecurity when Places.Any(p => p.Id == "health"):
+                Go("health");
+                ShowHealthTab(HealthTab.Security);
+                break;
+            default:
+                Go("home");
+                break;
+        }
+    }
+
+    private void ShowHealthTab(HealthTab tab)
+    {
+        if (Health.Tabs.Contains(tab))
+        {
+            Health.Tab = tab;
+        }
     }
 
     public void Go(string place)

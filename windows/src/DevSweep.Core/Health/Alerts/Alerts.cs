@@ -21,6 +21,12 @@ public sealed record AlertSettings
     public bool EndOfLifeEnabled { get; init; } = true;
 
     public bool SecretsEnabled { get; init; } = true;
+
+    /// <summary>
+    /// Days before a problem that is still there is announced again (the app offers 3 to 7).
+    /// 0 keeps the Mac defaults: 3 days for a full disk, 7 for everything else.
+    /// </summary>
+    public int ReminderDays { get; init; }
 }
 
 public sealed record AlertItem(string Id, string Text);
@@ -108,6 +114,7 @@ public static class AlertEvaluator
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(ledger);
         var events = new List<AlertEvent>();
+        double Cooldown(double fallback) => settings.ReminderDays > 0 ? settings.ReminderDays : fallback;
         void Emit(string key, double cooldown, Func<AlertEvent> make)
         {
             if (ledger.ShouldNotify(key, now, cooldown))
@@ -121,7 +128,7 @@ public static class AlertEvaluator
         {
             if (used >= settings.DiskPercent)
             {
-                Emit("disk", DiskCooldownDays, () => new AlertEvent("disk", string.Create(CultureInfo.InvariantCulture, $"Your disk is {Math.Round(used):0}% full"),
+                Emit("disk", Cooldown(DiskCooldownDays), () => new AlertEvent("disk", string.Create(CultureInfo.InvariantCulture, $"Your disk is {Math.Round(used):0}% full"),
                     "DevSweep can show what's safe to clean.", AlertTarget.CleanUp));
             }
             else
@@ -137,7 +144,7 @@ public static class AlertEvaluator
             if (big.Count > 0)
             {
                 string key = "growth:" + string.Join(',', big.Select(g => g.Title).Order(StringComparer.Ordinal));
-                Emit(key, OtherCooldownDays, () => new AlertEvent(key, $"{big[0].Title} grew by {SizeText.Format(big[0].Bytes)}",
+                Emit(key, Cooldown(OtherCooldownDays), () => new AlertEvent(key, $"{big[0].Title} grew by {SizeText.Format(big[0].Bytes)}",
                     big.Count == 1 ? "It may be worth a look in Clean up." : string.Create(CultureInfo.InvariantCulture, $"{big.Count - 1} other item{(big.Count == 2 ? string.Empty : "s")} grew a lot too."),
                     AlertTarget.CleanUp));
             }
@@ -146,7 +153,7 @@ public static class AlertEvaluator
         if (settings.EndOfLifeEnabled && input.EndOfLife.Count > 0)
         {
             string key = "eol:" + string.Join(',', input.EndOfLife.Select(i => i.Id).Order(StringComparer.Ordinal));
-            Emit(key, OtherCooldownDays, () => new AlertEvent(key,
+            Emit(key, Cooldown(OtherCooldownDays), () => new AlertEvent(key,
                 input.EndOfLife.Count == 1 ? "A tool you use is past end of life" : string.Create(CultureInfo.InvariantCulture, $"{input.EndOfLife.Count} tools you use are past end of life"),
                 input.EndOfLife[0].Text, AlertTarget.HealthTools));
         }
@@ -157,7 +164,7 @@ public static class AlertEvaluator
             if (fresh.Count > 0)
             {
                 string key = "secrets:" + string.Join(',', fresh.Select(s => s.Id).Order(StringComparer.Ordinal));
-                Emit(key, OtherCooldownDays, () => new AlertEvent(key,
+                Emit(key, Cooldown(OtherCooldownDays), () => new AlertEvent(key,
                     fresh.Count == 1 ? "A new file looks like a secret" : string.Create(CultureInfo.InvariantCulture, $"{fresh.Count} new files look like secrets"),
                     fresh[0].Text, AlertTarget.HealthSecurity));
             }

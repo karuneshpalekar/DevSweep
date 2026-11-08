@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DevSweep.App.ViewModels.Background;
+using DevSweep.Core.Health.Alerts;
 using DevSweep.Core.Storage;
 
 namespace DevSweep.App.ViewModels.Settings;
@@ -34,6 +36,21 @@ public sealed record AppSettings
     public int CheckTimeoutSeconds { get; init; } = 90;
 
     public bool CheckForUpdates { get; init; } = true;
+
+    /// <summary>When an update check last succeeded (about one a day).</summary>
+    public DateTimeOffset? LastUpdateCheck { get; init; }
+
+    /// <summary>When one was last tried, successful or not (so a failure is not retried every minute).</summary>
+    public DateTimeOffset? LastUpdateAttempt { get; init; }
+
+    /// <summary>The version the user chose "Later" for; it is not offered again.</summary>
+    public string? SkippedUpdate { get; init; }
+
+    /// <summary>Scheduled scans (off by default; read-only like every scan).</summary>
+    public ScanSchedule Schedule { get; init; } = new();
+
+    /// <summary>Which problems raise a notification, and when.</summary>
+    public AlertSettings Alerts { get; init; } = new();
 }
 
 /// <summary>Reads and writes <see cref="AppSettings"/> (source-generated JSON, atomic writes).</summary>
@@ -64,6 +81,24 @@ public sealed class AppSettingsStore
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>A file from an older version (or with a section set to null) gets the defaults for what it lacks.</summary>
+    internal static AppSettings Normalize(AppSettings? settings)
+    {
+        settings ??= new AppSettings();
+        // Properties are non-nullable in code but JSON can still say null; read them as the nullable values they may be.
+        ScanSchedule? schedule = settings.Schedule;
+        AlertSettings? alerts = settings.Alerts;
+        IReadOnlyList<string>? folders = settings.ProjectFolders;
+        IReadOnlyList<IgnoredItem>? ignored = settings.Ignored;
+        return settings with
+        {
+            Schedule = schedule ?? new ScanSchedule(),
+            Alerts = alerts ?? new AlertSettings(),
+            ProjectFolders = folders ?? [],
+            Ignored = ignored ?? [],
+        };
+    }
+
     private static AppSettings Read(string? path)
     {
         if (path is null || !File.Exists(path))
@@ -73,7 +108,7 @@ public sealed class AppSettingsStore
 
         try
         {
-            return JsonSerializer.Deserialize(File.ReadAllBytes(path), AppJsonContext.Default.AppSettings) ?? new AppSettings();
+            return Normalize(JsonSerializer.Deserialize(File.ReadAllBytes(path), AppJsonContext.Default.AppSettings));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {

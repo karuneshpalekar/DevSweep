@@ -614,4 +614,5 @@ by `rules validate` with 4 line-numbered problems.
 - [M3b: Health (runtimes, security, ports, alerts)](docs/m3b-health.md)
 - [M3c: Projects (git safety, GitHub accounts, downloads, cleanup)](docs/m3c-projects.md)
 - [M4: WinUI 3 app](docs/m4-app.md)
+- [M5: tray, scheduled scans, alerts, updates](docs/m5-tray.md)
 - [M6: Packaging and release (installer, portable zip, versioning)](docs/m6-packaging.md)
