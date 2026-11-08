@@ -92,11 +92,14 @@ internal sealed partial class App : Application, IXamlMetadataProvider
         _toasts = new AppToasts();
         _toasts.Register(WriteToastIcon(data));
         _toasts.Activated += target => ShowMainWindow(target);
+        Log.Write("start: toasts done");
         var login = new RunKeyLoginItem(new RegistryRunKeyStore(), Environment.ProcessPath ?? throw new InvalidOperationException("DevSweep's own path is unknown."));
         login.RepairIfMoved();
+        Log.Write("start: login item read");
         var integration = new SystemIntegration(login, _toasts, Path.Join(data, "alerts.json"));
 
         _model = new MainViewModel(new EngineBackend(engine, settings, data), settings, integration);
+        Log.Write("start: view models built");
         _window = new MainWindow(_model, screenshots: false) { KeepInTray = () => _model.Background.KeepInTray };
         BackgroundServices background = _model.Background;
         background.Updates.OpenRequested += (_, url) => OpenReleasePage(url);
