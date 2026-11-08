@@ -335,6 +335,31 @@ public sealed class BackgroundSettingsTests
         static (bool, bool, bool, bool) Flags(AlertSettings a) => (a.DiskEnabled, a.GrowthEnabled, a.EndOfLifeEnabled, a.SecretsEnabled);
     }
 
+    [Theory]
+    [InlineData("{\"sentinel\":\"settings\"}")]
+    [InlineData("{\"schedule\":null,\"alerts\":null,\"projectFolders\":null,\"ignored\":null}")]
+    [InlineData("{}")]
+    public void A_settings_file_from_an_older_version_gets_defaults_for_what_it_lacks(string json)
+    {
+        string file = Path.Join(Path.GetTempPath(), "DevSweep-settings-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            File.WriteAllText(file, json);
+
+            var settings = new AppSettingsStore(file);
+            var vm = new SettingsViewModel(settings, new SampleBackend());
+
+            Assert.NotNull(settings.Current.Schedule);
+            Assert.NotNull(settings.Current.Alerts);
+            Assert.False(vm.ScheduleEnabled);
+            Assert.Equal(85, vm.DiskPercent);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
     [Fact]
     public void Saved_settings_come_back_into_the_page()
     {

@@ -81,6 +81,24 @@ public sealed class AppSettingsStore
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>A file from an older version (or with a section set to null) gets the defaults for what it lacks.</summary>
+    internal static AppSettings Normalize(AppSettings? settings)
+    {
+        settings ??= new AppSettings();
+        // Properties are non-nullable in code but JSON can still say null; read them as the nullable values they may be.
+        ScanSchedule? schedule = settings.Schedule;
+        AlertSettings? alerts = settings.Alerts;
+        IReadOnlyList<string>? folders = settings.ProjectFolders;
+        IReadOnlyList<IgnoredItem>? ignored = settings.Ignored;
+        return settings with
+        {
+            Schedule = schedule ?? new ScanSchedule(),
+            Alerts = alerts ?? new AlertSettings(),
+            ProjectFolders = folders ?? [],
+            Ignored = ignored ?? [],
+        };
+    }
+
     private static AppSettings Read(string? path)
     {
         if (path is null || !File.Exists(path))
@@ -90,7 +108,7 @@ public sealed class AppSettingsStore
 
         try
         {
-            return JsonSerializer.Deserialize(File.ReadAllBytes(path), AppJsonContext.Default.AppSettings) ?? new AppSettings();
+            return Normalize(JsonSerializer.Deserialize(File.ReadAllBytes(path), AppJsonContext.Default.AppSettings));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
