@@ -1,6 +1,6 @@
 # DevSweep for Windows: plan
 
-Status: **approved** (decisions in section 7). M0 to M4 merged into `windows` (M3a/b/c/M4 CI green; Health and Projects off by default pending review); M6 merged; M5 (tray, schedule, alerts, updates) in progress; then M7 (accuracy sign-off). This branch (`windows`)
+Status: **approved** (decisions in section 7). M0 to M4 merged into `windows` (M3a/b/c/M4 CI green; Health and Projects off by default pending review); M0 to M6 all merged; only M7 (accuracy sign-off on reference machines) remains before a first release. This branch (`windows`)
 holds the plan; code lands here milestone by milestone.
 
 ## 1. Goal
@@ -202,7 +202,7 @@ parallel; each ends with a PR into `windows`.
 | **M3b** (done, CI green; see docs/m3b-health.md; off by default until reviewed) | Health | M2 | Runtimes (nvm-windows, fnm, Volta, pyenv-win, `py` launcher, conda, uv, SDKMAN-alt, rustup, Scoop/winget/choco installs, Store aliases), registry PATH, EOL, project requirements, Security scan, Ports (`GetExtendedTcpTable` + firewall reachability) | Runtime inventory correct on reference machines; Store alias never reported as install |
 | **M3c** (done, CI green; see docs/m3c-projects.md; off by default until reviewed) | Projects | M2 | git/gh multi-account, safe removal checks, download strategies, per-account identity, CRLF/case-insensitivity handling | Same checks as Mac test suite, ported |
 | **M4** (done, CI green; Native AOT; see docs/m4-app.md) | WinUI 3 app | M2 (stubs), then M3* | Home, Clean up (+ⓘ inspector), Review sheet, Projects tabs, Health tabs, History, Settings, Welcome, light/dark | Every Mac screen has a Windows equivalent; review shows exact commands |
-| **M5** | Tray, schedule, alerts, updates | M4 | Tray icon + menu, open at login, scheduled read-only scans, toast alerts, update check | Alerts fire once with reminders, like Mac |
+| **M5** (done, CI green; see docs/m5-tray.md; real toast/login/sleep untested on CI) | Tray, schedule, alerts, updates | M4 | Tray icon + menu, open at login, scheduled read-only scans, toast alerts, update check | Alerts fire once with reminders, like Mac |
 | **M6** (done, CI green; see docs/m6-packaging.md; release workflow untested until merged, drafts only) | Packaging & release | M4 | Unsigned per-user installer + portable zip, `release.ps1`, GitHub release, README section | Clean install and uninstall on fresh Windows 11 22H2 and 24H2/25H2 x64 VMs, no admin prompt |
 | **M7** | Accuracy sign-off | all | Full accuracy matrix run (section 6), freed-space reconciliation report | All thresholds met; known gaps documented in-app |
 
