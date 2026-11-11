@@ -677,11 +677,7 @@ internal sealed partial class MainWindow : Window
             Log.Write($"show page '{id}'; navigation has {DescribeSelection()}");
         }
 
-        NavigationViewItem? selected = _nav.MenuItems.Concat(_nav.FooterMenuItems).OfType<NavigationViewItem>().FirstOrDefault(i => (string)i.Tag == id);
-        if (selected is not null && !ReferenceEquals(_nav.SelectedItem, selected))
-        {
-            _nav.SelectedItem = selected;
-        }
+        SyncSelection();
 
         _page.Child = id switch
         {
