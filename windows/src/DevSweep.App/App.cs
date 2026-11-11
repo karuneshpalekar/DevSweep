@@ -291,7 +291,7 @@ internal sealed partial class App : Application, IXamlMetadataProvider
         await window.WaitForRenderAsync();
         if (model.Current != "settings" || !window.IsSelected("settings"))
         {
-            throw new InvalidOperationException($"The gear in the title bar did not open Settings (current: {model.Current}).");
+            throw new InvalidOperationException($"The gear in the title bar did not open Settings (current: {model.Current}; navigation selection: {window.DescribeSelection()}).");
         }
 
         await window.SelectPlaceAsync("home");
