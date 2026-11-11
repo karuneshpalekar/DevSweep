@@ -1,6 +1,6 @@
 # DevSweep for Windows: plan
 
-Status: **approved** (decisions in section 7). M0 to M4 merged into `windows` (M3a/b/c/M4 CI green; Health and Projects off by default pending review); M0 to M6 all merged; only M7 (accuracy sign-off on reference machines) remains before a first release. This branch (`windows`)
+Status: **approved** (decisions in section 7). M0 to M4 merged into `windows` (M3a/b/c/M4 CI green; Health and Projects off by default pending review); M0 to M6 and the 0.1.1 polish (logo, navigation, theme button; Health and Projects now on by default) all merged; only M7 (accuracy sign-off on reference machines) remains before a first release. This branch (`windows`)
 holds the plan; code lands here milestone by milestone.
 
 ## 1. Goal
