@@ -496,6 +496,11 @@ internal sealed partial class MainWindow : Window
 
         _nav.SelectionChanged += (_, e) =>
         {
+            if (TraceNavigation)
+            {
+                Log.Write($"selection changed: settings={e.IsSettingsSelected}, item tag '{(e.SelectedItem as FrameworkElement)?.Tag}', model is on '{_model.Current}'");
+            }
+
             if (e.IsSettingsSelected)
             {
                 _model.Go("settings");
@@ -667,6 +672,11 @@ internal sealed partial class MainWindow : Window
         _pageSubs.Dispose();
         _pageSubs = new Subscriptions();
         string id = _model.Current;
+        if (TraceNavigation)
+        {
+            Log.Write($"show page '{id}'; navigation has {DescribeSelection()}");
+        }
+
         NavigationViewItem? selected = _nav.MenuItems.Concat(_nav.FooterMenuItems).OfType<NavigationViewItem>().FirstOrDefault(i => (string)i.Tag == id);
         if (selected is not null && !ReferenceEquals(_nav.SelectedItem, selected))
         {
