@@ -28,7 +28,7 @@ public sealed record ProjectsFeatures(bool Accounts, bool Cleanup, bool Activity
 }
 
 /// <summary>
-/// Projects (PLAN M3c, <c>module:projects</c>, off by default until it passes its gate):
+/// Projects (PLAN M3c, <c>module:projects</c>, on by default since 0.1.1; <c>-module:projects</c> turns it off):
 /// clones found by their origin, GitHub accounts without switching, safe removal, downloads,
 /// publish, idle cleanup and the activity trail. Registers <see cref="ProjectsFeatures"/>;
 /// the CLI and the app create a <see cref="ProjectsService"/> from the engine.
@@ -39,7 +39,7 @@ public sealed class ProjectsModule : IDevSweepModule
 
     public string Title => "Projects";
 
-    public bool EnabledByDefault => false;
+    public bool EnabledByDefault => true;
 
     public void Register(EngineBuilder builder)
     {

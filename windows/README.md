@@ -488,7 +488,7 @@ Defender-friendly); every finding carries `Measurement = Overview`. `SizeMode.Ex
   `AddRulePacks(() => EmbeddedRulePacks.From(assembly))` and `AddService<T>` (read back with
   `engine.Services<T>()`). `DevSweepEngine.CreateDefault(flags)` registers `locations`,
   `inventory` and `cleanup` (`BuiltInModules.All`); M3b/M3c add `HealthModule`/`ProjectsModule`
-  there (`EnabledByDefault = false` until they pass their gate). Flags (`FeatureFlags`) come from
+  there (on by default since 0.1.1; `-module:health` / `-module:projects` turn them off). Flags (`FeatureFlags`) come from
   `%LOCALAPPDATA%\DevSweep\features.json` (`{"disabled": [...], "enabled": [...]}`) and the
   `DEVSWEEP_FEATURES` variable (`"-category:leftovers +module:health"`): `module:<id>`,
   `detector:<kind>` (its rules still validate, they do not run), `category:<yamlName>`,
@@ -616,3 +616,4 @@ by `rules validate` with 4 line-numbered problems.
 - [M4: WinUI 3 app](docs/m4-app.md)
 - [M5: tray, scheduled scans, alerts, updates](docs/m5-tray.md)
 - [M6: Packaging and release (installer, portable zip, versioning)](docs/m6-packaging.md)
+- [M4b: 0.1.1 polish (real logo, every place in the navigation, theme button)](docs/m4b-polish.md)

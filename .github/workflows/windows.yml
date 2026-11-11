@@ -153,11 +153,11 @@ jobs:
         run: |
           $exe = Resolve-Path artifacts/cli/devsweep.exe
           $golden = New-Item -ItemType Directory -Force artifacts/golden
-          "== Health is off by default (module:health)"
-          $env:DEVSWEEP_FEATURES = ''
+          "== Health is on by default and exits 3 when turned off (-module:health)"
+          $env:DEVSWEEP_FEATURES = '-module:health'
           & $exe runtimes --offline 2>&1 | Out-Host
           if ($LASTEXITCODE -ne 3) { throw "expected exit code 3 with Health off, got $LASTEXITCODE" }
-          $env:DEVSWEEP_FEATURES = '+module:health'
+          $env:DEVSWEEP_FEATURES = ''
 
           "== runtimes --json"
           & $exe runtimes --json > "$golden/runtimes-admin.json"
@@ -217,11 +217,11 @@ jobs:
           $exe = Resolve-Path artifacts/cli/devsweep.exe
           $golden = New-Item -ItemType Directory -Force artifacts/golden
           "git: $((Get-Command git).Source) $(git --version); gh: $((Get-Command gh -ErrorAction SilentlyContinue).Source)"
-          "== Projects is off by default (module:projects)"
-          $env:DEVSWEEP_FEATURES = ''
+          "== Projects is on by default and exits 3 when turned off (-module:projects)"
+          $env:DEVSWEEP_FEATURES = '-module:projects'
           & $exe projects --offline 2>&1 | Out-Host
           if ($LASTEXITCODE -ne 3) { throw "expected exit code 3 with Projects off, got $LASTEXITCODE" }
-          $env:DEVSWEEP_FEATURES = '+module:projects'
+          $env:DEVSWEEP_FEATURES = ''
 
           $root = Join-Path $env:RUNNER_TEMP 'devsweep-projects'
           Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
@@ -285,7 +285,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "devsweep projects accounts failed" }
           & $exe projects download octocat/Hello-World --to "$root\dl\hello" --strategy shallow --dry-run
           if ($LASTEXITCODE -ne 0) { throw "devsweep projects download --dry-run failed" }
-          $env:DEVSWEEP_FEATURES = '+module:projects -module:projects.cleanup'
+          $env:DEVSWEEP_FEATURES = '-module:projects.cleanup'
           & $exe projects cleanup --root $code 2>&1 | Out-Host
           if ($LASTEXITCODE -ne 3) { throw "expected exit code 3 with the cleanup tab off" }
           $global:LASTEXITCODE = 0
@@ -417,11 +417,23 @@ jobs:
           Compress-Archive -Path artifacts/app/* -DestinationPath artifacts/DevSweep-win-x64.zip -Force
           "zip: {0:N0} bytes" -f (Get-Item artifacts/DevSweep-win-x64.zip).Length
 
+          # ---- 0.1.1: the logo is embedded in the exe and shipped beside it ----
+          . ./scripts/Test-DevSweepIcon.ps1
+          $ico = 'src/DevSweep.App/Assets/DevSweep.ico'
+          Assert-ExeHasLogo (Resolve-Path artifacts/app/DevSweep.exe).Path $ico
+          foreach ($asset in 'DevSweep.ico', 'DevSweep.png') { if (-not (Test-Path "artifacts/app/Assets/$asset")) { throw "Assets/$asset is not in the published folder" } }
+          if ((Get-FileHash artifacts/app/Assets/DevSweep.ico).Hash -ne (Get-FileHash $ico).Hash) { throw 'the published Assets/DevSweep.ico is not the logo' }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zipNames = [IO.Compression.ZipFile]::OpenRead((Resolve-Path artifacts/DevSweep-win-x64.zip).Path).Entries.FullName -replace '\\', '/'
+          foreach ($asset in 'Assets/DevSweep.ico', 'Assets/DevSweep.png') { if ($zipNames -notcontains $asset) { throw "$asset is not in the zip" } }
+          "logo: embedded in DevSweep.exe, Assets/DevSweep.ico and .png published and zipped"
+
       - name: App - smoke test (--smoke)
         run: |
           $exe = Resolve-Path artifacts/app/DevSweep.exe
           $out = Join-Path $env:RUNNER_TEMP 'app-smoke-out.txt'
           $err = Join-Path $env:RUNNER_TEMP 'app-smoke-err.txt'
+          Remove-Item (Join-Path $env:TEMP 'devsweep-app-smoke.txt') -ErrorAction SilentlyContinue
           $watch = [Diagnostics.Stopwatch]::StartNew()
           $p = Start-Process -FilePath $exe -ArgumentList '--smoke' -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
           $exited = $p.WaitForExit(120000)
@@ -434,17 +446,30 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "DevSweep --smoke failed ($($p.ExitCode))" }
           if (-not (Select-String -Path (Join-Path $env:TEMP 'devsweep-app-smoke.txt') -Pattern 'smoke: ok' -Quiet)) { throw "smoke log has no 'smoke: ok'" }
 
-      - name: App - smoke test with Health and Projects on
-        env:
-          DEVSWEEP_FEATURES: '+module:health +module:projects'
+      # ---- 0.1.1: what a person sees first, asserted from the smoke log (the app checks itself, see App.VerifyShellAsync) ----
+      - name: App - every place is in the navigation, on screen (default flags)
         run: |
-          Remove-Item (Join-Path $env:TEMP 'devsweep-app-smoke.txt') -ErrorAction SilentlyContinue
+          $log = Join-Path $env:TEMP 'devsweep-app-smoke.txt'
+          Get-Content $log | Select-String -Pattern '^\S+ (nav|theme|icon|window):' | ForEach-Object { $_.Line }
+          foreach ($needle in 'places \(home, cleanup, projects, health, history, settings\)', 'nav: ok, every place \(home, cleanup, projects, health, history, settings\) has an item with a height above 0', 'nav: ok at the minimum window size too', 'nav: Settings opens from its navigation item and from the gear', 'theme: ok, three clicks went Light, Dark, System', 'icon: window small=True big=True; title-bar logo loaded', 'tray: icon from Assets\\DevSweep.ico') {
+            if (-not (Select-String -Path $log -Pattern $needle -Quiet)) { throw "smoke log has no '$needle'" }
+          }
+
+      - name: App - smoke test with Health and Projects turned off
+        env:
+          DEVSWEEP_FEATURES: '-module:health -module:projects'
+        run: |
+          $log = Join-Path $env:TEMP 'devsweep-app-smoke.txt'
+          Remove-Item $log -ErrorAction SilentlyContinue
           $p = Start-Process -FilePath (Resolve-Path artifacts/app/DevSweep.exe) -ArgumentList '--smoke' -PassThru
           if (-not $p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force; throw "did not exit within 120 s" }
           $p.WaitForExit()
-          Get-Content (Join-Path $env:TEMP 'devsweep-app-smoke.txt')
-          if ($p.ExitCode -ne 0) { throw "DevSweep --smoke with Health and Projects failed ($($p.ExitCode))" }
-          if (-not (Select-String -Path (Join-Path $env:TEMP 'devsweep-app-smoke.txt') -Pattern 'places \(home, cleanup, projects, health, history, settings\)' -Quiet)) { throw "Projects and Health places were not rendered" }
+          Get-Content $log
+          if ($p.ExitCode -ne 0) { throw "DevSweep --smoke with Health and Projects off failed ($($p.ExitCode))" }
+          foreach ($needle in 'places \(home, cleanup, history, settings\)', 'nav: ok, every place \(home, cleanup, history, settings\)') {
+            if (-not (Select-String -Path $log -Pattern $needle -Quiet)) { throw "smoke log has no '$needle'" }
+          }
+          if (Select-String -Path $log -Pattern 'projects, health' -Quiet) { throw "Projects and Health places were shown although they are off" }
 
       # ---- M5: tray, toast and login checks on the smoke log ----
       - name: App - tray icon, toast payload and login entry (smoke log)
@@ -473,6 +498,13 @@ jobs:
           if ($png.Count -lt 30) { throw "expected at least 30 screenshots" }
           $small = @($png | Where-Object Length -lt 10000)
           if ($small.Count -gt 0) { throw "suspiciously small screenshots (blank?): $($small.Name -join ', ')" }
+          # 0.1.1: one shot per theme of the title bar's theme button, light and dark clearly different, nav on screen at the minimum size
+          foreach ($mode in 'system', 'light', 'dark') { if (-not (Test-Path "$shots/theme-button-$mode.png")) { throw "no theme-button-$mode.png" } }
+          $log = Get-Content "$shots/shots.log"
+          $log | Select-String -Pattern '^\S+ (theme check|nav):' | ForEach-Object { $_.Line }
+          foreach ($needle in 'theme check: ok', 'nav: all 6 places on screen at the minimum window') {
+            if (-not ($log | Select-String -Pattern $needle -Quiet)) { throw "shots log has no '$needle'" }
+          }
 
       # ---- M5: the new Settings pages and the sidebar update card are in the tour ----
       - name: App - Settings pages in the screenshot tour
@@ -554,6 +586,13 @@ jobs:
           $portable = Join-Path $env:RUNNER_TEMP 'portable'
           Expand-Archive (Get-ChildItem $out -Filter *-portable.zip).FullName $portable
           $exe = Get-ChildItem $portable -Recurse -Filter DevSweep.exe | Select-Object -First 1
+          # 0.1.1: the logo is in the portable exe, beside it, and in the installer's own exe
+          . ./scripts/Test-DevSweepIcon.ps1
+          Assert-ExeHasLogo $exe.FullName 'src/DevSweep.App/Assets/DevSweep.ico'
+          foreach ($asset in 'DevSweep.ico', 'DevSweep.png') { if (-not (Test-Path (Join-Path $exe.DirectoryName "Assets/$asset"))) { throw "the portable zip has no Assets/$asset" } }
+          $setupExe = (Get-ChildItem $out -Filter *-setup.exe).FullName
+          if ((Get-ExeIcons $setupExe).Count -eq 0) { throw "the installer exe has no icon" }
+          "installer exe icon sizes: $(((Get-ExeIcons $setupExe) | ForEach-Object { "$($_.Width)" }) -join ', ')"
           $p = Start-Process $exe.FullName -ArgumentList '--smoke' -PassThru
           if (-not $p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force; throw 'portable --smoke did not exit' }
           $p.WaitForExit()

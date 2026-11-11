@@ -4,7 +4,7 @@ The Mac app's Health place, ported to Windows as the `health` module in
 `DevSweep.Core/Health`, with three CLI commands:
 
 ```powershell
-$env:DEVSWEEP_FEATURES = '+module:health'      # Health is off by default until it passes its gate
+$env:DEVSWEEP_FEATURES = '-module:health'      # Health is on by default since 0.1.1; this turns it off
 devsweep runtimes [--json] [--offline] [--project-root DIR]... [--script-step ID | --open-step ID]
 devsweep security [--json] [--project-root DIR]...
 devsweep ports    [--json] [--all]
@@ -43,7 +43,7 @@ tests/DevSweep.Accuracy/Health/     real-machine accuracy tests
 
 | Flag | Default | Effect |
 |---|---|---|
-| `module:health` | **off** (PLAN 7.6: off until it passes its gate) | registers `HealthFeatures` and `HealthChecks` services; the CLI commands exit 3 with instructions while it is off |
+| `module:health` | on (since 0.1.1; it was off while it had not passed its gate) | registers `HealthFeatures` and `HealthChecks` services; the CLI commands exit 3 with instructions while it is off |
 | `module:health.runtimes` | on (when Health is on) | Tools and versions tab |
 | `module:health.security` | on | Security tab |
 | `module:health.ports` | on | Ports tab |
@@ -251,9 +251,9 @@ loose folders hold 0 findings.
 
 ## Decisions and deviations
 
-- **Health is off by default** (`module:health`), as the M2 extension points ask, until the coordinator
-  accepts the gate; CI turns it on with `DEVSWEEP_FEATURES=+module:health` and checks that it exits 3
-  while off. The default-module unit test now expects `module:health` in `engine.Disabled`.
+- **Health was off by default** (`module:health`) until the coordinator accepted the gate; since 0.1.1
+  it is on, and CI turns it off with `DEVSWEEP_FEATURES=-module:health` to check that it exits 3.
+  The default-module unit test expects `engine.Disabled` to be empty.
 - **Firewall from the registry**, not `INetFwPolicy2` (IDispatch, not usable from the AOT engine) or
   `netsh` (localised output).
 - **Working directory through the PEB** (undocumented layout, x64 only, same-bitness processes that can

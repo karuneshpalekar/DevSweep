@@ -73,6 +73,16 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>The places shown, in order; History and Settings are always there.</summary>
     public IReadOnlyList<Place> Places { get; }
 
+    /// <summary>"Home, Clean up, Projects, Health, History and Settings": every place there is, for the Welcome sheet.</summary>
+    public string PlacesLine
+    {
+        get
+        {
+            string[] titles = [.. Places.Select(p => p.Title)];
+            return titles.Length < 2 ? string.Concat(titles) : string.Join(", ", titles[..^1]) + " and " + titles[^1];
+        }
+    }
+
     [ObservableProperty]
     public partial string Current { get; set; } = "home";
 

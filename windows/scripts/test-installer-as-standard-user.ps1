@@ -62,6 +62,8 @@ try {
     New-Item -ItemType Directory -Force "$work\out" | Out-Null
     Copy-Item -Force $setupFile "$work\setup.exe"
     Copy-Item -Force (Join-Path $PSScriptRoot 'test-installer.ps1') "$work\test-installer.ps1"
+    Copy-Item -Force (Join-Path $PSScriptRoot 'Test-DevSweepIcon.ps1') "$work\Test-DevSweepIcon.ps1"
+    Copy-Item -Force (Join-Path $PSScriptRoot '..\src\DevSweep.App\Assets\DevSweep.ico') "$work\DevSweep.ico"
     icacls $work /grant "${UserName}:(OI)(CI)M" /T /Q | Out-Null
 
     Set-Content -Encoding ascii "$work\run.cmd" @"

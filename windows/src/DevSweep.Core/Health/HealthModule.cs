@@ -22,9 +22,9 @@ public sealed record HealthFeatures(bool Runtimes, bool Security, bool Ports)
 }
 
 /// <summary>
-/// Health (<c>module:health</c>): tools and versions, security, ports. Off by default until it passes
-/// its accuracy gate (PLAN 7.6); turn it on with <c>+module:health</c> in <c>DEVSWEEP_FEATURES</c> or
-/// <c>features.json</c>. Registers <see cref="HealthFeatures"/> and <see cref="HealthChecks"/>.
+/// Health (<c>module:health</c>): tools and versions, security, ports. On by default (since 0.1.1, after it passed its
+/// accuracy gate); turn it off with <c>-module:health</c> in <c>DEVSWEEP_FEATURES</c> or
+/// <c>features.json</c>, or in Settings, Modules. Registers <see cref="HealthFeatures"/> and <see cref="HealthChecks"/>.
 /// </summary>
 public sealed class HealthModule : IDevSweepModule
 {
@@ -32,7 +32,7 @@ public sealed class HealthModule : IDevSweepModule
 
     public string Title => "Health";
 
-    public bool EnabledByDefault => false;
+    public bool EnabledByDefault => true;
 
     public void Register(EngineBuilder builder)
     {

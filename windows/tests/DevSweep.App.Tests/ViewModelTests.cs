@@ -249,25 +249,30 @@ public sealed class ScanAndCleanUpTests
 public sealed class EngineBackendTests
 {
     [Fact]
-    public void Modules_come_from_the_real_engine_with_health_off_by_default()
+    public void Modules_come_from_the_real_engine_with_every_place_on_by_default()
     {
         var engine = Core.Modules.DevSweepEngine.CreateDefault();
         IReadOnlyList<ModuleInfo> modules = EngineBackend.DescribeModules(engine);
         Assert.Equal(ModuleState.On, modules.Single(m => m.Id == "cleanup").State);
         Assert.Equal(ModuleState.On, modules.Single(m => m.Id == "packs").State);
-        Assert.Equal(ModuleState.TurnedOff, modules.Single(m => m.Id == "health").State);
-        Assert.Equal(ModuleState.TurnedOff, modules.Single(m => m.Id == "projects").State);
+        Assert.Equal(ModuleState.On, modules.Single(m => m.Id == "health").State);
+        Assert.Equal(ModuleState.On, modules.Single(m => m.Id == "projects").State);
         Assert.Contains(modules, m => m.Id == "projects.cleanup");
-        Assert.DoesNotContain(MainViewModel.BuildPlaces(modules), p => p.Id == "projects");
         Assert.Contains(modules, m => m.Id == "health.ports");
-        Assert.DoesNotContain(MainViewModel.BuildPlaces(modules), p => p.Id == "health");
+        Assert.Equal(["home", "cleanup", "projects", "health", "history", "settings"], MainViewModel.BuildPlaces(modules).Select(p => p.Id));
 
-        var on = Core.Modules.DevSweepEngine.CreateDefault(Core.Modules.FeatureFlags.Default.With("+module:health -module:health.ports"));
+        // Switched off, a place stays hidden as before.
+        IReadOnlyList<ModuleInfo> off = EngineBackend.DescribeModules(Core.Modules.DevSweepEngine.CreateDefault(Core.Modules.FeatureFlags.Default.With("-module:health -module:projects")));
+        Assert.Equal(ModuleState.TurnedOff, off.Single(m => m.Id == "health").State);
+        Assert.Equal(ModuleState.TurnedOff, off.Single(m => m.Id == "projects").State);
+        Assert.Equal(["home", "cleanup", "history", "settings"], MainViewModel.BuildPlaces(off).Select(p => p.Id));
+
+        var on = Core.Modules.DevSweepEngine.CreateDefault(Core.Modules.FeatureFlags.Default.With("-module:health.ports"));
         Assert.NotNull(ViewModels.Places.CoreHealthSource.From(on, () => null));
         Assert.False(ViewModels.Places.CoreHealthSource.From(on, () => null)!.Features.Ports);
         Assert.Contains(MainViewModel.BuildPlaces(EngineBackend.DescribeModules(on)), p => p.Id == "health");
 
-        var projects = Core.Modules.DevSweepEngine.CreateDefault(Core.Modules.FeatureFlags.Default.With("+module:projects -module:projects.activity"));
+        var projects = Core.Modules.DevSweepEngine.CreateDefault(Core.Modules.FeatureFlags.Default.With("-module:projects.activity"));
         ViewModels.Places.CoreProjectsSource? source = ViewModels.Places.CoreProjectsSource.From(projects, () => null);
         Assert.NotNull(source);
         Assert.False(source.Features.Activity);
@@ -291,5 +296,88 @@ public sealed class EngineBackendTests
         await vm.RefreshIdleAsync();
         Assert.Equal(90, vm.Idle!.Days);
         Assert.Contains("safe to remove", vm.IdleSummary, StringComparison.Ordinal);
+    }
+}
+
+public sealed class ThemeAndWindowTests
+{
+    [Fact]
+    public void The_theme_button_cycles_system_light_dark_system_and_says_what_it_is()
+    {
+        var settings = new AppSettingsStore(null);
+        SettingsViewModel vm = new MainViewModel(new SampleBackend(), settings).SettingsPage;
+        Assert.Equal(AppearanceMode.System, vm.Appearance);
+        Assert.Equal("Theme: System, click to change", vm.ThemeButtonLabel);
+        var seen = new List<string>();
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SettingsViewModel.ThemeButtonLabel))
+            {
+                seen.Add(vm.ThemeButtonLabel);
+            }
+        };
+
+        vm.CycleAppearance();
+        Assert.Equal((AppearanceMode.Light, "Theme: Light, click to change"), (vm.Appearance, vm.ThemeButtonLabel));
+        Assert.Equal(AppearanceMode.Light, settings.Current.Appearance);
+        vm.CycleAppearance();
+        Assert.Equal((AppearanceMode.Dark, "Theme: Dark, click to change"), (vm.Appearance, vm.ThemeButtonLabel));
+        vm.CycleAppearance();
+        Assert.Equal((AppearanceMode.System, "Theme: System, click to change"), (vm.Appearance, vm.ThemeButtonLabel));
+        Assert.Equal(AppearanceMode.System, settings.Current.Appearance);
+        Assert.Equal(["Theme: Light, click to change", "Theme: Dark, click to change", "Theme: System, click to change"], seen);
+    }
+
+    [Fact]
+    public void The_theme_survives_a_restart_and_the_settings_page_and_the_button_share_one_value()
+    {
+        string file = Path.Join(Path.GetTempPath(), $"devsweep-theme-{Guid.NewGuid():N}.json");
+        try
+        {
+            var first = new MainViewModel(new SampleBackend(), new AppSettingsStore(file));
+            first.SettingsPage.CycleAppearance();
+            first.SettingsPage.CycleAppearance();
+            Assert.Equal(AppearanceMode.Dark, new AppSettingsStore(file).Current.Appearance);
+
+            var second = new MainViewModel(new SampleBackend(), new AppSettingsStore(file));
+            Assert.Equal(AppearanceMode.Dark, second.SettingsPage.Appearance);
+            Assert.Equal("Theme: Dark, click to change", second.SettingsPage.ThemeButtonLabel);
+
+            // Choosing in Settings, General (which sets Appearance) moves the button's next step on from there.
+            second.SettingsPage.Appearance = AppearanceMode.Light;
+            Assert.Equal("Theme: Light, click to change", second.SettingsPage.ThemeButtonLabel);
+            second.SettingsPage.CycleAppearance();
+            Assert.Equal(AppearanceMode.Dark, second.SettingsPage.Appearance);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    [Fact]
+    public void The_welcome_line_lists_every_place_there_is()
+    {
+        var all = new MainViewModel(new SampleBackend(), new AppSettingsStore(null));
+        Assert.Equal("Home, Clean up, Projects, Health, History and Settings", all.PlacesLine);
+    }
+
+    [Fact]
+    public void The_window_fits_the_work_area_and_its_minimum_never_exceeds_it()
+    {
+        // A 1366x768 laptop at 100% (work area 728 high): the old fixed 820 px window ran off the bottom of the screen.
+        (PixelRect bounds, int minW, int minH) = WindowSizing.Fit(new PixelRect(0, 0, 1366, 728), 1.0);
+        Assert.Equal(new PixelRect(63, 0, 1240, 728), bounds);
+        Assert.Equal((1000, 680), (minW, minH));
+
+        // A large screen at 150%: the full size in DIPs, centred.
+        (bounds, minW, minH) = WindowSizing.Fit(new PixelRect(0, 0, 3840, 2100), 1.5);
+        Assert.Equal(new PixelRect(990, 435, 1860, 1230), bounds);
+        Assert.Equal((1500, 1020), (minW, minH));
+
+        // A tiny work area: the minimum shrinks with it rather than forcing the window off screen.
+        (bounds, minW, minH) = WindowSizing.Fit(new PixelRect(0, 40, 800, 560), 1.0);
+        Assert.Equal(new PixelRect(0, 40, 800, 560), bounds);
+        Assert.Equal((800, 560), (minW, minH));
     }
 }

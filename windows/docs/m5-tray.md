@@ -120,6 +120,6 @@ job: the tray instance was running after 8 s and was stopped by the upgrade.
 
 ## Known gaps
 
-- Alerts for end of life and secrets need the Health module (off by default); Settings says so.
+- Alerts for end of life and secrets need the Health module (on by default since 0.1.1; Settings says so if you switch it off).
 - Alerts run after scheduled scans only; a manual scan refreshes the tray's list but does not toast.
 - The tray menu is a native menu (not Fluent styled).

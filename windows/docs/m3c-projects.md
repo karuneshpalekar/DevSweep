@@ -1,10 +1,10 @@
 # M3c: Projects
 
 The Mac Projects place, ported to Windows as the `projects` module
-(`DevSweep.Core/Projects`, `devsweep projects`). Off by default
-(`module:projects`, `EnabledByDefault = false`) until it passes its gate; turn it on with
-`DEVSWEEP_FEATURES=+module:projects` or `"enabled": ["module:projects"]` in
-`%LOCALAPPDATA%\DevSweep\features.json`.
+(`DevSweep.Core/Projects`, `devsweep projects`). On by default since 0.1.1
+(`module:projects`, `EnabledByDefault = true`; it was off in 0.1.0); turn it off with
+`DEVSWEEP_FEATURES=-module:projects`, `"disabled": ["module:projects"]` in
+`%LOCALAPPDATA%\DevSweep\features.json`, or Settings, Modules.
 
 ## What it does
 

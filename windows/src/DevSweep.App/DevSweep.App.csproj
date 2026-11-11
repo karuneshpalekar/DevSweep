@@ -29,7 +29,15 @@
     <CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
     <OptimizationPreference>Speed</OptimizationPreference>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- DevSweep's logo: embedded in DevSweep.exe (Explorer, the taskbar, shortcuts) and shipped beside it for the window and tray. -->
+    <ApplicationIcon>Assets\DevSweep.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Next to the exe, in an Assets folder: the window icon, tray icon, title-bar logo and toast logo are loaded from here. -->
+    <Content Include="Assets\DevSweep.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Assets\DevSweep.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\DevSweep.Core\DevSweep.Core.csproj" />

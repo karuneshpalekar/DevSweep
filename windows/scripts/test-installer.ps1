@@ -10,6 +10,8 @@
     - DevSweep.exe --smoke exits 0 from the installed folder;
     - installing again over the install (with a stale file from an "older version" present and a
       running DevSweep) upgrades in place: stale files gone, DevSweep stopped, data kept;
+    - DevSweep.exe has the DevSweep logo embedded (every size of the .ico), Assets\DevSweep.ico and .png are
+      installed beside it, and the shortcuts and the Apps & features entry use that icon;
     - a silent uninstall removes the program files, shortcuts and uninstall entry but keeps
       %LOCALAPPDATA%\DevSweep, and /REMOVEUSERDATA removes it without following a junction out of it.
 #>
@@ -24,6 +26,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'Test-DevSweepIcon.ps1')
+# The logo the build embeds: next to this script (standard-user run) or in the source tree.
+$logoIco = @((Join-Path $PSScriptRoot 'DevSweep.ico'), (Join-Path $PSScriptRoot '..\src\DevSweep.App\Assets\DevSweep.ico')) | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $logoIco) { throw 'the logo (DevSweep.ico) was not found next to this script or in the source tree' }
 $appId = '{3F6C7A52-8B1E-4D5A-9C3E-6D1F0A7B2E94}_is1'
 $uninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$appId"
 $machineKeys = @("HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$appId", "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\$appId")
@@ -83,6 +89,11 @@ function Assert-Installed([string] $Why) {
     Assert (Test-Path $startMenu) 'the Start Menu shortcut exists'
     $shell = New-Object -ComObject WScript.Shell
     Assert ($shell.CreateShortcut($startMenu).TargetPath -ieq "$app\DevSweep.exe") 'the Start Menu shortcut points at the installed DevSweep.exe'
+    Assert-ExeHasLogo "$app\DevSweep.exe" $logoIco
+    Assert-ShortcutIcon $startMenu "$app\DevSweep.exe"
+    Assert ((Test-Path "$app\Assets\DevSweep.ico") -and (Test-Path "$app\Assets\DevSweep.png")) 'the logo files are installed in the Assets folder beside the exe'
+    Assert ((Get-FileHash "$app\Assets\DevSweep.ico").Hash -eq (Get-FileHash $logoIco).Hash) 'the installed DevSweep.ico is the logo'
+    Assert ($entry.DisplayIcon -match 'DevSweep\.exe,\s*0$') "the Apps & features entry shows the logo ($($entry.DisplayIcon))"
     $info = (Get-Item "$app\DevSweep.exe").VersionInfo
     "  DevSweep.exe file version $($info.FileVersion), product version $($info.ProductVersion)"
     Assert ($info.ProductVersion.StartsWith($Version)) "DevSweep.exe is stamped with $Version"
@@ -156,6 +167,7 @@ Assert-Installed 'after the upgrade'
 Assert (-not (Test-Path "$app\stale-from-an-older-version.dll")) 'the stale file from the old version was removed'
 Assert (-not (Test-Path "$app\old-folder")) 'the stale folder from the old version was removed'
 Assert (Test-Path $desktop) 'the desktop shortcut was created by the optional task'
+Assert-ShortcutIcon $desktop "$app\DevSweep.exe"
 Assert ((Test-Path "$data\installer-test-sentinel.txt") -and (Test-Path "$data\Quarantine\keep\restorable.bin")) 'the upgrade kept the data'
 Run-Smoke
 

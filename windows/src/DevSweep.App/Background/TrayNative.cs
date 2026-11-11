@@ -140,6 +140,13 @@ internal static unsafe partial class TrayNative
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool PostMessage(nint window, uint message, nuint wParam, nint lParam);
 
+    public const uint ImageIcon = 1;
+    public const uint LrLoadFromFile = 0x10;
+
+    /// <summary>Loads the icon of the given size from an .ico file (the closest frame, scaled only if there is none).</summary>
+    [LibraryImport("user32.dll", EntryPoint = "LoadImageW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
+    public static partial nint LoadImage(nint instance, string name, uint type, int width, int height, uint load);
+
     [LibraryImport("user32.dll", EntryPoint = "CreateIconIndirect", SetLastError = true)]
     public static partial nint CreateIconIndirect(IconInfo* info);
 

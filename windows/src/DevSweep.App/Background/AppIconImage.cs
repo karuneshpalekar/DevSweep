@@ -3,8 +3,8 @@ using System.IO.Compression;
 namespace DevSweep.App.Background;
 
 /// <summary>
-/// DevSweep's icon, drawn in code (a blue disc with a white broom) so there is no resource file to ship:
-/// premultiplied BGRA pixels for the tray icon and a PNG for the notification's icon.
+/// The fallback icon, drawn in code (a blue disc with a white broom), used only when the real logo files in
+/// Assets are missing: premultiplied BGRA pixels for the tray icon and a PNG for the notification's icon.
 /// </summary>
 internal static class AppIconImage
 {

@@ -145,14 +145,15 @@ public sealed class ProjectStateTests : IDisposable
     }
 
     [Fact]
-    public void Projects_is_off_by_default_and_its_tabs_have_flags()
+    public void Projects_is_on_by_default_can_be_turned_off_and_its_tabs_have_flags()
     {
-        DevSweepEngine off = DevSweepEngine.CreateDefault();
+        Assert.Empty(DevSweepEngine.CreateDefault().Disabled);
+        DevSweepEngine off = DevSweepEngine.CreateDefault(FeatureFlags.Default.With("-module:projects"));
         Assert.Contains("module:projects", off.Disabled);
         Assert.Empty(off.Services<ProjectsFeatures>());
         Assert.Null(ProjectsService.Create(off, new HttpClient()));
 
-        DevSweepEngine on = DevSweepEngine.CreateDefault(FeatureFlags.Default.With("+module:projects -module:projects.cleanup"));
+        DevSweepEngine on = DevSweepEngine.CreateDefault(FeatureFlags.Default.With("-module:projects.cleanup"));
         ProjectsFeatures features = Assert.Single(on.Services<ProjectsFeatures>());
         Assert.Equal(new ProjectsFeatures(Accounts: true, Cleanup: false, Activity: true), features);
         Assert.Equal([ProjectsFeatures.CleanupFlag], features.Disabled);

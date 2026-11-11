@@ -84,9 +84,10 @@ internal static class SettingsView
         }
 
         appearance.SelectedIndex = (int)vm.Appearance;
+        subs.On(vm, nameof(SettingsViewModel.Appearance), () => appearance.SelectedIndex = (int)vm.Appearance); // the title bar's theme button drives the same value
         appearance.SelectionChanged += (_, _) => vm.Appearance = (AppearanceMode)Math.Max(0, appearance.SelectedIndex);
         AutomationProperties.SetName(appearance, "Appearance");
-        page.Children.Add(Section("Appearance", Ui.Row(Ui.Secondary("Light or dark; by default DevSweep follows Windows."), appearance)));
+        page.Children.Add(Section("Appearance", Ui.Row(Ui.Secondary("Light or dark; by default DevSweep follows Windows. The sun and moon button in the title bar changes the same setting."), appearance)));
 
         var folders = new StackPanel { Spacing = 6 };
         var path = new TextBox { PlaceholderText = @"D:\src", Width = 320 };
@@ -165,7 +166,7 @@ internal static class SettingsView
         TextBlock restart = Ui.Text("Changes to modules apply the next time DevSweep starts.", "DsWarningText");
         subs.On(vm, nameof(SettingsViewModel.RestartNeeded), () => Ui.Show(restart, vm.RestartNeeded));
         page.Children.Add(Section("Modules", Ui.V(8,
-            Ui.Secondary("Each place is a module that can be turned off. A module that is off is left out of scans and its place is hidden. Saved in features.json; DEVSWEEP_FEATURES overrides it."),
+            Ui.Secondary("Every place (Clean up, Projects, Health) is a module and all of them are on by default. Switch one off and it is left out of scans and its place is hidden from the navigation. Saved in features.json; DEVSWEEP_FEATURES overrides it."),
             modules, restart)));
     }
 
