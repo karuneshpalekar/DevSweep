@@ -201,7 +201,7 @@ internal sealed partial class MainWindow : Window
     public void ClickSettingsButton() => new Microsoft.UI.Xaml.Automation.Peers.ButtonAutomationPeer(_settingsButton).Invoke();
 
     /// <summary>True when the navigation shows this place as selected (the built-in Settings item included).</summary>
-    public bool IsSelected(string id) => NavItem(id) is { } item && ReferenceEquals(_nav.SelectedItem, item);
+    public bool IsSelected(string id) => _nav.SelectedItem is NavigationViewItem { Tag: string tag } && tag == id;
 
     /// <summary>Clicks the title bar's theme button the way UI Automation does (smoke test); returns false when it cannot be invoked.</summary>
     public bool ClickThemeButton()
