@@ -265,6 +265,7 @@ internal sealed partial class App : Application, IXamlMetadataProvider
     private static async Task VerifyShellAsync(MainWindow window, MainViewModel model, AppSettingsStore settings)
     {
         string[] ids = [.. model.Places.Select(p => p.Id)];
+        window.TraceNavigation = true;
         Size("window", window);
         IReadOnlyList<string> problems = window.VerifyNavigation(ids);
         Log.Write($"nav: {ids.Length} items: {window.DescribeNavigation(ids)}");

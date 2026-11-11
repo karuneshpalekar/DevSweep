@@ -533,13 +533,46 @@ internal sealed partial class MainWindow : Window
         return _nav.MenuItems.Concat(_nav.FooterMenuItems).OfType<NavigationViewItem>().FirstOrDefault(i => (string)i.Tag == id);
     }
 
-    private void SyncSelection()
+    /// <summary>Makes the navigation highlight the current place when something other than a click changed it (the gear, a toast, the tray).</summary>
+    private void SyncSelection(int retries = 3)
     {
-        if (NavItem(_model.Current) is { } selected && !ReferenceEquals(_nav.SelectedItem, selected))
+        string id = _model.Current;
+        if (NavItem(id) is not { } target)
         {
-            _nav.SelectedItem = selected;
+            if (TraceNavigation)
+            {
+                Log.Write($"sync: no navigation item for '{id}' yet");
+            }
+
+            return;
+        }
+
+        if (IsSelected(id))
+        {
+            return;
+        }
+
+        _nav.SelectedItem = target;
+        if (TraceNavigation)
+        {
+            Log.Write($"sync: asked for '{id}', navigation now has {DescribeSelection()}");
+        }
+
+        // The navigation can ignore a selection made while it is busy with the previous one; ask again once it is idle.
+        if (!IsSelected(id) && retries > 0)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (_model.Current == id)
+                {
+                    SyncSelection(retries - 1);
+                }
+            });
         }
     }
+
+    /// <summary>Logs how the navigation follows the model (smoke test).</summary>
+    public bool TraceNavigation { get; set; }
 
     /// <summary>
     /// Opens a place by selecting its navigation item: the same path a click takes (SelectionChanged, then the model, then the page).
