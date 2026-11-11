@@ -57,7 +57,9 @@ WizardStyle=modern
 LicenseFile=..\..\LICENSE
 InfoAfterFile=after-install.txt
 UninstallDisplayName=DevSweep for Windows
-UninstallDisplayIcon={app}\{#AppExe}
+; The logo: Setup's and the uninstaller's own icon, and the icon Apps & features shows (DevSweep.exe has it embedded).
+SetupIconFile=..\src\DevSweep.App\Assets\DevSweep.ico
+UninstallDisplayIcon={app}\{#AppExe},0
 ; DevSweep is stopped by the [Code] below (gently first), not by the Restart Manager dialog.
 CloseApplications=no
 RestartApplications=no
@@ -73,8 +75,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\DevSweep"; Filename: "{app}\{#AppExe}"; Comment: "Find out what is using your disk, and clean it safely"
-Name: "{autodesktop}\DevSweep"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
+Name: "{autoprograms}\DevSweep"; Filename: "{app}\{#AppExe}"; IconFilename: "{app}\{#AppExe}"; IconIndex: 0; Comment: "Find out what is using your disk, and clean it safely"
+Name: "{autodesktop}\DevSweep"; Filename: "{app}\{#AppExe}"; IconFilename: "{app}\{#AppExe}"; IconIndex: 0; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Start DevSweep"; Flags: nowait postinstall skipifsilent

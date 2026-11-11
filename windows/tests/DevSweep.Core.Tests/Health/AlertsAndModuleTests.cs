@@ -105,9 +105,10 @@ public sealed class AlertsAndModuleTests
     }
 
     [Fact]
-    public void Health_is_a_module_and_each_tab_has_its_own_flag()
+    public void Health_is_a_module_on_by_default_and_each_tab_has_its_own_flag()
     {
-        DevSweepEngine off = TestSchema.Engine();
+        Assert.DoesNotContain("module:health", TestSchema.Engine().Disabled);
+        DevSweepEngine off = TestSchema.Engine(FeatureFlags.Default.With("-module:health"));
         Assert.Empty(off.Services<HealthChecks>());
         Assert.Contains("module:health", off.Disabled);
 
@@ -116,7 +117,7 @@ public sealed class AlertsAndModuleTests
         HealthFeatures all = Assert.Single(on.Services<HealthFeatures>());
         Assert.Equal((true, true, true), (all.Runtimes, all.Security, all.Ports));
 
-        DevSweepEngine noPorts = TestSchema.Engine(FeatureFlags.Default.With("+module:health -module:health.ports"));
+        DevSweepEngine noPorts = TestSchema.Engine(FeatureFlags.Default.With("-module:health.ports"));
         HealthChecks checks = Assert.Single(noPorts.Services<HealthChecks>());
         Assert.Equal((true, true, false), (checks.Features.Runtimes, checks.Features.Security, checks.Features.Ports));
         Assert.Equal(["module:health.ports"], checks.Features.Disabled);

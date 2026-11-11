@@ -92,7 +92,29 @@ public sealed partial class SettingsViewModel : ObservableObject
     public ObservableCollection<ModuleToggle> Modules { get; } = [];
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ThemeButtonLabel))]
     public partial AppearanceMode Appearance { get; set; }
+
+    /// <summary>System, then Light, then Dark, then System again (the title bar's theme button).</summary>
+    public static AppearanceMode NextAppearance(AppearanceMode mode) => mode switch
+    {
+        AppearanceMode.System => AppearanceMode.Light,
+        AppearanceMode.Light => AppearanceMode.Dark,
+        _ => AppearanceMode.System,
+    };
+
+    public static string AppearanceName(AppearanceMode mode) => mode switch
+    {
+        AppearanceMode.Light => "Light",
+        AppearanceMode.Dark => "Dark",
+        _ => "System",
+    };
+
+    /// <summary>The theme button's tooltip and automation name.</summary>
+    public string ThemeButtonLabel => $"Theme: {AppearanceName(Appearance)}, click to change";
+
+    /// <summary>The theme button's click; Settings, General, Appearance shows the same value.</summary>
+    public void CycleAppearance() => Appearance = NextAppearance(Appearance);
 
     [ObservableProperty]
     public partial bool ExactScan { get; set; }

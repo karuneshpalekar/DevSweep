@@ -46,7 +46,7 @@ removal) is the only logic.
 
 ## Versioning
 
-`version.props` holds `DevSweepVersion` (0.1.0). `Directory.Build.props` imports it and sets `Version`,
+`version.props` holds `DevSweepVersion` (0.1.1). `Directory.Build.props` imports it and sets `Version`,
 so file, product and informational version of `DevSweep.exe` and `devsweep.exe` carry it; Settings, About
 already shows `AssemblyInformationalVersion` ("DevSweep for Windows 0.1.0"), so no app change was needed
 (the hard-coded `<Version>` in `DevSweep.App.csproj` was removed). `release.ps1 -Version x.y.z` overrides

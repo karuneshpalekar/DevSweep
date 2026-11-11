@@ -18,6 +18,7 @@ namespace DevSweep.App.Shots;
 internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel model, string folder)
 {
     private int _saved;
+    private readonly Dictionary<string, (double TitleBar, double Content)> _brightness = [];
 
     public async Task<int> RunAsync()
     {
@@ -33,11 +34,17 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             Log.Write("tray menu: " + (item.IsSeparator ? "----" : item.Text + (item.Enabled ? string.Empty : " (not clickable)")));
         }
 
-        foreach ((ElementTheme theme, string suffix) in new[] { (ElementTheme.Light, "light"), (ElementTheme.Dark, "dark") })
+        await SmallestWindowAsync();
+
+        // The title bar's theme button does the switching, exactly as a click does (System, Light, Dark, System).
+        foreach ((AppearanceMode mode, string suffix) in new[] { (AppearanceMode.Light, "light"), (AppearanceMode.Dark, "dark") })
         {
-            window.SetTheme(theme);
+            ClickThemeUntil(mode);
             await WalkAsync(suffix, full: true);
         }
+
+        CheckThemesDiffer();
+        await ThemeButtonShotsAsync();
 
         if (Environment.GetEnvironmentVariable("DEVSWEEP_SHOTS_HIGH_CONTRAST") == "1")
         {
@@ -47,16 +54,106 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         return _saved;
     }
 
+    /// <summary>Opens a place by selecting its navigation item (what a click does) and checks every place's item is on screen.</summary>
+    private async Task GoAsync(string id)
+    {
+        await window.SelectPlaceAsync(id);
+        IReadOnlyList<string> problems = window.VerifyNavigation(model.Places.Select(p => p.Id));
+        if (problems.Count > 0)
+        {
+            throw new InvalidOperationException($"The navigation is wrong on {id}: " + string.Join("; ", problems));
+        }
+    }
+
+    /// <summary>Clicks the title bar's theme button until it reaches <paramref name="mode"/> (at most three clicks).</summary>
+    private void ClickThemeUntil(AppearanceMode mode)
+    {
+        for (int i = 0; i < 3 && model.SettingsPage.Appearance != mode; i++)
+        {
+            window.ClickThemeButton();
+        }
+
+        if (model.SettingsPage.Appearance != mode)
+        {
+            throw new InvalidOperationException($"The theme button did not reach {mode}: {window.DescribeTheme()}");
+        }
+
+        Log.Write("theme: " + window.DescribeTheme());
+    }
+
+    /// <summary>The navigation with the update card showing, at the smallest window: every place must still be on screen.</summary>
+    private async Task SmallestWindowAsync()
+    {
+        string[] ids = [.. model.Places.Select(p => p.Id)];
+        window.ResizeToMinimum();
+        await window.WaitForRenderAsync();
+        foreach (string id in ids)
+        {
+            await GoAsync(id);
+        }
+
+        Log.Write($"nav: all {ids.Length} places on screen at the minimum window {window.WindowSize.Width} x {window.WindowSize.Height} with the update card showing ({window.DescribeNavigation(ids)})");
+        await GoAsync("home");
+        window.ResizeTo(1280, 840);
+        await window.WaitForRenderAsync();
+    }
+
+    /// <summary>A light shot and a dark shot of the same screen must differ a lot in brightness, in the content and in the title bar.</summary>
+    private void CheckThemesDiffer()
+    {
+        int pairs = 0;
+        foreach (string key in _brightness.Keys.Where(k => k.EndsWith("-light", StringComparison.Ordinal)).ToList())
+        {
+            string name = key[..^"-light".Length];
+            if (!_brightness.TryGetValue(name + "-dark", out (double TitleBar, double Content) dark))
+            {
+                continue;
+            }
+
+            (double TitleBar, double Content) light = _brightness[key];
+            pairs++;
+            if (pairs <= 3 || light.Content - dark.Content < 60)
+            {
+                Log.Write($"theme check: {name}: brightness light content {light.Content:0} / title bar {light.TitleBar:0}, dark content {dark.Content:0} / title bar {dark.TitleBar:0}");
+            }
+
+            if (light.Content - dark.Content < 40 || light.TitleBar - dark.TitleBar < 40)
+            {
+                throw new InvalidOperationException($"The light and dark shots of {name} are not clearly different (content {light.Content:0} vs {dark.Content:0}, title bar {light.TitleBar:0} vs {dark.TitleBar:0}).");
+            }
+        }
+
+        if (pairs < 10)
+        {
+            throw new InvalidOperationException($"Only {pairs} light/dark pairs were compared.");
+        }
+
+        Log.Write($"theme check: ok, {pairs} screens are clearly lighter in Light than in Dark (content and title bar)");
+    }
+
+    /// <summary>One shot per theme with the title bar's button showing, taken after clicking it (System, Light, Dark).</summary>
+    private async Task ThemeButtonShotsAsync()
+    {
+        await GoAsync("home");
+        foreach ((AppearanceMode mode, string name) in new[] { (AppearanceMode.System, "system"), (AppearanceMode.Light, "light"), (AppearanceMode.Dark, "dark") })
+        {
+            ClickThemeUntil(mode);
+            await ShotAsync("theme-button", name);
+        }
+
+        ClickThemeUntil(AppearanceMode.System);
+    }
+
     private async Task WalkAsync(string suffix, bool full)
     {
         model.ShowWelcome = true;
         await ShotAsync("welcome", suffix);
         model.ShowWelcome = false;
 
-        model.Go("home");
+        await GoAsync("home");
         await ShotAsync("home", suffix);
 
-        model.Go("cleanup");
+        await GoAsync("cleanup");
         model.CleanUp.Inspected = null;
         await ShotAsync("cleanup", suffix);
         model.CleanUp.Inspect(model.CleanUp.All.First(f => f.Id == "pnpm-store"));
@@ -93,7 +190,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
 
         if (model.Places.Any(p => p.Id == "projects"))
         {
-            model.Go("projects");
+            await GoAsync("projects");
             foreach (ProjectsTab tab in model.Projects.Tabs)
             {
                 model.Projects.Tab = tab;
@@ -103,7 +200,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
 
         if (model.Places.Any(p => p.Id == "health"))
         {
-            model.Go("health");
+            await GoAsync("health");
             foreach (HealthTab tab in model.Health.Tabs)
             {
                 model.Health.Tab = tab;
@@ -111,9 +208,9 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             }
         }
 
-        model.Go("history");
+        await GoAsync("history");
         await ShotAsync("history", suffix);
-        model.Go("settings");
+        await GoAsync("settings");
         foreach (SettingsTab tab in Enum.GetValues<SettingsTab>())
         {
             model.SettingsPage.Tab = tab;
@@ -126,7 +223,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
     /// <summary>The scan progress panel, fed with progress events the way a real scan sends them.</summary>
     private async Task ScanningAsync(string suffix)
     {
-        model.Go("cleanup");
+        await GoAsync("cleanup");
         var scan = model.Scan;
         scan.Checks.Clear();
         scan.IsScanning = true;
@@ -157,12 +254,12 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         try
         {
             await Task.Delay(2500);
-            window.SetTheme(ElementTheme.Default);
+            ClickThemeUntil(AppearanceMode.System);
             bool on = new Windows.UI.ViewManagement.AccessibilitySettings().HighContrast;
             Log.Write($"high contrast: on={on}");
-            model.Go("home");
+            await GoAsync("home");
             await ShotAsync("home", "highcontrast");
-            model.Go("cleanup");
+            await GoAsync("cleanup");
             model.CleanUp.Inspect(model.CleanUp.All.First(f => f.Id == "pnpm-store"));
             await ShotAsync("cleanup", "highcontrast");
             model.CleanUp.Inspected = null;
@@ -180,9 +277,10 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
     {
         await window.WaitForRenderAsync(350);
         string path = Path.Join(folder, $"{name}-{suffix}.png");
-        (int width, int height) = await window.CaptureAsync(path);
+        (int width, int height, double titleBar, double content) = await window.CaptureWithBrightnessAsync(path);
         _saved++;
-        Log.Write($"saved {Path.GetFileName(path)} {width}x{height}");
+        _brightness[$"{name}-{suffix}"] = (titleBar, content);
+        Log.Write($"saved {Path.GetFileName(path)} {width}x{height} brightness title bar {titleBar:0} content {content:0}");
     }
 }
 

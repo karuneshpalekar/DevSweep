@@ -27,14 +27,15 @@ public sealed class FeatureFlagTests
     {
         DevSweepEngine engine = TestSchema.Engine();
 
-        Assert.Equal(["locations", "inventory", "cleanup", "packs"], engine.Modules.Select(m => m.Id));
+        Assert.Equal(["locations", "inventory", "cleanup", "packs", "health", "projects"], engine.Modules.Select(m => m.Id));
         Assert.Equal(
             ["androidSystemImages", "browserCaches", "browserProfiles", "docker", "dotnetInstalls", "editorExtensions", "largeOldFiles",
              "oldJdks", "ollamaModels", "orphanedAppData", "orphanedRunEntries", "orphanedScheduledTasks", "paths", "recycleBin",
              "rustToolchains", "staleProjectArtifacts", "toolVersions", "versionedSiblings", "vhdxDisks", "visualStudioInstances"],
             engine.Detectors.Kinds.Order(StringComparer.Ordinal));
         Assert.Equal(12, engine.InventoryCollectors.Count);
-        Assert.Equal(["module:health", "module:projects"], engine.Disabled); // Health (M3b) and Projects (M3c) are off until they pass their gates
+        Assert.Empty(engine.Disabled); // Health and Projects are on by default (since 0.1.1)
+        Assert.Equal(["module:health", "module:projects"], TestSchema.Engine(FeatureFlags.Default.With("-module:health -module:projects")).Disabled);
     }
 
     [Fact]

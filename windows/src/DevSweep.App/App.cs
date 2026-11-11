@@ -205,7 +205,7 @@ internal sealed partial class App : Application, IXamlMetadataProvider
         string path = Path.Join(folder, "app-icon.png");
         try
         {
-            byte[] png = AppIconImage.Png(64);
+            byte[] png = Toolkit.AppAssets.HasLogo ? File.ReadAllBytes(Toolkit.AppAssets.LogoPath) : AppIconImage.Png(64);
             if (!File.Exists(path) || new FileInfo(path).Length != png.Length)
             {
                 Directory.CreateDirectory(folder);
@@ -246,15 +246,104 @@ internal sealed partial class App : Application, IXamlMetadataProvider
         await _window.WaitForRenderAsync();
         foreach (Place place in model.Places)
         {
-            model.Go(place.Id);
-            await _window.WaitForRenderAsync();
+            await _window.SelectPlaceAsync(place.Id); // the path a click takes
         }
 
         Log.Write($"window: rendered {model.Places.Count} places ({string.Join(", ", model.Places.Select(p => p.Id))}) in {started.Elapsed.TotalSeconds:0.0} s");
+        await VerifyShellAsync(_window, model, settings);
         SmokeBackgroundServices(model);
         Log.Write("smoke: ok");
         Program.ExitCode = 0;
         Exit();
+    }
+
+    /// <summary>
+    /// What a person sees first, checked without looking at it: every place has a navigation item that is on screen (also at the
+    /// smallest window), Settings opens from the navigation and from the gear, the theme button cycles System, Light, Dark and the
+    /// content, title bar and caption buttons follow, and the window and title bar carry the real logo.
+    /// </summary>
+    private static async Task VerifyShellAsync(MainWindow window, MainViewModel model, AppSettingsStore settings)
+    {
+        string[] ids = [.. model.Places.Select(p => p.Id)];
+        Size("window", window);
+        IReadOnlyList<string> problems = window.VerifyNavigation(ids);
+        Log.Write($"nav: {ids.Length} items: {window.DescribeNavigation(ids)}");
+        if (problems.Count > 0)
+        {
+            throw new InvalidOperationException("The navigation is wrong: " + string.Join("; ", problems));
+        }
+
+        Log.Write($"nav: ok, every place ({string.Join(", ", ids)}) has an item with a height above 0, inside the window and not clipped");
+
+        window.ResizeToMinimum();
+        await window.WaitForRenderAsync();
+        Size("minimum window", window);
+        problems = window.VerifyNavigation(ids);
+        if (problems.Count > 0)
+        {
+            throw new InvalidOperationException("The navigation is wrong at the smallest window: " + string.Join("; ", problems));
+        }
+
+        Log.Write($"nav: ok at the minimum window size too ({window.DescribeNavigation(ids)})");
+
+        await window.SelectPlaceAsync("home");
+        window.ClickSettingsButton();
+        await window.WaitForRenderAsync();
+        if (model.Current != "settings" || !window.IsSelected("settings"))
+        {
+            throw new InvalidOperationException($"The gear in the title bar did not open Settings (current: {model.Current}).");
+        }
+
+        await window.SelectPlaceAsync("home");
+        await window.SelectPlaceAsync("settings");
+        Log.Write("nav: Settings opens from its navigation item and from the gear in the title bar");
+
+        // Theme: the button cycles System, Light, Dark, System through the same value Settings shows, and everything follows.
+        foreach (AppearanceMode expected in new[] { AppearanceMode.Light, AppearanceMode.Dark, AppearanceMode.System })
+        {
+            if (!window.ClickThemeButton())
+            {
+                throw new InvalidOperationException("The theme button cannot be clicked.");
+            }
+
+            await window.WaitForRenderAsync();
+            Log.Write("theme: " + window.DescribeTheme());
+            bool follows = model.SettingsPage.Appearance == expected && settings.Current.Appearance == expected
+                && (expected == AppearanceMode.System || window.ActualTheme == (expected == AppearanceMode.Dark ? ElementTheme.Dark : ElementTheme.Light));
+            if (!follows)
+            {
+                throw new InvalidOperationException($"After a click the theme should be {expected}: {window.DescribeTheme()}");
+            }
+
+            if (window.CaptionForeground is { } caption && expected != AppearanceMode.System)
+            {
+                bool light = caption.R > 128;
+                if (light != (expected == AppearanceMode.Dark))
+                {
+                    throw new InvalidOperationException($"The caption buttons did not follow the {expected} theme: {window.DescribeTheme()}");
+                }
+            }
+        }
+
+        Log.Write("theme: ok, three clicks went Light, Dark, System; the setting, the content and the caption buttons followed each time");
+
+        // The real logo.
+        for (int i = 0; i < 20 && window.LogoState == "pending"; i++)
+        {
+            await Task.Delay(100);
+        }
+
+        (bool small, bool big) = window.WindowIcons;
+        Log.Write($"icon: window small={small} big={big}; title-bar logo {window.LogoState}; Assets\\DevSweep.ico {(Toolkit.AppAssets.HasIcon ? "present" : "MISSING")}, Assets\\DevSweep.png {(Toolkit.AppAssets.HasLogo ? "present" : "MISSING")}");
+        if (!small || !big || window.LogoState != "loaded" || !Toolkit.AppAssets.HasIcon || !Toolkit.AppAssets.HasLogo)
+        {
+            throw new InvalidOperationException("DevSweep's logo is not in place (see the icon line above).");
+        }
+
+        window.ResizeTo(1240, 820);
+        await window.WaitForRenderAsync();
+
+        static void Size(string what, MainWindow w) => Log.Write($"{what}: {w.WindowSize.Width} x {w.WindowSize.Height} px");
     }
 
     /// <summary>
@@ -267,6 +356,12 @@ internal sealed partial class App : Application, IXamlMetadataProvider
         {
             int items = tray.BuildAndDiscardMenu();
             tray.UpdateTooltip();
+            if (tray.IconSource != "Assets\\DevSweep.ico")
+            {
+                throw new InvalidOperationException("The tray icon is not DevSweep's logo (" + tray.IconSource + ").");
+            }
+
+            Log.Write($"tray: icon from {tray.IconSource}");
             Log.Write($"tray: icon {(tray.Added ? "added to the notification area" : "created, the shell did not take it in this session")}; menu of {items} items built; tooltip \"{model.Background.Tray.Tooltip()}\"");
         }
 
@@ -280,7 +375,7 @@ internal sealed partial class App : Application, IXamlMetadataProvider
 
         Log.Write("toast: payload built (" + payload.Length + " characters), target kept in its launch argument");
         string icon = Path.Join(Path.GetTempPath(), "DevSweepAppSmoke-icon.png");
-        File.WriteAllBytes(icon, AppIconImage.Png(64));
+        File.WriteAllBytes(icon, Toolkit.AppAssets.HasLogo ? File.ReadAllBytes(Toolkit.AppAssets.LogoPath) : AppIconImage.Png(64));
         using (var toasts = new AppToasts())
         {
             bool registered = toasts.Register(icon);

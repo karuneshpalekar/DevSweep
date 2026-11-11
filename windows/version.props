@@ -6,7 +6,7 @@
     and the zip names); pass -p:DevSweepVersion=x.y.z (or release.ps1 -Version x.y.z) to override.
   -->
   <PropertyGroup>
-    <DevSweepVersion Condition="'$(DevSweepVersion)' == ''">0.1.0</DevSweepVersion>
+    <DevSweepVersion Condition="'$(DevSweepVersion)' == ''">0.1.1</DevSweepVersion>
     <Version>$(DevSweepVersion)</Version>
   </PropertyGroup>
 </Project>

@@ -5,8 +5,8 @@ using DevSweep.App.ViewModels.Background;
 namespace DevSweep.App.Background;
 
 /// <summary>
-/// The notification-area icon: a hidden top-level window that receives the icon's callbacks, an icon drawn in
-/// code, and a native pop-up menu built from <see cref="TrayViewModel.Items"/> each time it opens, so free
+/// The notification-area icon: a hidden top-level window that receives the icon's callbacks, DevSweep's logo
+/// (loaded from Assets\DevSweep.ico at the size the tray wants; a drawn icon only if that file is missing), and a native pop-up menu built from <see cref="TrayViewModel.Items"/> each time it opens, so free
 /// space, alerts and recent projects are always current. Click opens DevSweep; right-click (or the menu key)
 /// opens the menu. Nothing in the menu cleans, moves or deletes anything.
 /// </summary>
@@ -42,7 +42,13 @@ internal sealed unsafe partial class TrayIcon : IDisposable
         }
 
         Instances[_window] = this;
-        _icon = CreateIcon();
+        _icon = LoadLogo();
+        IconSource = _icon != 0 ? "Assets\\DevSweep.ico" : "drawn fallback";
+        if (_icon == 0)
+        {
+            _icon = CreateIcon();
+        }
+
         if (_icon == 0)
         {
             throw new InvalidOperationException("The tray icon could not be drawn (error " + Marshal.GetLastPInvokeError() + ").");
@@ -50,6 +56,9 @@ internal sealed unsafe partial class TrayIcon : IDisposable
 
         Added = AddIcon();
     }
+
+    /// <summary>Where the icon came from: the logo file, or the drawn fallback (the smoke test requires the file).</summary>
+    public string IconSource { get; }
 
     /// <summary>True when the shell accepted the icon (false when there is no taskbar, as in some service sessions).</summary>
     public bool Added { get; private set; }
@@ -259,6 +268,18 @@ internal sealed unsafe partial class TrayIcon : IDisposable
         return data;
     }
 
+    private static nint LoadLogo()
+    {
+        if (!Toolkit.AppAssets.HasIcon)
+        {
+            return 0;
+        }
+
+        int size = Math.Max(16, TrayNative.GetSystemMetrics(TrayNative.SmCxSmIcon));
+        return TrayNative.LoadImage(0, Toolkit.AppAssets.IconPath, TrayNative.ImageIcon, size, size, TrayNative.LrLoadFromFile);
+    }
+
+    /// <summary>The fallback when the logo file is missing: a blue disc with a white broom, drawn in code.</summary>
     private static nint CreateIcon()
     {
         int size = Math.Max(16, TrayNative.GetSystemMetrics(TrayNative.SmCxSmIcon));

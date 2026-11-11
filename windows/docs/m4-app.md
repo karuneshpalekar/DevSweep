@@ -38,8 +38,8 @@ build):
 |---|---|
 | Home, History, Settings | always |
 | Clean up | `module:cleanup` or `module:packs` is on |
-| Health | `module:health` is on (it is **off by default**, M3b); tabs follow `module:health.runtimes/.security/.ports` |
-| Projects | `module:projects` is on (it is **off by default**, M3c); tabs Cleanup, Accounts, Activity follow `module:projects.cleanup/.accounts/.activity` |
+| Health | `module:health` is on (on by default since 0.1.1; it was off in 0.1.0); tabs follow `module:health.runtimes/.security/.ports` |
+| Projects | `module:projects` is on (on by default since 0.1.1; it was off in 0.1.0); tabs Cleanup, Accounts, Activity follow `module:projects.cleanup/.accounts/.activity` |
 
 A place whose module a flag turned off is hidden (a place whose module is not in the build at all
 shows an "is off" page). Settings, Modules lists every module and the Health and Projects tab flags
