@@ -25,3 +25,6 @@ Notes
 - Prefer a Start Menu entry and easy upgrades? Use the
   DevSweep-{VERSION}-win-x64-setup.exe installer instead.
 - Check your download against SHA256SUMS.txt from the release page.
+- Want to check DevSweep's numbers against Windows on your own PC? The scripts folder holds
+  Verify-DevSweep.ps1 (read-only by default, nothing is uploaded). Open PowerShell in this folder and run:
+      powershell -ExecutionPolicy Bypass -File .\scripts\Verify-DevSweep.ps1
