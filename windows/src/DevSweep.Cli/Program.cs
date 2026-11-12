@@ -15,6 +15,7 @@ internal static class Program
         root.Subcommands.Add(MeasureCommand.Create());
         root.Subcommands.Add(QuarantineCommand.Create());
         root.Subcommands.Add(HistoryCommand.Create());
+        root.Subcommands.Add(Commands.Verify.VerifyCleanCommand.Create()); // hidden, test-only (M7 kit)
 
         // Health (M3b): runtimes, security, ports (module:health).
         Commands.Health.HealthCommands.AddTo(root);
