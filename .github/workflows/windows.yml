@@ -622,3 +622,69 @@ jobs:
           path: windows/artifacts/installer-test
           if-no-files-found: warn
   # ---- end M6 ----
+
+  # ---- M7 ----
+  # Accuracy kit (self-contained block): scripts/Verify-DevSweep.ps1 compares DevSweep's output with
+  # independent measurements. Needs the published CLI from build-test. Fails the job on any FAIL.
+  m7-verify:
+    name: M7 accuracy kit (self-test, read-only, clean test, standard user)
+    needs: build-test
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: devsweep-cli-win-x64
+          path: windows/artifacts/cli
+
+      - name: Kit self-test on synthetic data (PowerShell 7)
+        run: |
+          ./scripts/Verify-DevSweep.ps1 -SelfTest
+          if ($LASTEXITCODE -ne 0) { throw "the kit's self-test failed ($LASTEXITCODE)" }
+
+      - name: Kit self-test on synthetic data (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          $PSVersionTable.PSVersion.ToString()
+          & ./scripts/Verify-DevSweep.ps1 -SelfTest
+          if ($LASTEXITCODE -ne 0) { throw "the kit's self-test failed on 5.1 ($LASTEXITCODE)" }
+
+      - name: Kit, read-only (Windows PowerShell 5.1, administrator account)
+        shell: powershell
+        run: |
+          & ./scripts/Verify-DevSweep.ps1 -DevSweepPath artifacts/cli/devsweep.exe -OutputPath artifacts/m7/readonly-ps51 -NoPause
+          $code = $LASTEXITCODE
+          Get-ChildItem artifacts/m7/readonly-ps51 -Recurse -File | ForEach-Object { "{0,10:N0}  {1}" -f $_.Length, $_.FullName }
+          Get-Content (Get-ChildItem artifacts/m7/readonly-ps51 -Recurse -Filter report.md | Select-Object -First 1).FullName
+          if ($code -ne 0) { throw "the kit reported a FAIL (exit $code)" }
+
+      - name: Kit, read-only and clean test (PowerShell 7, administrator account)
+        if: always()
+        run: |
+          ./scripts/Verify-DevSweep.ps1 -DevSweepPath artifacts/cli/devsweep.exe -OutputPath artifacts/m7/clean-pwsh7 -RunCleanTest -TestRecycleQuotaMb 300 -NoPause
+          $code = $LASTEXITCODE
+          Get-Content (Get-ChildItem artifacts/m7/clean-pwsh7 -Recurse -Filter report.md | Select-Object -First 1).FullName
+          if ($code -ne 0) { throw "the kit reported a FAIL (exit $code)" }
+
+      - name: Kit, read-only and clean test as a fresh standard user
+        if: always()
+        run: >
+          ./scripts/run-verify-as-standard-user.ps1
+          -KitScript scripts/Verify-DevSweep.ps1 -Cli artifacts/cli/devsweep.exe
+          -ResultsDirectory artifacts/m7/standard-user -RunCleanTest
+
+      - name: Upload the kit's reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: m7-verify-report
+          path: windows/artifacts/m7
+          if-no-files-found: warn
+  # ---- end M7 ----

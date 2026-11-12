@@ -89,6 +89,13 @@ if (Test-Path "$appStage/DevSweep.dll") { throw 'expected a Native AOT DevSweep.
 Get-ChildItem $appStage -Recurse -Filter *.pdb | Remove-Item -Force
 Get-ChildItem $cliStage -Recurse -Filter *.pdb | Remove-Item -Force
 
+# M7: the accuracy kit travels with the app (portable zip and installed folder): scripts\Verify-DevSweep.ps1
+# and the command-line program it drives, so a person can check DevSweep against Windows on their own PC.
+$kitDir = Join-Path $appStage 'scripts'
+New-Item -ItemType Directory -Force $kitDir | Out-Null
+Copy-Item -Force (Join-Path $PSScriptRoot 'Verify-DevSweep.ps1') $kitDir
+Copy-Item -Force "$cliStage/devsweep.exe" $kitDir
+
 # The version must really be stamped into both exes.
 foreach ($exe in "$appStage/DevSweep.exe", "$cliStage/devsweep.exe") {
     $info = (Get-Item $exe).VersionInfo
