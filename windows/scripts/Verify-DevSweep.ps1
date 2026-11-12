@@ -1529,6 +1529,13 @@ function Invoke-CleanTest {
         $mixed = Join-Path $items 'mixed'
         New-MixedItem $mixed $false
         $cases += [pscustomobject]@{ Name = 'mixed'; Path = $mixed; Sparse = $false }
+        # A plain folder (no read-only file, no junction): where the Recycle Bin itself can be checked ($I/$R files).
+        $plain = Join-Path $items 'plain'
+        New-Item -ItemType Directory -Path $plain | Out-Null
+        New-RandomFile (Join-Path $plain 'a.bin') (3MB)
+        $plainRand = New-Object System.Random 7
+        for ($i = 0; $i -lt 25; $i++) { $b = New-Object byte[] ($plainRand.Next(1, 9000)); $plainRand.NextBytes($b); [IO.File]::WriteAllBytes((Join-Path $plain ("p{0:D2}.dat" -f $i)), $b) }
+        $cases += [pscustomobject]@{ Name = 'plain'; Path = $plain; Sparse = $false }
         $longName = ('l' * 200)
         $long = Join-Path $items $longName
         [DsvNative]::EnsureDir($long)
@@ -1594,7 +1601,7 @@ function Invoke-CleanTest {
             $msg = "${name}: DevSweep put it in $destination" + $(if ($agree) { " (Windows' rules agree: $($expected.Why))" } else { " but Windows' rules suggest $($expected.Destination) ($($expected.Why))" })
             if ($destStatus -eq 'PASS' -and -not $agree) {
                 if ($destination -eq 'RecycleBin') { $destStatus = 'FAIL'; $problems += "an item that Windows would delete for good was claimed as recycled ($($expected.Why))" }
-                else { $destStatus = 'WARN'; $problems += "DevSweep was more careful than Windows' rules require ($($expected.Why)); that is safe, but the Recycle Bin was not used" }
+                else { $destStatus = 'WARN'; $problems += "DevSweep was more careful than Windows' rules require ($($expected.Why)); that is safe, but the Recycle Bin was not used. DevSweep's own reason: $([string]$moved.note)" }
             }
             Add-Result 'Clean' "clean.dest.$name" $destStatus $msg ($problems -join "`n") $(if (@($outside.Content).Count -gt 0) { 'clean-outside' } else { 'clean-destination' })
             # a move frees nothing: the item is still on the drive
