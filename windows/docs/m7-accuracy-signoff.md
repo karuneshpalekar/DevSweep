@@ -186,7 +186,35 @@ as long as DevSweep offers nothing when unsure; each one is a thing to look for 
 
 ## 8. What CI proves (job `m7-verify`)
 
-CI_NUMBERS_PLACEHOLDER
+Job `m7-verify` runs after `build-test`, against the published Native AOT `devsweep.exe`, and fails on any FAIL.
+Steps: self-test (58 checks) on PowerShell 7 and on Windows PowerShell 5.1; read-only kit on 5.1 as the runner's
+administrator account; read-only plus `-RunCleanTest -TestRecycleQuotaMb 300` on PowerShell 7; the same as a
+fresh standard user (scheduled task, Users group only). Reports are uploaded as artifact `m7-verify-report`.
+
+CI run 43174349957 (`windows-latest`, Windows Server 2025 build 26100, NTFS, 4 KiB clusters), all jobs green,
+**no FAIL anywhere**:
+
+| | Result |
+|---|---|
+| Sizes | The 15 largest findings (Visual Studio installer cache 947.9 MB, old temp files 287.3 MB, eight .NET SDKs, five WindowsDesktop runtimes): the kit's independent walk equals DevSweep's number to the byte (difference 0 B, allowed 10 MB). 3 findings have tool-reported sizes and are not measurable from files |
+| Leftovers | 3 leftover findings (Edge Update scheduled tasks): none installed per registry (4 views), Store, Scoop, Chocolatey, Start menu, Program Files. All 59 programs in the Uninstall keys are in DevSweep's inventory |
+| Runtimes and PATH | node, python, java, go, ruby, php, rustc, dotnet: DevSweep's PATH hits equal `where.exe` run with the registry PATH; registry/`py`/JAVA_HOME installs all listed; no Store alias reported as an install |
+| Ports | 23 listening TCP sockets by `Get-NetTCPConnection`; DevSweep lists the same 23 (pid and port) |
+| Recycle Bin | A plain fixture went to the real Recycle Bin (`$I` record and `$R` item found, original path in the `$I` matches), restored byte-identical |
+| Quarantine | A path over 259 characters and a sparse file bigger than the (CI-set, 300 MB) Recycle Bin limit went to the quarantine, which is also what Windows' own rules imply; both restored |
+| Junction | A junction inside a moved item and inside three permanently deleted items: the decoy folder behind it byte-identical at the end |
+| Freed space | Permanent delete of a 100.2 MB item (hard-link pair, compressed file, junction): expected 100.2 MB, the drive got back 100.2 MB in each of 3 runs |
+| Refusal | The test-only command refused a folder without the marker, a path outside the fixture root and the root itself |
+| Standard user | Same checks as a fresh Users-only account: 48 passed, 1 warning, 0 failed |
+
+The one WARN (also as a standard user): a fixture containing a read-only file and a junction was sent by the
+Windows shell back with error 0x78 ("could not recycle"), so DevSweep put it in its own quarantine instead
+(`Cleaner.QuarantineAfterRefusal`). That is the designed safe fallback (restorable, truthfully labelled), not an
+accuracy bug; the kit lists it so a human sees that the Recycle Bin was not used. It is worth knowing which
+real-world items cause it (read-only files such as git objects, per the M1 notes).
+
+Not exercised on CI: Dev Drive/ReFS, OneDrive placeholders, Scoop, Docker, WSL, JetBrains, Android Studio, a
+Recycle Bin with no configured limit on the machine (the kit sets one on the disposable runner only).
 
 ## 9. Files
 
