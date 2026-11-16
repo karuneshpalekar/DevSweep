@@ -24,7 +24,7 @@ $Target = 'windows-screenshots'
 $url = "https://x-access-token:$Token@github.com/$Repository.git"
 $folderName = $SourceBranch -replace '[^A-Za-z0-9._-]', '_'
 
-function Git {
+function Invoke-Git {
     $out = & git @args 2>&1
     if ($LASTEXITCODE -ne 0) { throw "git $($args[0]) failed ($LASTEXITCODE): $(($out | Out-String) -replace [regex]::Escape($Token), '***')" }
     $out
@@ -41,14 +41,14 @@ for ($attempt = 1; $attempt -le 6; $attempt++) {
     if ($remote) { $tip = ($remote -split '\s+')[0] }
     Push-Location $Work
     try {
-        Git init -q .
-        Git config user.name 'github-actions[bot]'
-        Git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-        Git checkout -q --orphan $Target
+        Invoke-Git init -q .
+        Invoke-Git config user.name 'github-actions[bot]'
+        Invoke-Git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+        Invoke-Git checkout -q --orphan $Target
         if ($tip) {
-            Git fetch -q --depth 1 $url "+refs/heads/${Target}:refs/remotes/origin/$Target"
-            Git read-tree "origin/$Target"
-            Git checkout-index -a -f
+            Invoke-Git fetch -q --depth 1 $url "+refs/heads/${Target}:refs/remotes/origin/$Target"
+            Invoke-Git read-tree "origin/$Target"
+            Invoke-Git checkout-index -a -f
         }
 
         # replace only this branch's folder
@@ -83,8 +83,8 @@ for ($attempt = 1; $attempt -le 6; $attempt++) {
         }
         Set-Content -Path (Join-Path $Work 'README.md') -Value $index -Encoding utf8
 
-        Git add -A
-        Git commit -q -m "Screenshots of $SourceBranch at $($Sha.Substring(0, 7))"
+        Invoke-Git add -A
+        Invoke-Git commit -q -m "Screenshots of $SourceBranch at $($Sha.Substring(0, 7))"
         $lease = "--force-with-lease=${Target}:$tip"
         & git push $lease $url "HEAD:refs/heads/$Target" 2>&1 | ForEach-Object { $_ -replace [regex]::Escape($Token), '***' }
         if ($LASTEXITCODE -eq 0) {
