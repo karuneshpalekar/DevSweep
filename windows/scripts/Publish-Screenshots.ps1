@@ -20,6 +20,7 @@ param(
     [string] $Work = (Join-Path $env:RUNNER_TEMP 'shots-publish')
 )
 $ErrorActionPreference = 'Stop'
+$Shots = (Resolve-Path $Shots).Path
 $Target = 'windows-screenshots'
 $url = "https://x-access-token:$Token@github.com/$Repository.git"
 $folderName = $SourceBranch -replace '[^A-Za-z0-9._-]', '_'
