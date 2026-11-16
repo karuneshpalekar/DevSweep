@@ -1,3 +1,4 @@
+using DevSweep.App.Design;
 using DevSweep.App.Toolkit;
 using DevSweep.App.ViewModels;
 using DevSweep.App.ViewModels.Text;
@@ -15,43 +16,46 @@ internal static class CleanUpView
     public static UIElement Build(MainViewModel model, Subscriptions subs, MainWindow window)
     {
         CleanUpViewModel vm = model.CleanUp;
-        var layout = new Grid();
-        layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
         TextBlock subtitle = Ui.Secondary(string.Empty);
-        var filters = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        var search = new AutoSuggestBox { PlaceholderText = "Search", Width = 220, QueryIcon = new SymbolIcon(Symbol.Find) };
+        var filters = new StackPanel { Orientation = Orientation.Horizontal, Spacing = Tokens.Space2 };
+        var search = new AutoSuggestBox { PlaceholderText = "Search", Width = 240, QueryIcon = new SymbolIcon(Symbol.Find) };
         AutomationProperties.SetName(search, "Search Clean up");
         search.TextChanged += (_, _) => vm.Search = search.Text;
-        var list = new StackPanel { Spacing = 18 };
+        var list = new StackPanel { Spacing = Tokens.Space6 };
         var reportHost = new Border();
+        var chips = new ScrollViewer { Content = filters, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalAlignment = VerticalAlignment.Center };
 
-        var filterRow = new Grid();
-        filterRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        filterRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        filterRow.Children.Add(new ScrollViewer { Content = filters, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled });
-        Grid.SetColumn(search, 1);
-        filterRow.Children.Add(search);
-
-        StackPanel page = Ui.V(16,
-            Ui.PageHeader("Clean up", subtitle, ScanButtons.Build(model.Scan, subs)),
-            filterRow,
+        StackPanel page = Ui.V(Tokens.Space4,
+            Ds.PageHeader("Clean up", subtitle, ScanButtons.Build(model.Scan, subs)),
+            Ds.CommandBar(chips, search),
             ScanProgressView.Build(model.Scan, subs, compact: false),
             list,
             reportHost);
-        layout.Children.Add(Ui.Scroll(page));
 
-        var inspector = new Border { Style = Ui.Style("DsInspector"), Width = 380 };
-        Grid.SetColumn(inspector, 1);
-        Grid.SetRowSpan(inspector, 2);
-        layout.Children.Add(inspector);
-
+        var column = new Grid();
+        column.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        column.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        column.Children.Add(Ds.PageScroll(page));
         UIElement bar = SelectionBar(vm);
         Grid.SetRow((FrameworkElement)bar, 1);
-        layout.Children.Add(bar);
+        column.Children.Add(bar);
+
+        var panel = new SidePanel(
+            column,
+            (key, panelSubs) => vm.All.FirstOrDefault(f => f.Id == key) is { } item ? InspectorView.Build(model, item, panelSubs, window) : new Grid(),
+            "Details")
+        {
+            Closed = () => vm.Inspected = null,
+        };
+        subs.Add(panel.Dispose);
+        window.ActivePanel = panel;
+        subs.Add(() =>
+        {
+            if (ReferenceEquals(window.ActivePanel, panel))
+            {
+                window.ActivePanel = null;
+            }
+        });
 
         subs.On(vm, nameof(CleanUpViewModel.Subtitle), () => subtitle.Text = vm.Subtitle);
         subs.OnCollection(vm.Filters, () => RenderFilters(vm, filters));
@@ -60,18 +64,14 @@ internal static class CleanUpView
         subs.On(model.Scan, nameof(ScanViewModel.Report), () =>
         {
             reportHost.Child = model.Scan.Report is { } report
-                ? Ui.V(8, Ui.Text("About this scan", "DsStrong"), Ui.Card(ScanReportView.Build(report, expanded: false)))
+                ? Ui.V(Tokens.Space2, Ds.SectionTitle("About this scan"), Ds.Card(ScanReportView.Build(report, expanded: false)))
                 : null;
             RenderList(model, vm, list, subs);
         });
         subs.On(model.Scan, nameof(ScanViewModel.IsScanning), () => RenderList(model, vm, list, subs));
-        subs.On(vm, nameof(CleanUpViewModel.Inspected), () =>
-        {
-            Ui.Show(inspector, vm.Inspected is not null);
-            inspector.Child = vm.Inspected is { } item ? InspectorView.Build(model, item, subs, window) : null;
-        });
+        subs.On(vm, nameof(CleanUpViewModel.Inspected), () => panel.Select(vm.Inspected?.Id));
         subs.On(vm, nameof(CleanUpViewModel.SelectedCount), () => Ui.Show(bar, model.Scan.HasScanned && vm.All.Count > 0));
-        return layout;
+        return panel.Root;
     }
 
     private static void RenderFilters(CleanUpViewModel vm, StackPanel filters)
@@ -84,16 +84,7 @@ internal static class CleanUpView
 
         foreach (KindFilter filter in vm.Filters)
         {
-            var chip = new ToggleButton
-            {
-                Content = Ui.H(6, Ui.Text(filter.Title), Ui.Caption(filter.Detail)),
-                IsChecked = filter.Kind == vm.SelectedKind,
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(12, 4, 12, 4),
-            };
-            AutomationProperties.SetName(chip, $"Show {filter.Title}, {filter.Detail}");
-            chip.Click += (_, _) => vm.SelectedKind = filter.Kind;
-            filters.Children.Add(chip);
+            filters.Children.Add(Ds.Chip(filter.Title, filter.Detail, filter.Kind == vm.SelectedKind, $"Show {filter.Title}, {filter.Detail}", () => vm.SelectedKind = filter.Kind));
         }
     }
 
@@ -102,55 +93,45 @@ internal static class CleanUpView
         list.Children.Clear();
         if (!model.Scan.HasScanned)
         {
-            if (!model.Scan.IsScanning)
-            {
-                list.Children.Add(Ui.Card(Ui.V(10,
-                    Ui.Text("Not scanned yet", "DsSubtitle"),
-                    Ui.Secondary("Scan to see what's safe to clean on this PC. Nothing changes until you review and confirm."),
-                    Ui.Button("Scan now", () => _ = model.Scan.ScanAsync(), accent: true))));
-            }
-
+            list.Children.Add(model.Scan.IsScanning
+                ? Ds.Card(Ds.Skeleton(5))
+                : Ds.Card(Ds.EmptyState(Icons.CleanUp, "Not scanned yet", "Scan to see what's safe to clean on this PC. Nothing changes until you review and confirm.", Ui.Button("Scan now", () => _ = model.Scan.ScanAsync(), accent: true))));
             return;
         }
 
         if (vm.Groups.Count == 0)
         {
-            list.Children.Add(Ui.Card(Ui.V(6,
-                Ui.Text(vm.All.Count == 0 ? "Nothing to clean" : "Nothing matches", "DsSubtitle"),
-                Ui.Secondary(vm.All.Count == 0 ? "DevSweep didn't find anything to clean. Every check below ran." : "Try another filter or search."))));
+            list.Children.Add(Ds.Card(vm.All.Count == 0
+                ? Ds.EmptyState(Icons.CheckCircle, "Nothing to clean", "DevSweep didn't find anything to clean. Every check below ran.")
+                : Ds.EmptyState(Icons.Search, "Nothing matches", "Try another filter or search.")));
             return;
         }
 
         foreach (RiskGroup group in vm.Groups)
         {
-            var rows = new StackPanel { Spacing = 2 };
+            var rows = new List<UIElement>();
             foreach (FindingViewModel item in group.Items)
             {
-                rows.Children.Add(Row(vm, item, subs));
+                rows.Add(Row(vm, item, subs));
             }
 
-            Button? all = group.CanSelectAll
-                ? Ui.Button("Select all", () => CleanUpViewModel.ToggleGroup(group), $"Select or deselect all {group.Title} items")
+            HyperlinkButton? all = group.CanSelectAll
+                ? Ui.Link("Select all", () => CleanUpViewModel.ToggleGroup(group), $"Select or deselect all {group.Title} items")
                 : null;
-            if (all is not null)
-            {
-                all.Padding = new Thickness(10, 2, 10, 2);
-            }
-
-            list.Children.Add(Ui.V(6,
-                Ui.Row(Ui.H(10, Ui.Badge(group.Title, group.Tone, group.Summary), Ui.Secondary(group.Detail)), all),
-                Ui.Card(rows, "DsCard")));
+            Grid header = Ui.Row(Ui.H(Tokens.Space3, Ds.StatusTag(group.Title, group.Tone, group.Summary), Ui.Secondary(group.Detail)), all);
+            header.Margin = new Thickness(Tokens.Space1, 0, Tokens.Space1, 0);
+            list.Children.Add(Ui.V(Tokens.Space2, header, Ds.RowsCard(rows)));
         }
     }
 
     private static UIElement Row(CleanUpViewModel vm, FindingViewModel item, Subscriptions subs)
     {
-        var grid = new Grid { ColumnSpacing = 12 };
+        var grid = new Grid { ColumnSpacing = Tokens.Space3 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
 
         FrameworkElement select;
         if (item.CanSelect)
@@ -164,16 +145,20 @@ internal static class CleanUpView
         }
         else
         {
-            FontIcon lockIcon = Ui.Icon("", 14);
-            Ui.Tip(lockIcon, "You run the commands for this yourself; open ⓘ to see them.");
+            FontIcon lockIcon = Ui.Icon(Icons.Lock, 14);
+            Ui.Tip(lockIcon, "You run the commands for this yourself; open the details to see them.");
+            lockIcon.HorizontalAlignment = HorizontalAlignment.Center;
             lockIcon.VerticalAlignment = VerticalAlignment.Center;
             select = lockIcon;
         }
 
         grid.Children.Add(select);
-        StackPanel text = Ui.V(0, Ui.Text(item.Title, "DsStrong", maxLines: 1), Ui.Caption(item.Subtitle));
-        ((TextBlock)text.Children[1]).MaxLines = 1;
-        ((TextBlock)text.Children[1]).TextTrimming = TextTrimming.CharacterEllipsis;
+        TextBlock subtitle = Ui.Caption(item.Subtitle);
+        subtitle.MaxLines = 1;
+        subtitle.TextTrimming = TextTrimming.CharacterEllipsis;
+        StackPanel text = Ui.V(0, Ui.Text(item.Title, "DsStrong", maxLines: 1), subtitle);
+        text.VerticalAlignment = VerticalAlignment.Center;
+        Ui.Tip(text, item.Subtitle);
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
         StackPanel size = Ui.Size(item.SizeText, item.Badges, item.SizeTooltip);
@@ -203,27 +188,25 @@ internal static class CleanUpView
         }
         else
         {
-            action = Ui.Secondary(item.ChosenAction.DisplayLabel);
+            TextBlock label = Ui.Secondary(item.ChosenAction.DisplayLabel);
+            label.TextWrapping = TextWrapping.NoWrap;
+            label.TextTrimming = TextTrimming.CharacterEllipsis;
+            Ui.Tip(label, item.ChosenAction.DisplayLabel);
+            action = label;
         }
 
         action.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(action, 3);
         grid.Children.Add(action);
-        Button info = Ui.IconButton("", $"Explain {item.Title}: what happens if I clean this?", () => vm.Inspect(item));
+        Button info = Ui.IconButton(Icons.Info, $"Explain {item.Title}: what happens if I clean this?", () => vm.Inspect(item));
+        info.IsTabStop = false;
+        info.HorizontalAlignment = HorizontalAlignment.Center;
+        info.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(info, 4);
         grid.Children.Add(info);
 
-        var row = new Border { Child = grid };
-        subs.On(vm, nameof(CleanUpViewModel.Inspected), () => row.Style = Ui.Style(vm.Inspected?.Id == item.Id ? "DsSelectedRow" : "DsRow"));
-        row.Tapped += (_, e) =>
-        {
-            if (e.OriginalSource is FrameworkElement source && IsInside<ButtonBase>(source) || e.OriginalSource is FrameworkElement s2 && IsInside<ComboBox>(s2))
-            {
-                return;
-            }
-
-            vm.Inspect(item);
-        };
+        var row = new ListRow(grid, () => vm.Inspect(item));
+        subs.On(vm, nameof(CleanUpViewModel.Inspected), () => row.Selected = vm.Inspected?.Id == item.Id);
         var menu = new MenuFlyout();
         var reveal = new MenuFlyoutItem { Text = "Show in File Explorer", IsEnabled = item.Finding.Paths.Count > 0 };
         reveal.Click += (_, _) => Shell.Reveal(item.Finding.Paths[0]);
@@ -232,21 +215,8 @@ internal static class CleanUpView
         menu.Items.Add(reveal);
         menu.Items.Add(ignore);
         row.ContextFlyout = menu;
-        return row;
-    }
-
-    private static bool IsInside<T>(DependencyObject element)
-        where T : DependencyObject
-    {
-        for (DependencyObject? current = element; current is not null; current = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(current))
-        {
-            if (current is T)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        AutomationProperties.SetName(row.Root, $"{item.Title}, {item.SizeText}");
+        return row.Root;
     }
 
     private static UIElement SelectionBar(CleanUpViewModel vm)
@@ -272,7 +242,7 @@ internal static class CleanUpView
             Style = Ui.Style("DsCard"),
             CornerRadius = new CornerRadius(0),
             BorderThickness = new Thickness(0, 1, 0, 0),
-            Padding = new Thickness(28, 12, 28, 12),
+            Padding = new Thickness(Tokens.PageGutter, Tokens.Space3, Tokens.PageGutter, Tokens.Space3),
             Child = Ui.Row(text, clear, review),
         };
         return bar;

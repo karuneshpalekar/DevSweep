@@ -519,6 +519,19 @@ jobs:
           if (-not ($log | Select-String -Pattern 'tray menu: Open DevSweep' -Quiet)) { throw "the tray menu was not listed in the tour log" }
       # ---- end M5 ----
 
+      # ---- P0: design system checks from the screenshot tour's log ----
+      - name: App - side panel, motion (on and off) and new screens in the tour
+        run: |
+          $log = Get-Content artifacts/screenshots/shots.log
+          $log | Select-String -Pattern '^\S+ (sidepanel|motion|rows):' | ForEach-Object { $_.Line }
+          foreach ($needle in 'sidepanel: opens on the item and settles at 380 px with motion off', 'sidepanel: Esc closes it, the last item stays until it is gone, focus returned to the info button', 'motion: off path ok', 'motion: on path ok', 'sidepanel: ok') {
+            if (-not ($log | Select-String -Pattern $needle -Quiet)) { throw "shots log has no '$needle'" }
+          }
+          foreach ($shot in 'home-scanning-light', 'home-scanning-dark', 'nav-minimum', 'review-done-light', 'inspector-light', 'history-dark') {
+            if (-not (Test-Path "artifacts/screenshots/$shot.png")) { throw "no $shot.png in the tour" }
+          }
+      # ---- end P0 checks ----
+
       # ---- P0: the screenshots go to the windows-screenshots branch, so they can be looked at with plain git ----
       - name: App - publish screenshots to the windows-screenshots branch
         if: always() && github.event_name == 'push' && (github.ref_name == 'windows' || startsWith(github.ref_name, 'windows-m') || startsWith(github.ref_name, 'windows-p'))

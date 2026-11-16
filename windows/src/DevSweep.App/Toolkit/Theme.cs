@@ -18,36 +18,74 @@ internal static class Theme
           <ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary x:Key="Light">
               <Thickness x:Key="DsBadgeBorderThickness">0</Thickness>
+              <Thickness x:Key="DsSelectedBorderThickness">0</Thickness>
+              <Thickness x:Key="DsHoverBorderThickness">0</Thickness>
+              <x:Double x:Key="DsElevationZ">24</x:Double>
             </ResourceDictionary>
             <ResourceDictionary x:Key="Dark">
               <Thickness x:Key="DsBadgeBorderThickness">0</Thickness>
+              <Thickness x:Key="DsSelectedBorderThickness">0</Thickness>
+              <Thickness x:Key="DsHoverBorderThickness">0</Thickness>
+              <x:Double x:Key="DsElevationZ">24</x:Double>
             </ResourceDictionary>
             <ResourceDictionary x:Key="HighContrast">
               <Thickness x:Key="DsBadgeBorderThickness">1</Thickness>
+              <Thickness x:Key="DsSelectedBorderThickness">2</Thickness>
+              <Thickness x:Key="DsHoverBorderThickness">1</Thickness>
+              <x:Double x:Key="DsElevationZ">0</x:Double>
             </ResourceDictionary>
           </ResourceDictionary.ThemeDictionaries>
+
+          <!-- Tokens. Spacing 4/8/12/16/24/32 (Tokens.Space*), radii, type ramp, strokes. -->
+          <x:Double x:Key="DsSpace1">4</x:Double>
+          <x:Double x:Key="DsSpace2">8</x:Double>
+          <x:Double x:Key="DsSpace3">12</x:Double>
+          <x:Double x:Key="DsSpace4">16</x:Double>
+          <x:Double x:Key="DsSpace6">24</x:Double>
+          <x:Double x:Key="DsSpace8">32</x:Double>
+          <CornerRadius x:Key="DsRadiusSmall">4</CornerRadius>
+          <CornerRadius x:Key="DsRadiusMedium">8</CornerRadius>
+          <CornerRadius x:Key="DsRadiusLarge">12</CornerRadius>
+          <FontFamily x:Key="DsFontDisplay">Segoe UI Variable Display</FontFamily>
+          <FontFamily x:Key="DsFontText">Segoe UI Variable Text</FontFamily>
 
           <Style x:Key="DsRoot" TargetType="Grid">
             <Setter Property="Background" Value="{ThemeResource SolidBackgroundFillColorBaseBrush}" />
           </Style>
+          <Style x:Key="DsDisplay" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
+            <Setter Property="FontSize" Value="44" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+          </Style>
+          <Style x:Key="DsDisplayAccent" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
+            <Setter Property="FontSize" Value="44" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+          </Style>
           <Style x:Key="DsTitle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
             <Setter Property="FontSize" Value="28" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
           </Style>
           <Style x:Key="DsSubtitle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
             <Setter Property="FontSize" Value="20" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
           </Style>
           <Style x:Key="DsBig" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
             <Setter Property="FontSize" Value="34" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
           </Style>
           <Style x:Key="DsBigAccent" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
             <Setter Property="FontSize" Value="34" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
@@ -117,16 +155,50 @@ internal static class Theme
           <Style x:Key="DsSelectedRow" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
             <Setter Property="BorderBrush" Value="{ThemeResource AccentFillColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderThickness" Value="{ThemeResource DsSelectedBorderThickness}" />
             <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Padding" Value="12,8" />
           </Style>
           <Style x:Key="DsRow" TargetType="Border">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderThickness" Value="{ThemeResource DsHoverBorderThickness}" />
             <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Padding" Value="12,8" />
+          </Style>
+          <Style x:Key="DsRowHover" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="{ThemeResource DsHoverBorderThickness}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="12,8" />
+          </Style>
+          <Style x:Key="DsRowPressed" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="{ThemeResource DsHoverBorderThickness}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="12,8" />
+          </Style>
+          <Style x:Key="DsAccentBar" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+            <Setter Property="Width" Value="3" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+          </Style>
+          <Style x:Key="DsSkeleton" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource ControlStrongFillColorDisabledBrush}" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Height" Value="12" />
+          </Style>
+          <Style x:Key="DsSegmentTrack" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="2" />
           </Style>
           <Style x:Key="DsDivider" TargetType="Border">
             <Setter Property="Height" Value="1" />
@@ -138,7 +210,7 @@ internal static class Theme
             <Setter Property="Padding" Value="24,14,24,14" />
           </Style>
           <Style x:Key="DsInspector" TargetType="Border">
-            <Setter Property="Background" Value="{ThemeResource LayerFillColorDefaultBrush}" />
+            <Setter Property="Background" Value="{ThemeResource SolidBackgroundFillColorSecondaryBrush}" />
             <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
             <Setter Property="BorderThickness" Value="1,0,0,0" />
           </Style>

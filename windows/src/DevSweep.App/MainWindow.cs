@@ -1,3 +1,4 @@
+using DevSweep.App.Design;
 using DevSweep.App.Toolkit;
 using DevSweep.App.ViewModels;
 using DevSweep.App.ViewModels.Settings;
@@ -27,13 +28,15 @@ internal sealed partial class MainWindow : Window
     private readonly MainViewModel _model;
     private readonly Grid _root = new();
     private readonly NavigationView _nav = new();
-    private readonly Border _page = new();
+    private readonly Border _page = new() { RenderTransform = new TranslateTransform() };
     private readonly Grid _sheetLayer = new() { Visibility = Visibility.Collapsed };
     private readonly Border _sheet = new() { MaxWidth = 720, Margin = new Thickness(24), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
     private readonly Subscriptions _windowSubs = new();
     private Subscriptions _pageSubs = new();
     private Subscriptions _sheetSubs = new();
     private string? _sheetKind;
+    private string? _shownPage;
+    private MotionHandle? _pageMotion;
     private bool _allowClose;
     private Button _themeButton = new();
     private Button _settingsButton = new();
@@ -63,7 +66,7 @@ internal sealed partial class MainWindow : Window
         ApplyWindowIcon();
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
 
-        _root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(48) });
+        _root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Tokens.TitleBarHeight) });
         _root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         Grid titleBar = BuildTitleBar();
         _root.Children.Add(titleBar);
@@ -98,6 +101,9 @@ internal sealed partial class MainWindow : Window
     }
 
     public FrameworkElement Root => _root;
+
+    /// <summary>The page's side panel while it is on screen (Clean up); null otherwise. Tests drive it.</summary>
+    public SidePanel? ActivePanel { get; set; }
 
     /// <summary>
     /// When this returns true, closing the window only hides it (DevSweep stays in the tray, so scheduled scans
@@ -153,9 +159,9 @@ internal sealed partial class MainWindow : Window
         };
         _themeIcon.Glyph = mode switch
         {
-            AppearanceMode.Light => "\uE706",
-            AppearanceMode.Dark => "\uE708",
-            _ => "\uE7F4",
+            AppearanceMode.Light => Icons.Sun,
+            AppearanceMode.Dark => Icons.Moon,
+            _ => Icons.Auto,
         };
         _themeText.Text = SettingsViewModel.AppearanceName(mode);
         string label = _model.SettingsPage.ThemeButtonLabel;
@@ -196,6 +202,32 @@ internal sealed partial class MainWindow : Window
 
     /// <summary>The theme the content is really showing (Light or Dark).</summary>
     public ElementTheme ActualTheme => _root.ActualTheme;
+
+    /// <summary>The first control of type <typeparamref name="T"/> in the window with this automation name (tests).</summary>
+    public T? Find<T>(string automationName)
+        where T : DependencyObject
+        => Find<T>(_root, automationName);
+
+    private static T? Find<T>(DependencyObject parent, string automationName)
+        where T : DependencyObject
+    {
+        int count = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < count; i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T match && AutomationProperties.GetName(child) == automationName)
+            {
+                return match;
+            }
+
+            if (Find<T>(child, automationName) is { } deeper)
+            {
+                return deeper;
+            }
+        }
+
+        return default;
+    }
 
     /// <summary>Clicks the title bar's gear the way UI Automation does (smoke test).</summary>
     public void ClickSettingsButton() => new Microsoft.UI.Xaml.Automation.Peers.ButtonAutomationPeer(_settingsButton).Invoke();
@@ -261,7 +293,7 @@ internal sealed partial class MainWindow : Window
         var bitmap = new RenderTargetBitmap();
         await bitmap.RenderAsync(_root);
         IBuffer pixels = await bitmap.GetPixelsAsync();
-        (double titleBrightness, double contentBrightness) = Brightness(System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.ToArray(pixels), bitmap.PixelWidth, bitmap.PixelHeight, (int)Math.Round(48 * (_root.XamlRoot?.RasterizationScale ?? 1)));
+        (double titleBrightness, double contentBrightness) = Brightness(System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.ToArray(pixels), bitmap.PixelWidth, bitmap.PixelHeight, (int)Math.Round(Tokens.TitleBarHeight * (_root.XamlRoot?.RasterizationScale ?? 1)));
         using var stream = new InMemoryRandomAccessStream();
         BitmapEncoder encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
         double dpi = 96 * (_root.XamlRoot?.RasterizationScale ?? 1);
@@ -399,7 +431,7 @@ internal sealed partial class MainWindow : Window
 
     private Grid BuildTitleBar()
     {
-        var bar = new Grid { Padding = new Thickness(14, 0, 0, 0), ColumnSpacing = 4 };
+        var bar = new Grid { Padding = new Thickness(Tokens.Space4, 0, 0, 0), ColumnSpacing = Tokens.Space1 };
         bar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -414,26 +446,29 @@ internal sealed partial class MainWindow : Window
         }
         else
         {
-            logo = Ui.Icon("\uE74D", 16);
+            logo = Ui.Icon(Icons.Logo, 16);
         }
 
         AutomationProperties.SetName(logo, "DevSweep logo");
-        StackPanel title = Ui.H(10, logo, Ui.Text("DevSweep", "DsCaption"));
+        StackPanel title = Ui.H(Tokens.Space3, logo, Ui.Text("DevSweep", "DsCaption"));
         title.VerticalAlignment = VerticalAlignment.Center;
         bar.Children.Add(title);
 
-        Button settings = Ui.IconButton("\uE713", "Settings", () => _model.Go("settings"));
+        Button settings = Ui.IconButton(Icons.Settings, "Settings", () => _model.Go("settings"));
+        settings.Width = 36;
+        settings.Height = 32;
         _settingsButton = settings;
         settings.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(settings, 1);
         bar.Children.Add(settings);
 
-        _themeIcon = Ui.Icon("\uE7F4", 14);
+        _themeIcon = Ui.Icon(Icons.Auto, 14);
         _themeText = Ui.Caption("System");
         _themeButton = new Button
         {
-            Content = Ui.H(6, _themeIcon, _themeText),
-            Padding = new Thickness(10, 5, 10, 5),
+            Content = Ui.H(Tokens.Space2, _themeIcon, _themeText),
+            Height = 32,
+            Padding = new Thickness(Tokens.Space3, 0, Tokens.Space3, 0),
             Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
             BorderThickness = new Thickness(0),
             VerticalAlignment = VerticalAlignment.Center,
@@ -449,7 +484,7 @@ internal sealed partial class MainWindow : Window
     {
         double scale = _root.XamlRoot?.RasterizationScale ?? 1;
         double inset = AppWindow.TitleBar.RightInset / scale;
-        _captionInset.Width = new GridLength(inset > 0 ? inset + 4 : 142);
+        _captionInset.Width = new GridLength(inset > 0 ? inset + Tokens.Space1 : 144);
     }
 
     private void BuildNavigation()
@@ -459,7 +494,7 @@ internal sealed partial class MainWindow : Window
         _nav.IsSettingsVisible = true;
         _nav.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
         _nav.IsPaneToggleButtonVisible = true;
-        _nav.OpenPaneLength = 240;
+        _nav.OpenPaneLength = 256;
         _nav.Content = _page;
         // The update card may never push the places out of view: it scrolls inside its own capped box.
         _nav.PaneFooter = new ScrollViewer
@@ -476,7 +511,7 @@ internal sealed partial class MainWindow : Window
             {
                 Content = place.Title,
                 Tag = place.Id,
-                Icon = new FontIcon { Glyph = place.Glyph },
+                Icon = new FontIcon { Glyph = Icons.ForPlace(place.Id, place.Glyph) },
             };
             AutomationProperties.SetName(item, place.Title);
             if (place.Id == "settings")
@@ -679,6 +714,9 @@ internal sealed partial class MainWindow : Window
 
         SyncSelection();
 
+        bool changed = _shownPage is not null && _shownPage != id;
+        _shownPage = id;
+        _pageMotion?.Cancel();
         _page.Child = id switch
         {
             "cleanup" => CleanUpView.Build(_model, _pageSubs, this),
@@ -688,6 +726,16 @@ internal sealed partial class MainWindow : Window
             "settings" => SettingsView.Build(_model, _pageSubs, this),
             _ => HomeView.Build(_model, _pageSubs, this),
         };
+        if (changed)
+        {
+            // A new screen eases in (220 ms); the very first one and every screenshot appear at once.
+            var move = (TranslateTransform)_page.RenderTransform;
+            _pageMotion = Motion.Run(Motion.ScreenMs, Ease.InOut, t =>
+            {
+                _page.Opacity = t;
+                move.Y = (1 - t) * Tokens.Space2;
+            });
+        }
     }
 
     private void UpdateSheet()
@@ -710,6 +758,10 @@ internal sealed partial class MainWindow : Window
         bool open = kind is not null;
         Ui.Show(_sheetLayer, open);
         _nav.IsEnabled = !open;
+        if (open)
+        {
+            Motion.Run(Motion.SwapMs, Ease.InOut, t => _sheetLayer.Opacity = t);
+        }
         if (open && _sheet.Child is FrameworkElement content)
         {
             content.Loaded += (_, _) => FocusFirst(content);
@@ -734,6 +786,10 @@ internal sealed partial class MainWindow : Window
         if (_sheetKind == "review" && _model.Review.Stage != ReviewStage.Cleaning)
         {
             _model.Review.Close();
+            e.Handled = true;
+        }
+        else if (_sheetKind is null && ActivePanel is { IsOpen: true } panel && panel.HandleKey(e.Key))
+        {
             e.Handled = true;
         }
         else if (_sheetKind is null && _model.CleanUp.Inspected is not null)

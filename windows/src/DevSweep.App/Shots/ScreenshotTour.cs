@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using DevSweep.App.Design;
 using DevSweep.App.ViewModels;
 using DevSweep.App.ViewModels.Background;
 using DevSweep.App.ViewModels.Settings;
@@ -6,6 +7,8 @@ using DevSweep.App.ViewModels.Sample;
 using DevSweep.Core.Cleaning;
 using DevSweep.Core.Scanning;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 
 namespace DevSweep.App.Shots;
 
@@ -35,6 +38,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         }
 
         await SmallestWindowAsync();
+        await SidePanelChecksAsync();
 
         // The title bar's theme button does the switching, exactly as a click does (System, Light, Dark, System).
         foreach ((AppearanceMode mode, string suffix) in new[] { (AppearanceMode.Light, "light"), (AppearanceMode.Dark, "dark") })
@@ -92,10 +96,92 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             await GoAsync(id);
         }
 
+        await GoAsync("cleanup");
+        await ShotAsync("nav", "minimum");
         Log.Write($"nav: all {ids.Length} places on screen at the minimum window {window.WindowSize.Width} x {window.WindowSize.Height} with the update card showing ({window.DescribeNavigation(ids)})");
         await GoAsync("home");
         window.ResizeTo(1280, 840);
         await window.WaitForRenderAsync();
+    }
+
+    /// <summary>
+    /// The side panel, driven the way a person drives it: focus the ⓘ button, open, press Esc, check focus came back; once with motion
+    /// off (settles at once) and once with motion on (starts a tween, settles at the full width), and a cross-fade to another item.
+    /// </summary>
+    private async Task SidePanelChecksAsync()
+    {
+        await GoAsync("cleanup");
+        model.CleanUp.Inspected = null;
+        await window.WaitForRenderAsync();
+        SidePanel panel = window.ActivePanel ?? throw new InvalidOperationException("Clean up has no side panel.");
+        FindingViewModel first = model.CleanUp.All.First(f => f.Id == "pnpm-store");
+        FindingViewModel second = model.CleanUp.All.First(f => f.Id == "npm-cache");
+
+        Motion.Force = false;
+        try
+        {
+            Button opener = window.Find<Button>($"Explain {first.Title}: what happens if I clean this?") ?? throw new InvalidOperationException("The info button of the first item is not on screen.");
+            opener.Focus(FocusState.Programmatic);
+            model.CleanUp.Inspect(first);
+            await window.WaitForRenderAsync();
+            Require(panel.IsOpen && panel.Selected == first.Id && Math.Abs(panel.PaneWidth - Tokens.PanelWidth) < 0.5, $"sidepanel: did not open at {Tokens.PanelWidth} px (open={panel.IsOpen}, width={panel.PaneWidth})");
+            Log.Write($"sidepanel: opens on the item and settles at {panel.PaneWidth:0} px with motion off (overlay={panel.IsOverlay})");
+
+            Require(panel.HandleKey(Windows.System.VirtualKey.Escape), "sidepanel: Esc was not handled while open");
+            await window.WaitForRenderAsync();
+            Require(!panel.IsOpen && panel.PaneWidth == 0 && model.CleanUp.Inspected is null && panel.Shown == first.Id, "sidepanel: Esc did not close it (or it forgot the last item)");
+            object? focused = FocusManager.GetFocusedElement(window.Root.XamlRoot);
+            Require(ReferenceEquals(focused, opener), $"sidepanel: focus did not return to the button that opened it (it is on {focused?.GetType().Name})");
+            Log.Write("sidepanel: Esc closes it, the last item stays until it is gone, focus returned to the info button");
+            Log.Write($"motion: off path ok (enabled={Motion.Enabled}, running={Motion.RunningCount})");
+
+            Motion.Force = true;
+            opener.Focus(FocusState.Programmatic);
+            model.CleanUp.Inspect(first);
+            Require(Motion.RunningCount > 0 && panel.PaneWidth < Tokens.PanelWidth, $"motion: opening with motion on did not start an animation (running={Motion.RunningCount}, width={panel.PaneWidth})");
+            await WaitForMotionAsync();
+            Require(Math.Abs(panel.PaneWidth - Tokens.PanelWidth) < 0.5 && panel.IsOpen, $"motion: the panel did not settle open (width={panel.PaneWidth})");
+
+            model.CleanUp.Inspect(second);
+            Require(Motion.RunningCount > 0, "motion: switching items did not cross-fade");
+            await WaitForMotionAsync();
+            Require(panel.Shown == second.Id && panel.IsOpen, $"motion: the panel shows {panel.Shown}, not {second.Id}");
+
+            model.CleanUp.Inspected = null;
+            Require(!panel.IsOpen && Motion.RunningCount > 0 && panel.Shown == second.Id, "motion: closing did not animate or dropped the item at once");
+            await WaitForMotionAsync();
+            Require(panel.PaneWidth == 0, $"motion: the panel did not close (width={panel.PaneWidth})");
+            Log.Write("motion: on path ok, the panel slid open, cross-faded to the next item and slid shut");
+        }
+        finally
+        {
+            Motion.Force = null;
+            model.CleanUp.Inspected = null;
+        }
+
+        Require(!Motion.Enabled, "motion: screenshot mode should have motion off");
+        Log.Write("sidepanel: ok");
+    }
+
+    private static async Task WaitForMotionAsync()
+    {
+        for (int i = 0; i < 60 && Motion.RunningCount > 0; i++)
+        {
+            await Task.Delay(50);
+        }
+
+        if (Motion.RunningCount > 0)
+        {
+            throw new InvalidOperationException("motion: an animation did not finish within 3 s");
+        }
+    }
+
+    private static void Require(bool condition, string message)
+    {
+        if (!condition)
+        {
+            throw new InvalidOperationException(message);
+        }
     }
 
     /// <summary>A light shot and a dark shot of the same screen must differ a lot in brightness, in the content and in the title bar.</summary>
@@ -152,6 +238,10 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
 
         await GoAsync("home");
         await ShotAsync("home", suffix);
+        if (full)
+        {
+            await HomeScanningAsync(suffix);
+        }
 
         await GoAsync("cleanup");
         model.CleanUp.Inspected = null;
@@ -218,6 +308,19 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         }
 
         model.SettingsPage.Tab = SettingsTab.General;
+    }
+
+    /// <summary>Home while a scan runs (the cleanable number gives way to the progress).</summary>
+    private async Task HomeScanningAsync(string suffix)
+    {
+        var scan = model.Scan;
+        string[] titles = ["npm cache"];
+        scan.IsScanning = true;
+        scan.OnProgress(new ScanProgress(ScanPhase.Checking, 21, 50, "check-1", true, titles));
+        await ShotAsync("home-scanning", suffix);
+        scan.IsScanning = false;
+        scan.Status = SampleData.Report.Summary;
+        scan.Checks.Clear();
     }
 
     /// <summary>The scan progress panel, fed with progress events the way a real scan sends them.</summary>
