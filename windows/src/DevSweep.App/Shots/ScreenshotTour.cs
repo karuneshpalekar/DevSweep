@@ -38,7 +38,18 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         }
 
         await SmallestWindowAsync();
-        await SidePanelChecksAsync();
+        InvalidOperationException? panelFailure = null;
+        try
+        {
+            await SidePanelChecksAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Keep going so the shots are still taken and published; the failure is raised at the end.
+            panelFailure = ex;
+            Log.Write("sidepanel: FAILED " + ex.Message);
+        }
+
 
         // The title bar's theme button does the switching, exactly as a click does (System, Light, Dark, System).
         foreach ((AppearanceMode mode, string suffix) in new[] { (AppearanceMode.Light, "light"), (AppearanceMode.Dark, "dark") })
@@ -53,6 +64,11 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         if (Environment.GetEnvironmentVariable("DEVSWEEP_SHOTS_HIGH_CONTRAST") == "1")
         {
             await HighContrastAsync();
+        }
+
+        if (panelFailure is not null)
+        {
+            throw new InvalidOperationException("The side panel check failed: " + panelFailure.Message, panelFailure);
         }
 
         return _saved;
@@ -121,7 +137,8 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         try
         {
             Button opener = window.Find<Button>($"Explain {first.Title}: what happens if I clean this?") ?? throw new InvalidOperationException("The info button of the first item is not on screen.");
-            opener.Focus(FocusState.Programmatic);
+            bool focusedOpener = opener.Focus(FocusState.Programmatic);
+            Log.Write($"sidepanel: focus on the info button: {focusedOpener}, focused element: {Describe(FocusManager.GetFocusedElement(window.Root.XamlRoot))}");
             model.CleanUp.Inspect(first);
             await window.WaitForRenderAsync();
             Require(panel.IsOpen && panel.Selected == first.Id && Math.Abs(panel.PaneWidth - Tokens.PanelWidth) < 0.5, $"sidepanel: did not open at {Tokens.PanelWidth} px (open={panel.IsOpen}, width={panel.PaneWidth})");
@@ -131,7 +148,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             await window.WaitForRenderAsync();
             Require(!panel.IsOpen && panel.PaneWidth == 0 && model.CleanUp.Inspected is null && panel.Shown == first.Id, "sidepanel: Esc did not close it (or it forgot the last item)");
             object? focused = FocusManager.GetFocusedElement(window.Root.XamlRoot);
-            Require(ReferenceEquals(focused, opener), $"sidepanel: focus did not return to the button that opened it (it is on {focused?.GetType().Name})");
+            Require(ReferenceEquals(focused, opener), $"sidepanel: focus did not return to the button that opened it (it is on {Describe(focused)})");
             Log.Write("sidepanel: Esc closes it, the last item stays until it is gone, focus returned to the info button");
             Log.Write($"motion: off path ok (enabled={Motion.Enabled}, running={Motion.RunningCount})");
 
@@ -175,6 +192,9 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             throw new InvalidOperationException("motion: an animation did not finish within 3 s");
         }
     }
+
+    private static string Describe(object? element)
+        => element is DependencyObject d ? $"{d.GetType().Name} '{Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(d)}'" : "nothing";
 
     private static void Require(bool condition, string message)
     {

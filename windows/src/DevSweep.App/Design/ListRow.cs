@@ -22,7 +22,7 @@ internal sealed class ListRow
     private bool _pressed;
     private bool _selected;
 
-    public ListRow(UIElement content, Action? activate = null, string? automationName = null)
+    public ListRow(UIElement content, Action? activate = null, string? automationName = null, bool tabStop = true)
     {
         ArgumentNullException.ThrowIfNull(content);
         _activate = activate;
@@ -35,7 +35,7 @@ internal sealed class ListRow
         {
             Content = layers,
             Padding = new Thickness(0),
-            IsTabStop = activate is not null,
+            IsTabStop = activate is not null && tabStop,
             UseSystemFocusVisuals = true,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             CornerRadius = new CornerRadius(Tokens.RadiusMedium - 2),

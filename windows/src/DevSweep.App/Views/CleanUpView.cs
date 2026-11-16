@@ -199,13 +199,12 @@ internal static class CleanUpView
         Grid.SetColumn(action, 3);
         grid.Children.Add(action);
         Button info = Ui.IconButton(Icons.Info, $"Explain {item.Title}: what happens if I clean this?", () => vm.Inspect(item));
-        info.IsTabStop = false;
         info.HorizontalAlignment = HorizontalAlignment.Center;
         info.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(info, 4);
         grid.Children.Add(info);
 
-        var row = new ListRow(grid, () => vm.Inspect(item));
+        var row = new ListRow(grid, () => vm.Inspect(item), tabStop: false);
         subs.On(vm, nameof(CleanUpViewModel.Inspected), () => row.Selected = vm.Inspected?.Id == item.Id);
         var menu = new MenuFlyout();
         var reveal = new MenuFlyoutItem { Text = "Show in File Explorer", IsEnabled = item.Finding.Paths.Count > 0 };
