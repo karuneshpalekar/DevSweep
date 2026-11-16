@@ -401,6 +401,7 @@ internal sealed partial class App : Application, IXamlMetadataProvider
             Schedule = new ScanSchedule { Enabled = true, Frequency = ScanFrequency.Weekly, Day = DayOfWeek.Monday, Hour = 9, Since = SampleData.Now },
         });
         var model = new MainViewModel(new SampleBackend(), settings, SystemIntegration.Memory(LoginState.On, new SampleToasts()));
+        Design.Motion.Screenshots = true;
         _window = new MainWindow(model, screenshots: true);
         _window.Activate();
         int saved = await new ScreenshotTour(_window, model, folder).RunAsync();

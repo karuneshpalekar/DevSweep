@@ -618,3 +618,4 @@ by `rules validate` with 4 line-numbered problems.
 - [M6: Packaging and release (installer, portable zip, versioning)](docs/m6-packaging.md)
 - [M4b: 0.1.1 polish (real logo, every place in the navigation, theme button)](docs/m4b-polish.md)
 - [M7: accuracy sign-off (checklist and the Verify-DevSweep.ps1 kit)](docs/m7-accuracy-signoff.md)
+- [P0: design system and screenshot branch](docs/p0-design-system.md), [parity checklist](docs/parity-checklist.md)

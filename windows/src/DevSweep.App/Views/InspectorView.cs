@@ -1,3 +1,4 @@
+using DevSweep.App.Design;
 using DevSweep.App.Toolkit;
 using DevSweep.App.ViewModels;
 using DevSweep.Core.Cleaning;
@@ -16,9 +17,11 @@ internal static class InspectorView
     public static UIElement Build(MainViewModel model, FindingViewModel item, Subscriptions subs, MainWindow window)
     {
         CleanUpViewModel vm = model.CleanUp;
-        Button close = Ui.IconButton("", "Close explanation (Esc)", () => vm.Inspected = null);
-        var panel = new StackPanel { Spacing = 16 };
-        panel.Children.Add(Ui.Row(Ui.Badge(item.RiskTitle, item.RiskTone, item.RiskSummary), close));
+        Button close = Ui.IconButton(Icons.Close, "Close explanation (Esc)", () => vm.Inspected = null);
+        var panel = new StackPanel { Spacing = Tokens.Space4 };
+        Border risk = Ui.Badge(item.RiskTitle, item.RiskTone, item.RiskSummary);
+        risk.HorizontalAlignment = HorizontalAlignment.Left;
+        panel.Children.Add(Ui.Row(risk, close));
         panel.Children.Add(Ui.V(4,
             Ui.Size(item.SizeText, item.Badges, item.SizeTooltip, "DsSubtitle"),
             Ui.Text(item.Title, "DsSubtitle"),
@@ -32,22 +35,11 @@ internal static class InspectorView
         Section(panel, "Why it's flagged", item.Why);
         if (item.Checks.Count > 0)
         {
-            var checks = new StackPanel { Spacing = 6 };
+            var checks = new StackPanel { Spacing = Tokens.Space2 };
             checks.Children.Add(Ui.Heading("What was checked"));
             foreach (Check check in item.Checks)
             {
-                FontIcon icon = Ui.Icon(check.Status == CheckStatus.Passed ? "" : "", 12);
-                icon.VerticalAlignment = VerticalAlignment.Top;
-                icon.Margin = new Thickness(0, 3, 0, 0);
-                TextBlock text = Ui.Text(check.Text, check.Status == CheckStatus.Passed ? "DsBody" : "DsWarningText");
-                var row = new Grid { ColumnSpacing = 8 };
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                Grid.SetColumn(text, 1);
-                row.Children.Add(icon);
-                row.Children.Add(text);
-                AutomationProperties.SetName(row, (check.Status == CheckStatus.Passed ? "Checked: " : "Warning: ") + check.Text);
-                checks.Children.Add(row);
+                checks.Children.Add(Ds.CheckRow(check.Status == CheckStatus.Passed, check.Text));
             }
 
             panel.Children.Add(checks);
@@ -58,7 +50,7 @@ internal static class InspectorView
         Section(panel, "Before you do", item.Before);
         if (item.BlockingApps.Count > 0)
         {
-            panel.Children.Add(Ui.Card(Ui.Text($"{string.Join(", ", item.BlockingApps)} is open. Close it first; Review checks again.", "DsWarningText"), "DsWarningBox"));
+            panel.Children.Add(Ds.Banner(BannerKind.Warning, $"{string.Join(", ", item.BlockingApps)} is open. Close it first; Review checks again."));
         }
 
         if (item.Better is { Length: > 0 } better)
@@ -70,7 +62,7 @@ internal static class InspectorView
         Section(panel, "How to undo", item.Undo ?? (item.ChosenAction.Kind == CleanActionKind.Trash ? "Restore it from History while it's in the Recycle Bin or DevSweep's quarantine." : null));
         panel.Children.Add(Actions(model, item, subs));
         panel.Children.Add(Locations(item));
-        return Ui.Scroll(panel, 20);
+        return Ui.Scroll(panel, Tokens.Space6);
     }
 
     private static UIElement Actions(MainViewModel model, FindingViewModel item, Subscriptions subs)
