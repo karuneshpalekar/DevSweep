@@ -1,6 +1,6 @@
 # Windows parity and polish plan
 
-Status: **draft for approval** (written 2026-11-16, against `windows` at 0.1.1). Nothing in this plan is built yet.
+Status: **approved 2026-11-16** (decisions in section 6). Building P0 first.
 
 ## 1. What was reported
 
@@ -88,8 +88,8 @@ Each runs as its own subagent on its own branch, CI-green before merge, as befor
 | # | Milestone | Depends on | Delivers | Accepted when |
 |---|---|---|---|---|
 | **P0** | Design system + visual feedback loop | none | Section 3.1 tokens, components and motion; the screenshot-to-branch step; Home, Clean up, Review, History restyled on the new components as the proof; a parity checklist file (section 2 as a living table) | Screenshots on the `windows-screenshots` branch; I review them against the Mac screenshots; no regressions in existing tests |
-| **P1** | Projects parity | P0 | Everything in 2.1 and 2.2: Show filter with counts, account filter, **search**, Get a project menu, rows with Download, the detail side panel with the safety checklist and Open in editor / Show in Explorer / Open on GitHub / Push / Publish / Remove, all four sheets, GitHub set-up card, "what was searched" + Add folder + **Find all repos on this PC** | A test machine with several repos in different places and drives: every repo is listed with no GitHub account; with fake GitHub data, search/filters/counts are right; every action is reachable from the UI; removal is blocked unless safe |
-| **P2** | Health parity | P0 | Tools and versions as list + side panel; package-manager report (winget, Scoop, Chocolatey); Security actions; Ports Stop; guided PostgreSQL upgrade if approved (D4) | Each Mac Health capability has a Windows equivalent that is reachable from the UI |
+| **P1** | Projects parity | P0 | Everything in 2.1 and 2.2 (deep search of all drives, WSL read-only listing, editor detection per section 6): Show filter with counts, account filter, **search**, Get a project menu, rows with Download, the detail side panel with the safety checklist and Open in editor / Show in Explorer / Open on GitHub / Push / Publish / Remove, all four sheets, GitHub set-up card, "what was searched" + Add folder + **Find all repos on this PC** | A test machine with several repos in different places and drives: every repo is listed with no GitHub account; with fake GitHub data, search/filters/counts are right; every action is reachable from the UI; removal is blocked unless safe |
+| **P2** | Health parity | P0 | Tools and versions as list + side panel; package-manager report (winget, Scoop, Chocolatey); Security actions; Ports Stop (guided PostgreSQL upgrade is deferred, D4) | Each Mac Health capability has a Windows equivalent that is reachable from the UI |
 | **P3** | Settings, Home and tray parity | P0 | GitHub accounts section (identity editor, Add account), Downloads folder, Troubleshooting report, privacy text; Home details; tray menu matching the Mac menu bar | Every Mac Settings section has a Windows equivalent |
 | **P4** | Clean up, Review, History final pass | P0, P1 | Item-by-item parity audit of those screens, per-item action picker, "better option", animations everywhere, empty/loading states, keyboard and screen-reader pass, DPI 100-200%, high contrast | The parity checklist is all "done"; accessibility checks green |
 | **P5** | Sign-off | P1-P4 | Re-run the M7 verification kit; new release candidate 0.2.0; the user's own walk-through using a short checklist | User approves; M7 kit has 0 FAIL |
@@ -100,14 +100,14 @@ Order: P0 → (P1 ∥ P2) → (P3 ∥ P4) → P5.
 
 `windows/docs/parity-checklist.md`, created in P0: one row per Mac feature (from the README, the Mac views and the table in section 2), with the Windows screen where it lives, status (not started / built / verified by screenshot / verified by the user) and the milestone. The sign-off in P5 is "no row below *verified*".
 
-## 6. Decisions needed from the user
+## 6. Decisions (agreed 2026-11-16)
 
-- **D1. Look:** Windows-native Fluent look with the Mac's structure (recommended), or copy the Mac look as closely as possible?
-- **D2. Where are your repos?** For example `D:\code` or `C:\Users\you\source`. And is the GitHub CLI (`gh`) installed and signed in on that PC? This tells me which cause in 2.2 you hit, and gives P1 a real test case.
-- **D3. Open in editor:** default to VS Code if installed, else Visual Studio, else the default app for the folder? (Recommended: detect VS Code, Visual Studio, Rider and Cursor, and let the user choose in Settings.)
-- **D4. Guided PostgreSQL upgrade:** build it in P2 (it backs up every database with `pg_dumpall`, compares row counts and only then offers to remove the old version; on Windows it must cope with EDB installers, winget, Scoop and Chocolatey), or leave it for after 0.2.0? (Recommended: after 0.2.0; it is large and risky and few people need it.)
-- **D5. Repos inside WSL** (`\\wsl.localhost\...`): list them too, read-only, in a later version? (Recommended: later.)
-- **D6. Release:** 0.2.0 only when P5 passes, and the first public release after that. OK?
+- **D1. Look:** Windows-native Fluent look with the Mac's structure.
+- **D2. Where repos live:** the user keeps repos in Downloads and under C:\ (including Program Files-style folders), and asked that DevSweep be built for **any developer, not for this one setup**. So discovery must not depend on a short list of friendly folder names: a **"Find all repos on this PC"** deep search over every fixed drive is part of P1 and runs on first use. It searches the whole drive, skipping only `C:\Windows`, `$Recycle.Bin`, `System Volume Information`, and the insides of `.git`, `node_modules` and other dependency/build folders; Downloads, Desktop, Documents, Program Files and other drives are included. Results are remembered so later refreshes are fast. It uses file metadata only and never opens cloud-only files. The result list always shows what was searched.
+- **D3. Open in editor:** detect VS Code, Visual Studio, Rider and Cursor (and Windsurf); the user chooses a default in Settings; if none is found, open the folder in File Explorer.
+- **D4. Guided PostgreSQL upgrade:** later, after 0.2.0.
+- **D5. WSL repos:** included in P1 as **read-only listing** (found under `\\wsl.localhost\<distro>`, reached without starting a stopped distro); no removal or size checks are offered for them, only "Show in Explorer" and "Open on GitHub", and the row says why.
+- **D6. Release:** 0.2.0 only once P5 passes; the first public release after that.
 
 ## 7. Risks
 
