@@ -19,7 +19,9 @@ internal static class InspectorView
         CleanUpViewModel vm = model.CleanUp;
         Button close = Ui.IconButton(Icons.Close, "Close explanation (Esc)", () => vm.Inspected = null);
         var panel = new StackPanel { Spacing = Tokens.Space4 };
-        panel.Children.Add(Ui.Row(Ui.Badge(item.RiskTitle, item.RiskTone, item.RiskSummary), close));
+        Border risk = Ui.Badge(item.RiskTitle, item.RiskTone, item.RiskSummary);
+        risk.HorizontalAlignment = HorizontalAlignment.Left;
+        panel.Children.Add(Ui.Row(risk, close));
         panel.Children.Add(Ui.V(4,
             Ui.Size(item.SizeText, item.Badges, item.SizeTooltip, "DsSubtitle"),
             Ui.Text(item.Title, "DsSubtitle"),

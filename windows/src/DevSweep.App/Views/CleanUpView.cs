@@ -163,6 +163,12 @@ internal static class CleanUpView
         grid.Children.Add(text);
         StackPanel size = Ui.Size(item.SizeText, item.Badges, item.SizeTooltip);
         size.VerticalAlignment = VerticalAlignment.Center;
+        if (size.Children[0] is TextBlock sizeText)
+        {
+            sizeText.Width = 72;
+            sizeText.TextAlignment = TextAlignment.Right;
+        }
+
         Grid.SetColumn(size, 2);
         grid.Children.Add(size);
 

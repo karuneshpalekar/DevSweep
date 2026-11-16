@@ -63,7 +63,7 @@ One class, `Motion`, with the Mac's timings: panel 380 ms (a critically damped s
 
 The CI `app` job renders the tour (`DEVSWEEP_SHOTS`) and then runs `windows/scripts/Publish-Screenshots.ps1`, which pushes the PNGs to the branch `windows-screenshots` with the workflow's `GITHUB_TOKEN` (the job has `contents: write`; a push made with that token does not start workflows). It runs on pushes to `windows`, `windows-m*` and `windows-p*`.
 
-Layout: `<source-branch>/<light|dark|hc|misc>/<screen>.png`, `<source-branch>/shots.log` and `<source-branch>/README.md` (commit SHA, run URL). Only the source branch's folder is replaced; other branches' folders stay. The branch is a single commit (no history, so it does not grow), and a concurrent run is handled by re-reading the branch and pushing with `--force-with-lease`, up to six attempts.
+Layout: `<source-branch>/<light|dark|hc|misc>/<screen>.png`, `<source-branch>/shots-log.txt` (the tour log) and `<source-branch>/README.md` (commit SHA, run URL). Only the source branch's folder is replaced; other branches' folders stay. The branch is a single commit (no history, so it does not grow), and a concurrent run is handled by re-reading the branch and pushing with `--force-with-lease`, up to six attempts.
 
 Looking at it:
 

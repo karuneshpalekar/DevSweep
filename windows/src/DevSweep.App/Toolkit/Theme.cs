@@ -21,18 +21,21 @@ internal static class Theme
               <Thickness x:Key="DsSelectedBorderThickness">0</Thickness>
               <Thickness x:Key="DsHoverBorderThickness">0</Thickness>
               <x:Double x:Key="DsElevationZ">24</x:Double>
+              <SolidColorBrush x:Key="DsSelectedBorderBrush" Color="{ThemeResource SystemAccentColor}" />
             </ResourceDictionary>
             <ResourceDictionary x:Key="Dark">
               <Thickness x:Key="DsBadgeBorderThickness">0</Thickness>
               <Thickness x:Key="DsSelectedBorderThickness">0</Thickness>
               <Thickness x:Key="DsHoverBorderThickness">0</Thickness>
               <x:Double x:Key="DsElevationZ">24</x:Double>
+              <SolidColorBrush x:Key="DsSelectedBorderBrush" Color="{ThemeResource SystemAccentColor}" />
             </ResourceDictionary>
             <ResourceDictionary x:Key="HighContrast">
               <Thickness x:Key="DsBadgeBorderThickness">1</Thickness>
               <Thickness x:Key="DsSelectedBorderThickness">2</Thickness>
               <Thickness x:Key="DsHoverBorderThickness">1</Thickness>
               <x:Double x:Key="DsElevationZ">0</x:Double>
+              <SolidColorBrush x:Key="DsSelectedBorderBrush" Color="{ThemeResource SystemColorHighlightColor}" />
             </ResourceDictionary>
           </ResourceDictionary.ThemeDictionaries>
 
@@ -154,7 +157,7 @@ internal static class Theme
           </Style>
           <Style x:Key="DsSelectedRow" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource DsSelectedBorderBrush}" />
             <Setter Property="BorderThickness" Value="{ThemeResource DsSelectedBorderThickness}" />
             <Setter Property="CornerRadius" Value="6" />
             <Setter Property="Padding" Value="12,8" />

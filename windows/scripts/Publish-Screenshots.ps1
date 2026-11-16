@@ -4,7 +4,7 @@
   with plain git (`git fetch origin windows-screenshots`), no artifact download needed.
 
 .DESCRIPTION
-  Layout on that branch:  <source-branch>/<light|dark|hc|misc>/<screen>.png, <source-branch>/shots.log
+  Layout on that branch:  <source-branch>/<light|dark|hc|misc>/<screen>.png, <source-branch>/shots-log.txt
   and <source-branch>/README.md (commit SHA, run URL). Only the source branch's folder is replaced;
   other branches' folders are kept. The branch holds a single commit (history is not kept, so the
   repository does not grow by ~10 MB per run); a concurrent publisher is handled by re-reading the
@@ -65,7 +65,7 @@ for ($attempt = 1; $attempt -le 6; $attempt++) {
             New-Item -ItemType Directory -Force $dir | Out-Null
             Copy-Item $f.FullName (Join-Path $dir "$screen.png")
         }
-        if (Test-Path (Join-Path $Shots 'shots.log')) { Copy-Item (Join-Path $Shots 'shots.log') $dest }
+        if (Test-Path (Join-Path $Shots 'shots.log')) { Copy-Item (Join-Path $Shots 'shots.log') (Join-Path $dest 'shots-log.txt') }
         $lines = @("# Screenshots of ``$SourceBranch``", '', "- commit: ``$Sha``", "- run: $RunUrl", "- time: $([DateTime]::UtcNow.ToString('u'))", '',
             'Folders: `light`, `dark`, `hc` (high contrast), `misc` (title-bar theme button). One PNG per screen, named as in the tour.', '')
         Set-Content -Path (Join-Path $dest 'README.md') -Value $lines -Encoding utf8

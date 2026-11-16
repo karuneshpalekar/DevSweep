@@ -177,7 +177,7 @@ internal static class Ds
         bar.Children.Add(end);
         bar.SizeChanged += (_, e) =>
         {
-            bool narrow = e.NewSize.Width < 640 && filters is not null;
+            bool narrow = e.NewSize.Width < 820 && filters is not null;
             Grid.SetRow(end, narrow ? 1 : 0);
             Grid.SetColumn(end, narrow ? 0 : 1);
             Grid.SetColumnSpan(end, narrow ? 2 : 1);
