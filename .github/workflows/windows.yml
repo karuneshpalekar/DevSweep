@@ -2,7 +2,7 @@ name: windows
 
 on:
   push:
-    branches: [windows, 'windows-m*']
+    branches: [windows, 'windows-m*', 'windows-p*']
     paths: ['windows/**', '.github/workflows/windows.yml']
   pull_request:
     branches: [windows]
@@ -384,6 +384,8 @@ jobs:
     name: WinUI app (build, AOT publish, smoke, screenshots)
     runs-on: windows-latest
     timeout-minutes: 60
+    permissions:
+      contents: write   # P0: only to publish the screenshots to the windows-screenshots branch
     defaults:
       run:
         shell: pwsh
@@ -516,6 +518,15 @@ jobs:
           $log | Select-String -Pattern 'tray menu:' | ForEach-Object { $_.Line }
           if (-not ($log | Select-String -Pattern 'tray menu: Open DevSweep' -Quiet)) { throw "the tray menu was not listed in the tour log" }
       # ---- end M5 ----
+
+      # ---- P0: the screenshots go to the windows-screenshots branch, so they can be looked at with plain git ----
+      - name: App - publish screenshots to the windows-screenshots branch
+        if: always() && github.event_name == 'push' && (github.ref_name == 'windows' || startsWith(github.ref_name, 'windows-m') || startsWith(github.ref_name, 'windows-p'))
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./scripts/Publish-Screenshots.ps1 -Shots artifacts/screenshots -SourceBranch '${{ github.ref_name }}' -Sha '${{ github.sha }}' -RunUrl '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+      # ---- end P0 ----
 
       - name: Upload app
         if: always()
