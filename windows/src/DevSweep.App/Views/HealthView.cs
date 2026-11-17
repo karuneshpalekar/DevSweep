@@ -374,7 +374,7 @@ internal static class HealthView
             default:
                 foreach (Installation install in row.Report?.Installs ?? [])
                 {
-                    pills.Add(VersionPill(install));
+                    pills.Add(VersionPill(install, row.Kind == ToolKind.Windows));
                 }
 
                 break;
@@ -384,7 +384,7 @@ internal static class HealthView
     }
 
     /// <summary>One coloured pill per install: version and owner, a terminal glyph when a new terminal runs it, a dot when the server runs.</summary>
-    internal static UIElement VersionPill(Installation install)
+    internal static UIElement VersionPill(Installation install, bool versionOnly = false)
     {
         bool notRunning = install.IsRunning == false;
         Tone tone = notRunning ? Tone.Neutral : install.Support switch
@@ -408,7 +408,7 @@ internal static class HealthView
             content.Children.Add(Dot(Tone.Good));
         }
 
-        content.Children.Add(new TextBlock { Text = $"{install.Version} · {install.SourceTitle}", Style = Ui.Style("DsBadgeText" + toneName), TextWrapping = TextWrapping.NoWrap });
+        content.Children.Add(new TextBlock { Text = versionOnly ? install.Version : $"{install.Version} · {install.SourceTitle}", Style = Ui.Style("DsBadgeText" + toneName), TextWrapping = TextWrapping.NoWrap });
         var pill = new Border { Style = Ui.Style("DsBadge" + toneName), Child = content, VerticalAlignment = VerticalAlignment.Center };
         string tip = string.Join(" · ", new[] { SupportText(install.Support), install.IsDefault ? "a new terminal runs this one" : null, install.IsRunning is { } r ? (r ? "running" : "not running") : null }.OfType<string>());
         Ui.Tip(pill, tip);

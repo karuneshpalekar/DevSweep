@@ -190,7 +190,7 @@ internal static class HealthPanels
             ? Ui.H(Tokens.Space1, Ui.Icon(Icons.Lock, 12), Ui.Caption("Needs an administrator. Windows asks first."))
             : null;
         StackPanel content = Ui.V(Tokens.Space2,
-            Ui.H(Tokens.Space2, icon, Ui.Text(step.Title, "DsStrong")),
+            StepTitle(icon, step.Title),
             Ui.Secondary(step.Detail),
             Ui.Card(commands, "DsCodeBox"),
             long_ ? more : null,
@@ -199,6 +199,19 @@ internal static class HealthPanels
         Border card = Ds.Card(content, Tokens.Space3);
         AutomationProperties.SetName(card, step.Title);
         return card;
+    }
+
+    private static UIElement StepTitle(FontIcon icon, string title)
+    {
+        TextBlock text = Ui.Text(title, "DsStrong");
+        text.TextWrapping = TextWrapping.Wrap;
+        var row = new Grid { ColumnSpacing = Tokens.Space2 };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        Grid.SetColumn(text, 1);
+        row.Children.Add(icon);
+        row.Children.Add(text);
+        return row;
     }
 
     private static UIElement Steps(HealthViewModel vm, IReadOnlyList<RuntimeStep> steps)
@@ -262,7 +275,7 @@ internal static class HealthPanels
             StackPanel notes = Ui.V(Tokens.Space2);
             foreach (string note in report.NotInstalls)
             {
-                notes.Children.Add(Ds.Card(Ui.V(Tokens.Space1, Ui.H(Tokens.Space2, Ui.Icon(Icons.Info, 14), Ui.Text("Not an install", "DsStrong")), Selectable(Ui.Secondary(note))), Tokens.Space3));
+                notes.Children.Add(Ds.Card(Ui.H(Tokens.Space2, Ui.Icon(Icons.Info, 14), Selectable(Ui.Secondary(note))), Tokens.Space3));
             }
 
             panel.Children.Add(Section("Not an install", notes));
@@ -603,7 +616,7 @@ internal static class HealthPanels
         if (port.ReachableFromNetwork && port.IsDevelopment)
         {
             panel.Children.Add(Ds.Banner(BannerKind.Warning, "It listens on every network interface. That's handy for testing on a phone, but on public Wi-Fi others can connect too"
-                + (port.Firewall is { Known: true } fw ? $" ({fw.Summary.ToLowerInvariant()})" : string.Empty) + ". Most dev servers have an option to listen on localhost only.", "Reachable from your network"));
+                + (port.Firewall is { Known: true } fw ? $" ({fw.Summary})" : string.Empty) + ". Most dev servers have an option to listen on localhost only.", "Reachable from your network"));
         }
 
         if (port.CommandLine is { Length: > 0 } command)

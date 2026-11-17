@@ -178,7 +178,7 @@ public sealed partial class HealthViewModel(IHealthSource? source, AppSettingsSt
             if (Packages is { Managers.Count: > 0 } packages)
             {
                 int alerts = packages.AttentionCount;
-                rows.Add(new ToolRow("packages", "Package managers", ToolKind.Packages, PackagesSummary(packages), alerts, packages.Deprecated > 0));
+                rows.Add(new ToolRow("packages", "Package managers", ToolKind.Packages, PackagesSummary(packages), alerts, false));
             }
 
             if (versions.Windows is { } windows)
@@ -229,6 +229,11 @@ public sealed partial class HealthViewModel(IHealthSource? source, AppSettingsSt
     {
         get
         {
+            if (State == PlaceState.Unavailable)
+            {
+                return "Turned off";
+            }
+
             if (State == PlaceState.Loading)
             {
                 return "Checking…";
@@ -446,7 +451,7 @@ public sealed partial class HealthViewModel(IHealthSource? source, AppSettingsSt
     /// <summary>The number on a tab ("Tools and versions · 9"); empty when there is nothing to look at.</summary>
     public string Count(HealthTab tab) => Report is null ? string.Empty : tab switch
     {
-        HealthTab.Tools => Nonzero(Report.Versions?.AttentionCount ?? 0),
+        HealthTab.Tools => Nonzero(Report.Versions is null ? 0 : FilterCount(ToolsFilter.NeedsAttention)),
         HealthTab.Security => Nonzero(NeedsAction.Count),
         _ => Nonzero(DevelopmentPorts.Count),
     };
