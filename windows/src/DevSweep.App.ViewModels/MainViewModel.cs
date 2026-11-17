@@ -30,12 +30,14 @@ public sealed partial class MainViewModel : ObservableObject
         Scan = new ScanViewModel(backend);
         Health = new HealthViewModel(backend.Health, settings, backend.SetModuleEnabled, () => backend.Now);
         Projects = new ProjectsViewModel(backend.Projects, backend.SetModuleEnabled);
-        Home = new HomeViewModel(backend, Scan, Health);
+        Home = new HomeViewModel(backend, Scan, Health, settings);
         CleanUp = new CleanUpViewModel(Scan, settings, backend.ProfilePath);
         Review = new ReviewViewModel(backend);
         History = new HistoryViewModel(backend);
         Background = new BackgroundServices(this, integration ?? SystemIntegration.Memory());
-        SettingsPage = new SettingsViewModel(settings, backend, Background);
+        SettingsPage = new SettingsViewModel(settings, backend, Background, Scan);
+        Home.LastScheduledRun = () => Background.Alerts.LastScheduledRun;
+        Sidebar = new SidebarViewModel(this);
         Places = BuildPlaces(backend.Modules);
         ShowWelcome = !settings.Current.WelcomeDone;
         CleanUp.ReviewRequested += async (_, plan) => await Review.OpenAsync(plan);
@@ -62,6 +64,9 @@ public sealed partial class MainViewModel : ObservableObject
     public HistoryViewModel History { get; }
 
     public SettingsViewModel SettingsPage { get; }
+
+    /// <summary>The free-space card, the numbers on the places, the attention cards and the status line in the sidebar.</summary>
+    public SidebarViewModel Sidebar { get; }
 
     public HealthViewModel Health { get; }
 
@@ -158,6 +163,9 @@ public sealed partial class MainViewModel : ObservableObject
                 Go("health");
                 ShowHealthTab(HealthTab.Security);
                 break;
+            case ToastTarget.Settings:
+                Go("settings");
+                break;
             default:
                 Go("home");
                 break;
@@ -207,6 +215,15 @@ public sealed partial class MainViewModel : ObservableObject
                 Health.SelectedTool = id;
                 break;
         }
+    }
+
+    /// <summary>Opens Settings at a section (see <see cref="SettingsSections"/>), clearing any search so it is visible.</summary>
+    public void OpenSettings(string sectionId)
+    {
+        SettingsPage.Search = string.Empty;
+        SettingsPage.JumpTo = null;
+        SettingsPage.JumpTo = sectionId;
+        Go("settings");
     }
 
     public void Go(string place)

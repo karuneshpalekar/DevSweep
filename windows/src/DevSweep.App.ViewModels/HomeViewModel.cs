@@ -8,6 +8,8 @@ using DevSweep.App.ViewModels.Text;
 using DevSweep.Core.Cleaning;
 using DevSweep.Core.Health.Alerts;
 using DevSweep.Core.Scanning;
+using DevSweep.App.ViewModels.Background;
+using DevSweep.App.ViewModels.Settings;
 
 namespace DevSweep.App.ViewModels;
 
@@ -33,20 +35,38 @@ public sealed record ChangeRow(string Tag, Tone Tone, string Title, string Value
 /// <param name="Item">For Health rows: the item it is about ("tool:node", "security:&lt;id&gt;", "port:&lt;id&gt;"), so a click opens its panel.</param>
 public sealed record AttentionRow(string Tag, Tone Tone, string Text, string Place, string? Item = null);
 
+/// <summary>What the headline card says: nothing scanned yet, a scan running, or a finished scan.</summary>
+public enum HomeState
+{
+    NotScanned,
+    Scanning,
+    Scanned,
+}
+
 /// <summary>Home: free space per volume, what can be cleaned, what changed, and what needs attention.</summary>
 public sealed partial class HomeViewModel : ObservableObject
 {
     private readonly IDevSweepBackend _backend;
     private readonly ScanViewModel _scan;
     private readonly HealthViewModel _health;
+    private readonly AppSettingsStore? _settings;
 
-    public HomeViewModel(IDevSweepBackend backend, ScanViewModel scan, HealthViewModel health)
+    /// <summary>How many Health items Home lists (the Mac shows the 4 most important); the rest are in Health.</summary>
+    public const int MaxHealthItems = 4;
+
+    public HomeViewModel(IDevSweepBackend backend, ScanViewModel scan, HealthViewModel health, AppSettingsStore? settings = null)
     {
         ArgumentNullException.ThrowIfNull(scan);
         ArgumentNullException.ThrowIfNull(health);
         _backend = backend;
         _scan = scan;
         _health = health;
+        _settings = settings;
+        if (settings is not null)
+        {
+            settings.Changed += (_, _) => Refresh();
+        }
+
         scan.PropertyChanged += (_, _) => Refresh();
         health.PropertyChanged += (_, e) =>
         {
@@ -58,6 +78,26 @@ public sealed partial class HomeViewModel : ObservableObject
     }
 
     public ScanViewModel Scan => _scan;
+
+    /// <summary>When the last scheduled scan ran (the host connects it to the alert memory); used for "next scan".</summary>
+    public Func<DateTimeOffset?>? LastScheduledRun { get; set; }
+
+    public HomeState State => _scan.IsScanning && !_scan.HasScanned ? HomeState.Scanning : _scan.HasScanned ? HomeState.Scanned : HomeState.NotScanned;
+
+    /// <summary>"Monday, 9:00 AM" while scheduled scans are on; null when they are off.</summary>
+    public string? NextScanText => _settings is null ? null : ScheduleText.Next(_settings.Current.Schedule, LastScheduledRun?.Invoke(), _backend.Now);
+
+    /// <summary>The banner above the headline when Windows blocked folders in the last scan (Controlled folder access or permissions); null otherwise.</summary>
+    [ObservableProperty]
+    public partial string? BlockedFoldersText { get; set; }
+
+    /// <summary>The banner for rule packs that could not be read (those packs were skipped); null when all loaded.</summary>
+    [ObservableProperty]
+    public partial string? RuleErrorsText { get; set; }
+
+    /// <summary>"Showing the 4 most important. Health has the rest." when Health has more than Home lists.</summary>
+    [ObservableProperty]
+    public partial string? AttentionCaption { get; set; }
 
     public ObservableCollection<VolumeRow> Volumes { get; } = [];
 
@@ -96,9 +136,17 @@ public sealed partial class HomeViewModel : ObservableObject
             ? _scan.IsScanning ? "Scanning · " + _scan.Status : "Not scanned yet"
             : _scan.Findings.Count == 0 ? "Nothing to clean" : $"{SizeLabels.Size(_scan.TotalBytes)} can be cleaned";
         ReviewLabel = _scan.HasScanned && _scan.Findings.Count > 0 ? $"Review {Words.Items(_scan.Findings.Count)}" : string.Empty;
+        string? next = NextScanText;
         Subtitle = _scan.IsScanning ? "Scanning · " + _scan.Status
-            : _scan.LastScan is { } last ? "Scanned " + Words.Relative(last, _backend.Now)
+            : _scan.LastScan is { } last ? "Scanned " + Words.Relative(last, _backend.Now) + (next is null ? string.Empty : " · next scan " + next)
             : "Not scanned yet";
+        BlockedFoldersText = _scan.Report is { AccessDenied.Count: > 0 } denied
+            ? denied.AccessDenied.Count == 1 ? "One folder can't be read, so a few leftovers can be missed." : $"{denied.AccessDenied.Count} folders can't be read, so a few leftovers can be missed."
+            : null;
+        RuleErrorsText = _scan.Report is { RuleErrors.Count: > 0 } errors
+            ? "Some rule packs couldn't be read, so their checks were skipped: " + string.Join("; ", errors.RuleErrors.Take(2).Select(e => e.Message)) + (errors.RuleErrors.Count > 2 ? $" (and {errors.RuleErrors.Count - 2} more)" : string.Empty)
+            : null;
+        OnPropertyChanged(nameof(State));
         RefreshChanges();
         RefreshAttention();
     }
@@ -136,23 +184,38 @@ public sealed partial class HomeViewModel : ObservableObject
     private void RefreshAttention()
     {
         Attention.Clear();
+        AttentionCaption = null;
+        var healthRows = new List<AttentionRow>();
         if (_health.Report is { } health)
         {
-            foreach (SecurityFinding item in _health.NeedsAction.OrderBy(f => f.Level).Take(2))
+            foreach (SecurityFinding item in _health.NeedsAction.OrderBy(f => f.Level))
             {
-                Attention.Add(new AttentionRow("Security", item.Level == SecurityLevel.Critical ? Tone.Critical : Tone.Caution, $"{item.Title}: {item.Status}. {item.WhatToDo}", "health", "security:" + item.Id));
+                healthRows.Add(new AttentionRow("Security", item.Level == SecurityLevel.Critical ? Tone.Critical : Tone.Caution, $"{item.Title}: {item.Status}. {item.WhatToDo}", "health", "security:" + item.Id));
             }
 
-            foreach (RuntimeReport tool in (health.Versions?.Runtimes ?? []).Where(t => t.NeedsAttention).Take(2))
+            foreach (RuntimeReport tool in (health.Versions?.Runtimes ?? []).Where(t => t.NeedsAttention))
             {
                 RuntimeIssue issue = tool.Issues.OrderBy(i => i.Level).First();
-                Attention.Add(new AttentionRow("Health", issue.Level == IssueLevel.Critical ? Tone.Critical : Tone.Caution, $"{tool.Name}: {issue.Text}", "health", "tool:" + tool.Id));
+                healthRows.Add(new AttentionRow("Health", issue.Level == IssueLevel.Critical ? Tone.Critical : Tone.Caution, $"{tool.Name}: {issue.Text}", "health", "tool:" + tool.Id));
             }
 
-            foreach (ListeningPort port in _health.DevelopmentPorts.Where(p => p.ReachableFromNetwork).Take(1))
+            foreach (ListeningPort port in _health.DevelopmentPorts.Where(p => p.ReachableFromNetwork))
             {
-                Attention.Add(new AttentionRow("Ports", Tone.Caution, $"{port.Label} on port {port.Port} listens on every network interface, so other devices may reach it.", "health", "port:" + port.Id));
+                healthRows.Add(new AttentionRow("Ports", Tone.Caution, $"{port.Label} on port {port.Port} listens on every network interface, so other devices may reach it.", "health", "port:" + port.Id));
             }
+        }
+
+        // The most important few, one kind not crowding out the others: up to 2 security findings, 1 exposed port, then tools to fill.
+        List<AttentionRow> chosen = [.. healthRows.Where(r => r.Tag == "Security").Take(2), .. healthRows.Where(r => r.Tag == "Ports").Take(1)];
+        chosen.AddRange(healthRows.Where(r => r.Tag == "Health").Take(MaxHealthItems - chosen.Count));
+        foreach (AttentionRow row in chosen.OrderBy(r => healthRows.IndexOf(r)))
+        {
+            Attention.Add(row);
+        }
+
+        if (healthRows.Count > MaxHealthItems)
+        {
+            AttentionCaption = $"Showing the {MaxHealthItems} most important. Health has the rest.";
         }
 
         if (_scan.Report is { } report)
@@ -161,17 +224,6 @@ public sealed partial class HomeViewModel : ObservableObject
             {
                 Attention.Add(new AttentionRow("Scan", Tone.Caution,
                     $"{Words.Count(report.TimedOut.Count, "check")} took too long and {(report.TimedOut.Count == 1 ? "was" : "were")} skipped: {string.Join(", ", report.TimedOut.Take(3).Select(c => c.Title))}.", "cleanup"));
-            }
-
-            if (report.AccessDenied.Count > 0)
-            {
-                Attention.Add(new AttentionRow("Scan", Tone.Neutral,
-                    $"{Words.Count(report.AccessDenied.Count, "folder")} couldn't be read, so anything there wasn't counted. DevSweep never changes permissions to look.", "cleanup"));
-            }
-
-            if (report.RuleErrors.Count > 0)
-            {
-                Attention.Add(new AttentionRow("Rules", Tone.Critical, $"Some rule packs couldn't be read: {report.RuleErrors[0]}", "settings"));
             }
 
             foreach (Finding blocked in _scan.Findings.Where(f => f.BlockingApps.Count > 0).Take(1))

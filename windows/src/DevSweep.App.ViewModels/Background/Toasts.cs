@@ -10,6 +10,7 @@ public enum ToastTarget
     CleanUp,
     HealthTools,
     HealthSecurity,
+    Settings,
 }
 
 /// <summary>What a toast says and where a click on it goes.</summary>

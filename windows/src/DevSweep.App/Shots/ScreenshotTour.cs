@@ -315,14 +315,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
 
         await GoAsync("history");
         await ShotAsync("history", suffix);
-        await GoAsync("settings");
-        foreach (SettingsTab tab in Enum.GetValues<SettingsTab>())
-        {
-            model.SettingsPage.Tab = tab;
-            await ShotAsync("settings-" + tab.ToString().ToLowerInvariant(), suffix);
-        }
-
-        model.SettingsPage.Tab = SettingsTab.General;
+        await SettingsWalkAsync(suffix);
     }
 
     /// <summary>

@@ -548,6 +548,12 @@ public sealed partial class ProjectsViewModel(IProjectsSource? source, Action<st
 
     public void SaveIdentity(string account, GitIdentity identity)
     {
+        if (Settings.IdentityValidation.Check(identity) is { } problem)
+        {
+            Notice = new Notice(NoticeKind.Error, "Not saved. " + problem);
+            return;
+        }
+
         try
         {
             source?.SaveIdentity(account, identity);
