@@ -1,6 +1,6 @@
 # Windows parity and polish plan
 
-Status: **approved 2026-11-16** (decisions in section 6). **P0 merged** (design system, screenshot loop on branch `windows-screenshots`, Home / Clean up / Review / History restyled). Next: P1 (Projects) and P2 (Health) in parallel.
+Status: **approved 2026-11-16** (decisions in section 6). **P0 merged** (design system, screenshot loop on branch `windows-screenshots`, Home / Clean up / Review / History restyled). **P2 merged** (Health parity). P1 (Projects) in progress. Next: P3, P4, then P5.
 
 ## 1. What was reported
 

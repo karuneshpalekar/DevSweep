@@ -170,7 +170,7 @@ internal static class HomeView
         Grid.SetColumn(text, 1);
         grid.Children.Add(tag);
         grid.Children.Add(text);
-        return new ListRow(grid, () => model.Go(row.Place), $"{row.Tag}: {row.Text}").Root;
+        return new ListRow(grid, () => model.OpenAttention(row), $"{row.Tag}: {row.Text}").Root;
     }
 
     private static UIElement Volume(VolumeRow volume)

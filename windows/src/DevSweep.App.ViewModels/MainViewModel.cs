@@ -28,8 +28,8 @@ public sealed partial class MainViewModel : ObservableObject
         Backend = backend;
         Settings = settings;
         Scan = new ScanViewModel(backend);
-        Health = new HealthViewModel(backend.Health);
-        Projects = new ProjectsViewModel(backend.Projects);
+        Health = new HealthViewModel(backend.Health, settings, backend.SetModuleEnabled, () => backend.Now);
+        Projects = new ProjectsViewModel(backend.Projects, backend.SetModuleEnabled);
         Home = new HomeViewModel(backend, Scan, Health);
         CleanUp = new CleanUpViewModel(Scan, settings, backend.ProfilePath);
         Review = new ReviewViewModel(backend);
@@ -169,6 +169,43 @@ public sealed partial class MainViewModel : ObservableObject
         if (Health.Tabs.Contains(tab))
         {
             Health.Tab = tab;
+        }
+    }
+
+    /// <summary>Opens what a Home "needs attention" row is about: its place, and for Health the tab and the item's panel.</summary>
+    public void OpenAttention(AttentionRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        Go(row.Place);
+        if (row.Place != "health" || row.Item is not { } item || Current != "health")
+        {
+            return;
+        }
+
+        string[] parts = item.Split(':', 2);
+        (HealthTab tab, string id) = (parts[0], parts[^1]) switch
+        {
+            ("security", var key) => (HealthTab.Security, key),
+            ("port", var key) => (HealthTab.Ports, key),
+            (_, var key) => (HealthTab.Tools, key),
+        };
+        if (!Health.Tabs.Contains(tab))
+        {
+            return;
+        }
+
+        Health.Tab = tab;
+        switch (tab)
+        {
+            case HealthTab.Security:
+                Health.SelectedSecurity = id;
+                break;
+            case HealthTab.Ports:
+                Health.SelectedPort = id;
+                break;
+            default:
+                Health.SelectedTool = id;
+                break;
         }
     }
 

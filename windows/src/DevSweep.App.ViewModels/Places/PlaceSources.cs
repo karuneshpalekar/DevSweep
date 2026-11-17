@@ -1,4 +1,5 @@
 using DevSweep.Core.Health;
+using DevSweep.Core.Health.Packages;
 using DevSweep.Core.Health.Ports;
 using DevSweep.Core.Health.Runtimes;
 using DevSweep.Core.Health.Security;
@@ -30,6 +31,26 @@ public interface IHealthSource
 
     /// <summary>Writes the fix to a script and opens it in a visible PowerShell window that waits for Enter.</summary>
     void OpenFix(RuntimeStep fix);
+
+    /// <summary>The package-manager report (winget, Scoop, Chocolatey); null when Tools and versions is off.</summary>
+    Task<PackagesResult?> PackagesAsync(VersionsResult? versions, CancellationToken cancellationToken) => Task.FromResult<PackagesResult?>(null);
+
+    /// <summary>Just the listeners again, for the Ports tab's auto-refresh.</summary>
+    Task<PortsResult?> PortsAsync(CancellationToken cancellationToken) => Task.FromResult<PortsResult?>(null);
+
+    /// <summary>Why this process may not be stopped (Windows' own, another user's), or null when it may.</summary>
+    StopResult? StopRefusal(ListeningPort port) => null;
+
+    /// <summary>Asks the program to stop (Ctrl+C, or its window to close); with <paramref name="force"/>, ends it (only after the user confirmed).</summary>
+    Task<StopResult> StopAsync(ListeningPort port, bool force, CancellationToken cancellationToken)
+        => Task.FromResult(new StopResult(StopOutcome.Failed, "Stopping programs isn't available here."));
+
+    /// <summary>Why the finding can't be moved to the Recycle Bin (online-only in OneDrive, a link, already gone), or null when it can.</summary>
+    string? TrashBlockedReason(SecurityFinding finding) => null;
+
+    /// <summary>Moves the finding's file to the Recycle Bin through the cleaner, so it is in History and can be restored.</summary>
+    Task<HealthActionResult> TrashAsync(SecurityFinding finding, CancellationToken cancellationToken)
+        => Task.FromResult(new HealthActionResult(false, "Moving files isn't available here."));
 }
 
 /// <summary>What the Projects place shows: M3c's snapshot and its activity trail (empty when that tab is off).</summary>

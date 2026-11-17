@@ -71,7 +71,7 @@ internal static class ProjectsView
 
             string key = vm.State switch
             {
-                PlaceState.Unavailable => "unavailable",
+                PlaceState.Unavailable => vm.RestartNeeded ? "unavailable-restart" : "unavailable",
                 PlaceState.Failed => "failed",
                 _ when vm.Report is null => "loading",
                 _ => vm.Tab.ToString(),
@@ -87,7 +87,10 @@ internal static class ProjectsView
             window.ActivePanel = null;
             bodyHost.Child = key switch
             {
-                "unavailable" => Padded(Ds.Card(Ui.V(Tokens.Space2, Ui.Text("Projects is off", "DsSubtitle"), Ui.Secondary(ProjectsViewModel.UnavailableText), Ui.Button("Open Settings", () => model.Go("settings"))))),
+                string u when u.StartsWith("unavailable", StringComparison.Ordinal) => Padded(Ui.V(Tokens.Space3,
+                    Ds.Card(Ds.EmptyState(Icons.Projects, "Projects is off", ProjectsViewModel.UnavailableText,
+                        vm.RestartNeeded ? null : FlowButtons.Build(vm.CanEnable ? Ui.Button("Turn on Projects", vm.Enable, "Turn on Projects", accent: true) : null, Ui.Button("Open Settings", () => model.Go("settings"), "Open Settings, Modules")))),
+                    vm.RestartNeeded ? Ds.Banner(BannerKind.Info, "Projects is switched on. DevSweep applies it the next time it starts: close it from the tray (Quit) and open it again.", "Restart to finish") : null)),
                 "failed" => Padded(Ds.Banner(BannerKind.Critical, "Projects couldn't load: " + vm.Error, "Projects", "Try again", () => _ = vm.LoadAsync())),
                 "loading" => Padded(Ds.Card(Ds.Skeleton(5))),
                 nameof(ProjectsTab.Cleanup) => ProjectTabs.Cleanup(model, vm, bodySubs, window),

@@ -50,16 +50,26 @@ internal static class Icons
     public const string Update = "";
     public const string Add = "\uE710";
     public const string Code = "\uE943";
-    public const string Globe = "\uE774";
     public const string OpenInNew = "\uE8A7";
     public const string Upload = "\uE898";
     public const string Person = "\uE77B";
     public const string PersonAdd = "\uE8FA";
     public const string Clock = "\uE823";
-    public const string Link = "\uE71B";
-    public const string Stop = "\uE71A";
     public const string Edit = "\uE70F";
-    public const string Cloud = "\uE753";
     public const string Tag = "\uE8EC";
     public const string Wsl = "\uE756";
+
+    // Health
+    public const string Terminal = "\uE756";
+    public const string Globe = "\uE774";
+    public const string Network = "\uE968";
+    public const string Key = "\uE192";
+    public const string Cloud = "\uE753";
+    public const string Page = "\uE7C3";
+    public const string Package = "\uE7B8";
+    public const string Stop = "\uE71A";
+    public const string Link = "\uE71B";
+    public const string Up = "\uE74A";
+    public const string Certificate = "\uEB95";
+    public const string Contact = "\uE77B";
 }

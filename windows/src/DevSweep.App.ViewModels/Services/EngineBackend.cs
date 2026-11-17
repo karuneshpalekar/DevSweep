@@ -51,7 +51,7 @@ public sealed class EngineBackend : IDevSweepBackend
         _snapshots = new ScanSnapshotStore(Path.Join(dataFolder, "scans.json"));
         _featuresFile = Path.Join(dataFolder, "features.json");
         Modules = DescribeModules(engine);
-        Health = CoreHealthSource.From(engine, () => _settings.Current.ProjectFolders.Count == 0 ? null : _settings.Current.ProjectFolders);
+        Health = CoreHealthSource.From(engine, () => _settings.Current.ProjectFolders.Count == 0 ? null : _settings.Current.ProjectFolders, plan => new Cleaner(Guard(), _history, _quarantine, new RecycleBin()).PerformAsync(plan));
         Projects = CoreProjectsSource.From(engine, () => _settings.Current.ProjectFolders.Count == 0 ? null : _settings.Current.ProjectFolders, _settings);
     }
 

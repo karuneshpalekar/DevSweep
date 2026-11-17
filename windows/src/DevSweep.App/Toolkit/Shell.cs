@@ -50,10 +50,10 @@ internal static class Shell
         }
     }
 
-    /// <summary>Opens an https address in the default browser.</summary>
+    /// <summary>Opens a web address (http or https only) in the default browser.</summary>
     public static void OpenUrl(string url)
     {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) || uri.Scheme != Uri.UriSchemeHttps)
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) || uri.Scheme is not ("http" or "https"))
         {
             return;
         }
@@ -64,7 +64,7 @@ internal static class Shell
         }
         catch (System.ComponentModel.Win32Exception)
         {
-            // No browser; nothing else to do.
+            // No browser could be started; nothing else to do.
         }
     }
 

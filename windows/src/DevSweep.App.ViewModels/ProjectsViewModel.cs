@@ -48,7 +48,7 @@ public enum DeepSearchState
 /// project's panel, the actions (open, fetch, remove, download, publish, add by URL, add account), the deep search and its progress.
 /// Everything goes through <see cref="IProjectsSource"/>; results come back as plain notices.
 /// </summary>
-public sealed partial class ProjectsViewModel(IProjectsSource? source) : ObservableObject
+public sealed partial class ProjectsViewModel(IProjectsSource? source, Action<string, bool>? setModule = null) : ObservableObject
 {
     public static readonly IReadOnlyList<(int Days, string Title)> IdleChoices = [(7, "1 week"), (14, "2 weeks"), (21, "3 weeks"), (30, "1 month"), (60, "2 months"), (90, "3 months")];
 
@@ -143,7 +143,29 @@ public sealed partial class ProjectsViewModel(IProjectsSource? source) : Observa
         _ => "Activity",
     };
 
-    public static string UnavailableText => "Projects is turned off. It lists your repositories on this PC and on GitHub across every account you're signed in to, says whether each is safe to remove, and downloads them again on demand. Turn it on in Settings, Modules.";
+    public static string UnavailableText => "Projects is turned off. It lists your repositories on this PC and on GitHub across every account you're signed in to, says whether each is safe to remove, and downloads them again on demand.";
+
+    public bool CanEnable => setModule is not null;
+
+    /// <summary>True after <see cref="Enable"/>: the module starts with the next launch.</summary>
+    [ObservableProperty]
+    public partial bool RestartNeeded { get; set; }
+
+    /// <summary>Turns Projects and its tabs on in <c>features.json</c>; they apply the next time DevSweep starts.</summary>
+    public void Enable()
+    {
+        if (setModule is null)
+        {
+            return;
+        }
+
+        foreach (string module in (ReadOnlySpan<string>)["projects", "projects.accounts", "projects.cleanup", "projects.activity"])
+        {
+            setModule(module, true);
+        }
+
+        RestartNeeded = true;
+    }
 
     // ---- The list ----------------------------------------------------------------------------------------------------------------
 
