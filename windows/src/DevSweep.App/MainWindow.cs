@@ -102,6 +102,9 @@ internal sealed partial class MainWindow : Window
 
     public FrameworkElement Root => _root;
 
+    /// <summary>True while the window is on screen (not hidden in the tray, not minimised); live lists pause when it is not.</summary>
+    public bool IsShowing => AppWindow.IsVisible && AppWindow.Presenter is not OverlappedPresenter { State: OverlappedPresenterState.Minimized };
+
     /// <summary>The page's side panel while it is on screen (Clean up); null otherwise. Tests drive it.</summary>
     public SidePanel? ActivePanel { get; set; }
 

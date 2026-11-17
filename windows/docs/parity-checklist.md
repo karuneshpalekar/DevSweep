@@ -75,10 +75,13 @@ Updated by P0 (design system): rows marked *built (P0)* are in; they move to *ve
 
 | Mac feature | Windows screen | Status | Milestone |
 |---|---|---|---|
-| Tools and versions: list with version pills and side panel | cards | not started | P2 |
-| Package-manager report (Homebrew on Mac; winget, Scoop, Chocolatey) | none | not started | P2 |
-| Security findings: reveal, move to Trash | list only | not started | P2 |
-| Ports: Stop process | none in the app | not started | P2 |
+| Tools and versions: list with version pills, filters (All, Needs attention, Up to date), summary | Health, Tools and versions | built (verify by screenshot) | P2 |
+| Tool side panel: What DevSweep noticed, Installed cards, What you can do steps, Not an install notes | Health, side panel | built (verify by screenshot) | P2 |
+| Projects that need it (requirements with OK, Not installed, End of life) | Health, "Your projects" row and per-tool section | built (verify by screenshot) | P2 |
+| Package-manager report (Homebrew on Mac; winget, Scoop, Chocolatey), duplicates, caches, leftover folders | Health, "Package managers" row and panel | built; real winget, Scoop and Chocolatey output not verified on a PC | P2 |
+| Security findings: Needs action / Looks fine, panel, reveal, move to Recycle Bin, ignore, .env git state and fix commands | Health, Security | built (verify by screenshot) | P2 |
+| Ports: Development vs others, project folder, network warning, Stop (graceful then confirm), Open in browser, Copy URL, auto-refresh | Health, Ports | built (verify by screenshot) | P2 |
+| Health tab counts, last checked, off state with enable, skeletons, error banners, Home rows open the item | Health shell | built (verify by screenshot) | P2 |
 | Guided PostgreSQL upgrade | deferred (D4) | not started | later |
 
 ## Settings, tray (P3)

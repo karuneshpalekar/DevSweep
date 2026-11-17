@@ -1,5 +1,6 @@
 using DevSweep.App.ViewModels.Places;
 using DevSweep.Core.Cleaning;
+using DevSweep.Core.Health.Packages;
 using DevSweep.Core.Health.Ports;
 using DevSweep.Core.Health.Runtimes;
 using DevSweep.Core.Health.Security;
@@ -227,11 +228,19 @@ public static class SampleData
                     Installs =
                     [
                         Install("3.12.7", "3.12", @"C:\Users\alex\AppData\Local\Programs\Python\Python312", InstallSource.PythonOrg, true, SupportStatus.Supported, "3.12.7"),
+                        Install("3.13.1", "3.13", @"C:\Users\alex\scoop\apps\python\3.13.1", InstallSource.Scoop, false, SupportStatus.Supported, "3.13.1"),
                         Install("3.8.10", "3.8", @"C:\Users\alex\AppData\Local\Programs\Python\Python38", InstallSource.PythonOrg, false, SupportStatus.EndOfLife, "3.8.20"),
                     ],
-                    Issues = [new RuntimeIssue(IssueLevel.Info, "The Store's python.exe alias is not an install; a new terminal runs Python 3.12.7.")],
+                    Issues =
+                    [
+                        new RuntimeIssue(IssueLevel.Warning, "Python 3.8.10 reached end of life on 7 October 2024; ml-notebooks asks for 3.13."),
+                        new RuntimeIssue(IssueLevel.Warning, "Python 3.13.1 (Scoop) is installed but a new terminal runs 3.12.7 (python.org) first: the Scoop shim comes later on your PATH."),
+                        new RuntimeIssue(IssueLevel.Info, "The Store's python.exe alias is not an install; a new terminal runs Python 3.12.7."),
+                    ],
+                    Resolution = new CommandResolution { Command = "python", Runs = @"C:\Users\alex\AppData\Local\Programs\Python\Python312\python.exe", Via = "PATH" },
                     NotInstalls = [@"C:\Users\alex\AppData\Local\Microsoft\WindowsApps\python.exe (opens the Microsoft Store)"],
-                    Steps = [new RuntimeStep { Id = "python:remove:1", Kind = StepKind.Remove, Title = "Remove Python 3.8.10", Detail = "Installed from python.org for this user; removed with its own uninstaller.", Commands = ["winget uninstall --id Python.Python.3.8"] }],
+                    Steps = [new RuntimeStep { Id = "python:remove:1", Kind = StepKind.Remove, Title = "Remove Python 3.8.10", Detail = "Installed from python.org for this user; removed with its own uninstaller.", Commands = ["winget uninstall --id Python.Python.3.8"] },
+                        new RuntimeStep { Id = "python:default:1", Kind = StepKind.SwitchDefault, Title = "Make Python 3.13.1 the one a new terminal runs", Detail = "Puts the Scoop shims folder before python.org's in your user PATH. Open a new terminal afterwards.", Commands = ["scoop reset python", "[Environment]::SetEnvironmentVariable('Path', 'C:\\Users\\alex\\scoop\\shims;' + [Environment]::GetEnvironmentVariable('Path', 'User'), 'User')"] }],
                 },
                 new RuntimeReport
                 {
@@ -248,10 +257,44 @@ public static class SampleData
                 {
                     Id = "postgresql",
                     Name = "PostgreSQL",
-                    Installs = [Install("16.4", "16", @"C:\Program Files\PostgreSQL\16", InstallSource.PostgresInstaller, true, SupportStatus.Supported, "16.10")],
-                    Issues = [new RuntimeIssue(IssueLevel.Info, "16.10 is available in the same line.")],
+                    Installs =
+                    [
+                        Install("16.4", "16", @"C:\Program Files\PostgreSQL\16", InstallSource.PostgresInstaller, true, SupportStatus.Supported, "16.10") with { IsRunning = true, DataPath = @"C:\Program Files\PostgreSQL\16\data", ReleaseDate = new DateOnly(2024, 9, 26), SupportEnds = new DateOnly(2028, 11, 9) },
+                        Install("14.13", "14", @"C:\Program Files\PostgreSQL\14", InstallSource.PostgresInstaller, false, SupportStatus.EndingSoon, "14.19") with { IsRunning = false, SupportEnds = new DateOnly(2026, 11, 12) },
+                    ],
+                    Recommended = "PostgreSQL 18, supported until 14 November 2030",
+                    Issues =
+                    [
+                        new RuntimeIssue(IssueLevel.Warning, "PostgreSQL 14.13 (PostgreSQL installer): support ends 12 November 2026 (in 10 days)."),
+                        new RuntimeIssue(IssueLevel.Info, "Newer patch releases (security and bug fixes, same release line): 14.13 to 14.19, 16.4 to 16.10."),
+                    ],
+                    Steps = [new RuntimeStep { Id = "postgresql:upgrade:1", Kind = StepKind.Upgrade, Title = "Update 16.4 to 16.10", Detail = "A newer patch of the same line. Stop the server first; your data stays where it is.", Commands = ["winget upgrade --id PostgreSQL.PostgreSQL.16 --exact"], NeedsAdmin = true }],
+                },
+                new RuntimeReport
+                {
+                    Id = "java",
+                    Name = "Java",
+                    Installs =
+                    [
+                        Install("21.0.5", "21", @"C:\Program Files\Eclipse Adoptium\jdk-21.0.5.11-hotspot", InstallSource.JdkInstaller, true, SupportStatus.Supported, "21.0.9", lts: true),
+                        Install("17.0.13", "17", @"C:\Users\alex\.jdks\corretto-17.0.13", InstallSource.IdeDownloaded, false, SupportStatus.Supported, "17.0.17", lts: true),
+                        Install("17.0.12", "17", @"C:\Program Files\Android\Android Studio\jbr", InstallSource.IdeBundled, false, SupportStatus.Supported, "17.0.17"),
+                    ],
+                    Issues = [new RuntimeIssue(IssueLevel.Info, "Newer patch releases: 21.0.5 to 21.0.9, 17.0.13 to 17.0.17.")],
+                },
+                new RuntimeReport
+                {
+                    Id = "go",
+                    Name = "Go",
+                    Installs = [Install("1.23.3", "1.23", @"C:\Program Files\Go", InstallSource.GoOrg, true, SupportStatus.Supported, "1.23.12")],
                 },
             ],
+            Windows = new RuntimeReport
+            {
+                Id = "windows",
+                Name = "Windows 11",
+                Installs = [Install("24H2 (26100.2605)", "24H2", @"C:\Windows", InstallSource.Unknown, true, SupportStatus.Supported, "24H2")],
+            },
             Projects =
             [
                 new ProjectRequirement { Project = "web-shop", Path = @"D:\src\web-shop", Tool = "node", ToolName = "Node.js", Spec = "22", File = ".nvmrc", Message = "22.21.0 is installed." },
@@ -265,10 +308,26 @@ public static class SampleData
             Looked = [@"C:\Users\alex\Downloads", @"C:\Users\alex\Desktop", @"C:\Users\alex\Documents", @"D:\src"],
             Findings =
             [
-                Secret(SecurityKind.CloudAccessKeys, SecurityLevel.Critical, "AWS access keys", @"C:\Users\alex\Downloads\credentials (1).csv", "Plain text", "Anyone with this file can use your AWS account.", "Store the key in a password manager or the AWS CLI's credentials file, then delete this file."),
-                Secret(SecurityKind.EnvFile, SecurityLevel.Warning, ".env file", @"D:\src\web-shop\.env", "Not ignored", "It isn't in .gitignore, so one git add . away from being committed.", "Add .env to .gitignore."),
+                Secret(SecurityKind.CloudAccessKeys, SecurityLevel.Critical, "AWS access keys", @"C:\Users\alex\Downloads\credentials (1).csv", "Plain text", "Anyone with this file can use your AWS account.", "Store the key in a password manager or the AWS CLI's credentials file, then delete this file.")
+                    with { Checks = [Check.Warning("The file holds an access key id and a secret key in plain text"), Check.Passed("Not in a git repository")] },
+                Secret(SecurityKind.EnvFile, SecurityLevel.Warning, ".env file", @"D:\src\web-shop\.env", "Not ignored", "It isn't in .gitignore, so one git add . away from being committed.", "Add .env to .gitignore.")
+                    with
+                {
+                    Checks = [Check.Warning("Not in .gitignore"), Check.Passed("Not tracked by git yet")],
+                    Fix = [@"cd 'D:\src\web-shop'", "Add-Content -LiteralPath .gitignore -Value '.env'", "git check-ignore -v -- '.env'"],
+                },
                 Secret(SecurityKind.RecoveryCodes, SecurityLevel.Warning, "GitHub recovery codes", @"C:\Users\alex\Documents\github-recovery-codes.txt", "Plain text", "Recovery codes let anyone past your two-factor sign-in.", "Keep them in a password manager, then delete this file."),
-                Secret(SecurityKind.PrivateKey, SecurityLevel.Ok, "SSH private key", @"C:\Users\alex\Documents\keys\deploy_ed25519", "Passphrase protected", "Protected by a passphrase.", "Nothing to do; consider moving it to .ssh."),
+                Secret(SecurityKind.PrivateKey, SecurityLevel.Ok, "SSH private key", @"C:\Users\alex\Documents\keys\deploy_ed25519", "Passphrase protected", "Protected by a passphrase.", "Nothing to do; consider moving it to .ssh.")
+                    with { Checks = [Check.Passed("Protected by a passphrase"), Check.Passed("Not in a project folder")] },
+                Secret(SecurityKind.EnvFile, SecurityLevel.Critical, ".env.production with 4 keys is committed in old-web", @"D:\src\old-web\.env.production", "Committed to git", "git tracks this file, so every clone of the repository has your secrets, and so does its history.", "Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds.")
+                    with
+                {
+                    Checks = [Check.Warning("Tracked by git (committed)"), Check.Passed("Values are never read into DevSweep's memory beyond the key names")],
+                    Fix = [@"cd 'D:\src\old-web'", "git rm --cached -- '.env.production'", "Add-Content -LiteralPath .gitignore -Value '.env.production'", "git commit -m 'Stop tracking .env.production'"],
+                },
+                Secret(SecurityKind.PasswordExport, SecurityLevel.Warning, "Password manager export", @"C:\Users\alex\OneDrive\Documents\passwords-export.csv", "Plain text", "A password export lists every login in readable text, and OneDrive keeps a copy online.", "Import it where you need it, then delete it from OneDrive too."),
+                Secret(SecurityKind.EnvFile, SecurityLevel.Ok, ".env with 2 keys in inventory-api", @"D:\src\inventory-api\.env", "Kept out of git", "git ignores it, so it stays on this PC.", "Nothing to do.")
+                    with { Checks = [Check.Passed("Listed in .gitignore"), Check.Passed("Not tracked by git")] },
             ],
         },
         new PortsResult
@@ -277,12 +336,69 @@ public static class SampleData
             OthersHidden = 31,
             Ports =
             [
-                Port(5173, 4120, "node", "Node.js", @"D:\src\web-shop", Exposure.AllInterfaces, true, "Allowed through Windows Firewall on Private networks"),
-                Port(5432, 3184, "postgres", "PostgreSQL", null, Exposure.Loopback, true, "Only this PC"),
-                Port(8080, 9932, "java", "Java", @"D:\src\inventory-api", Exposure.Loopback, true, "Only this PC"),
-                Port(5040, 7012, "svchost", "Windows service host", null, Exposure.AllInterfaces, false, "Blocked by Windows Firewall"),
+                Port(5173, 4120, "node", "Vite dev server in web-shop", @"D:\src\web-shop", Exposure.AllInterfaces, true, "Allowed through Windows Firewall on Private networks")
+                    with { CommandLine = @"node D:\src\web-shop\node_modules\vite\bin\vite.js --host", Started = Now.AddMinutes(-47), ProgramPath = @"C:\Users\alex\AppData\Local\nvm\v22.21.0\node.exe" },
+                Port(3000, 5532, "node", "Next.js dev server in storefront", @"D:\src\storefront", Exposure.Loopback, true, "Only this PC")
+                    with { CommandLine = @"node D:\src\storefront\node_modules\next\dist\bin\next dev", Started = Now.AddHours(-3) },
+                Port(5432, 3184, "postgres", "PostgreSQL", null, Exposure.Loopback, true, "Only this PC")
+                    with { CommandLine = @"""C:\Program Files\PostgreSQL\16\bin\postgres.exe"" -D ""C:\Program Files\PostgreSQL\16\data""", Started = Now.AddDays(-2), FolderSource = FolderSource.Unknown },
+                Port(8080, 9932, "java", "Spring Boot in inventory-api", @"D:\src\inventory-api", Exposure.Loopback, true, "Only this PC")
+                    with { CommandLine = "java -jar build\\libs\\inventory-api.jar", Started = Now.AddMinutes(-12) },
+                Port(6379, 6120, "redis-server", "Redis", null, Exposure.Loopback, true, "Only this PC"),
+                Port(5040, 7012, "svchost", "Windows service host", null, Exposure.AllInterfaces, false, "Blocked by Windows Firewall") with { OwnedByYou = false },
+                Port(49664, 880, "lsass", "Windows security (LSASS)", null, Exposure.AllInterfaces, false, "Blocked by Windows Firewall") with { OwnedByYou = false },
+                Port(5357, 4, "System", "Windows (System)", null, Exposure.AllInterfaces, false, "Blocked by Windows Firewall") with { OwnedByYou = false },
             ],
         });
+
+    public static PackagesResult Packages { get; } = new()
+    {
+        Date = Now,
+        Managers =
+        [
+            new PackageManagerReport
+            {
+                Manager = PackageManager.Winget,
+                Location = @"C:\Users\alex\AppData\Local\Microsoft\WindowsApps\winget.exe",
+                Outdated =
+                [
+                    new OutdatedPackage("Git", "Git.Git", "2.46.0", "2.47.1"),
+                    new OutdatedPackage("Visual Studio Code", "Microsoft.VisualStudioCode", "1.94.2", "1.95.3"),
+                    new OutdatedPackage("PowerToys", "Microsoft.PowerToys", "0.85.1", "0.86.0"),
+                    new OutdatedPackage("7-Zip", "7zip.7zip", "23.01", "24.08"),
+                ],
+                Steps = [new RuntimeStep { Id = "winget:upgrade-all", Kind = StepKind.Upgrade, Title = "Upgrade 4 packages with winget", Detail = "winget upgrades each one with its own installer; some may ask Windows for permission.", Commands = ["winget upgrade --all --disable-interactivity"] }],
+                Caches = [new PackageCache(@"C:\Users\alex\AppData\Local\Temp\WinGet", "winget downloads", 612 * MB, true)],
+                Note = "winget checks its sources online each time.",
+            },
+            new PackageManagerReport
+            {
+                Manager = PackageManager.Scoop,
+                Location = @"C:\Users\alex\scoop",
+                InstalledCount = 23,
+                Outdated = [new OutdatedPackage("ripgrep", "ripgrep", "14.0.3", "14.1.1"), new OutdatedPackage("pinned-tool", "pinned-tool", "1.0.0", "2.0.0", Pinned: true)],
+                Deprecated = [new DeprecatedPackage("oldtool", "0.9.0", "It is no longer in the extras bucket, so it won't get updates.")],
+                Orphans = [new OrphanFolder(@"C:\Users\alex\scoop\apps\ghost", "An empty app folder: no version is installed in it.")],
+                Caches = [new PackageCache(@"C:\Users\alex\scoop\cache", "Scoop downloads", 1_480 * MB, true)],
+                Steps =
+                [
+                    new RuntimeStep { Id = "scoop:upgrade-all", Kind = StepKind.Upgrade, Title = "Update 1 package with Scoop", Detail = "Refreshes the buckets, then updates every app that isn't held back.", Commands = ["scoop update", "scoop update *"] },
+                    new RuntimeStep { Id = "scoop:removed", Kind = StepKind.Remove, Title = "Remove 1 package Scoop no longer offers", Detail = "Only if you don't use them any more. Their data stays where the app keeps it.", Commands = ["scoop uninstall 'oldtool'"] },
+                    new RuntimeStep { Id = "scoop:cache", Kind = StepKind.Remove, Title = "Clear Scoop's download cache", Detail = "Scoop downloads the installers again if it needs them.", Commands = ["scoop cache rm *"] },
+                ],
+                Note = "Read from Scoop's own files (no program was run). Versions are as fresh as your last scoop update.",
+            },
+            new PackageManagerReport
+            {
+                Manager = PackageManager.Chocolatey,
+                Location = @"C:\ProgramData\chocolatey",
+                InstalledCount = 6,
+                Outdated = [new OutdatedPackage("nodejs-lts", "nodejs-lts", "20.11.0", "22.11.0")],
+                Steps = [new RuntimeStep { Id = "choco:upgrade-all", Kind = StepKind.Upgrade, Title = "Upgrade 1 package with Chocolatey", Detail = "Chocolatey changes programs for every user, so this needs an administrator window.", Commands = ["choco upgrade all -y"], NeedsAdmin = true }],
+            },
+        ],
+        Duplicates = [new DuplicateInstall("node", "Node.js", "22", ["nvm-windows", "Chocolatey"])],
+    };
 
     public static ProjectsSnapshot Projects { get; } = new()
     {

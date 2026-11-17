@@ -310,12 +310,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
 
         if (model.Places.Any(p => p.Id == "health"))
         {
-            await GoAsync("health");
-            foreach (HealthTab tab in model.Health.Tabs)
-            {
-                model.Health.Tab = tab;
-                await ShotAsync("health-" + tab.ToString().ToLowerInvariant(), suffix);
-            }
+            await HealthWalkAsync(suffix, full);
         }
 
         await GoAsync("history");
@@ -389,6 +384,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             await model.Review.OpenAsync(model.CleanUp.All.Where(f => f.CanSelect).Take(5).Select(f => new PlannedAction(f.Finding, f.ChosenAction)).ToList());
             await ShotAsync("review", "highcontrast");
             model.Review.Close();
+            await HealthHighContrastAsync();
         }
         finally
         {

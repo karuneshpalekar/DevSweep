@@ -1,6 +1,8 @@
+using DevSweep.App.Design;
 using DevSweep.App.Toolkit;
 using DevSweep.App.ViewModels;
 using DevSweep.App.ViewModels.Text;
+using DevSweep.Core.Health.Packages;
 using DevSweep.Core.Health.Ports;
 using DevSweep.Core.Health.Runtimes;
 using DevSweep.Core.Health.Security;
@@ -10,237 +12,539 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace DevSweep.App.Views;
 
-/// <summary>Health: Tools and versions, Security, Ports, bound to M3b's result types. Tabs follow their flags.</summary>
+/// <summary>
+/// Health: Tools and versions (master list and side panel, the Mac's RuntimesView), Security and Ports, each a list with a panel that
+/// slides in. The tab bar carries counts; one panel serves all three tabs (its key says which kind of item it shows).
+/// </summary>
 internal static class HealthView
 {
+    /// <summary>How often the Ports tab looks again while it is on screen and the window is showing.</summary>
+    public static readonly TimeSpan PortsRefresh = TimeSpan.FromSeconds(4);
+
+    private static readonly string[] BodyProperties =
+    [
+        nameof(HealthViewModel.State), nameof(HealthViewModel.Tab), nameof(HealthViewModel.Report), nameof(HealthViewModel.Packages), nameof(HealthViewModel.IsLoadingPackages),
+        nameof(HealthViewModel.ToolsFilter), nameof(HealthViewModel.Error), nameof(HealthViewModel.RestartNeeded), nameof(HealthViewModel.NeedsAction), nameof(HealthViewModel.LooksFine),
+    ];
+
     public static UIElement Build(MainViewModel model, Subscriptions subs, MainWindow window)
     {
         HealthViewModel vm = model.Health;
-        TextBlock subtitle = Ui.Secondary("Your tools, files that look like secrets, and what's listening.");
-        var tabs = new SelectorBar();
-        AutomationProperties.SetName(tabs, "Health tabs");
-        foreach (HealthTab tab in vm.Tabs)
+        TextBlock subtitle = Ui.Secondary(string.Empty);
+        Button refresh = Ui.Button("Check again", () => _ = vm.LoadAsync(), "Check again");
+        refresh.Content = Ui.H(Tokens.Space2, Ui.Icon(Icons.Refresh, 14), Ui.Text("Check again"));
+        SelectorBar tabs = Ds.Tabs(vm.Tabs.Select(HealthViewModel.TabTitle).ToList(), Math.Max(0, vm.Tabs.ToList().IndexOf(vm.Tab)), index =>
         {
-            var item = new SelectorBarItem { Text = HealthViewModel.TabTitle(tab), Tag = tab, IsSelected = tab == vm.Tab };
-            AutomationProperties.SetName(item, HealthViewModel.TabTitle(tab));
-            tabs.Items.Add(item);
-        }
-
-        tabs.SelectionChanged += (_, _) =>
-        {
-            if (tabs.SelectedItem?.Tag is HealthTab tab)
+            if (index >= 0 && index < vm.Tabs.Count)
             {
-                vm.Tab = tab;
+                vm.Tab = vm.Tabs[index];
             }
+        }, "Health tabs");
+        var body = new StackPanel { Spacing = Tokens.Space4 };
+        var rows = new Dictionary<string, ListRow>(StringComparer.Ordinal);
+        StackPanel page = Ui.V(Tokens.Space4, Ds.PageHeader("Health", subtitle, refresh), tabs, body);
+
+        var panel = new SidePanel(Ds.PageScroll(page), (key, panelSubs) => HealthPanels.Build(model, key, panelSubs, window), "Health details")
+        {
+            Closed = () => ClearSelection(vm),
         };
-        var body = new StackPanel { Spacing = 16 };
-        Button refresh = Ui.Button("Check again", () => _ = vm.LoadAsync());
-        StackPanel page = Ui.V(16, Ui.PageHeader("Health", subtitle, refresh), tabs, body);
+        subs.Add(panel.Dispose);
+        window.ActivePanel = panel;
+        subs.Add(() =>
+        {
+            if (ReferenceEquals(window.ActivePanel, panel))
+            {
+                window.ActivePanel = null;
+            }
+        });
+
+        void Header()
+        {
+            subtitle.Text = vm.CheckedText;
+            for (int i = 0; i < tabs.Items.Count && i < vm.Tabs.Count; i++)
+            {
+                HealthTab tab = vm.Tabs[i];
+                string count = vm.Count(tab);
+                ((SelectorBarItem)tabs.Items[i]).Text = HealthViewModel.TabTitle(tab) + (count.Length > 0 ? " · " + count : string.Empty);
+                AutomationProperties.SetName((SelectorBarItem)tabs.Items[i], HealthViewModel.TabTitle(tab) + (count.Length > 0 ? $", {count} to look at" : string.Empty));
+            }
+
+            Ui.Show(tabs, vm.State != PlaceState.Unavailable && vm.Tabs.Count > 1);
+            Ui.Show(refresh, vm.State is PlaceState.Ready or PlaceState.Failed);
+        }
 
         void Render()
         {
+            Header();
+            rows.Clear();
             body.Children.Clear();
-            foreach (SelectorBarItem item in tabs.Items)
-            {
-                item.IsSelected = item.Tag is HealthTab t && t == vm.Tab;
-                string count = item.Tag is HealthTab tab ? vm.Count(tab) : string.Empty;
-                item.Text = HealthViewModel.TabTitle((HealthTab)item.Tag) + (count.Length > 0 ? $" ({count})" : string.Empty);
-            }
+            RenderBody(model, vm, body, rows, subs);
+            SyncSelection(vm, panel, rows);
+        }
 
-            Ui.Show(tabs, vm.State != PlaceState.Unavailable);
-            Ui.Show(refresh, vm.State is PlaceState.Ready or PlaceState.Failed);
-            switch (vm.State)
+        Render();
+        void OnChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is { } name && BodyProperties.Contains(name))
             {
-                case PlaceState.Unavailable:
-                    body.Children.Add(Ui.Card(Ui.V(8, Ui.Text("Health is off", "DsSubtitle"), Ui.Secondary(HealthViewModel.UnavailableText), Ui.Button("Open Settings", () => model.Go("settings")))));
-                    return;
-                case PlaceState.NotChecked:
-                    body.Children.Add(Ui.Card(Ui.V(8, Ui.Text("Not checked yet", "DsSubtitle"), Ui.Button("Check now", () => _ = vm.LoadAsync(), accent: true))));
-                    return;
-                case PlaceState.Loading:
-                    body.Children.Add(Ui.H(10, new ProgressRing { IsActive = true, Width = 20, Height = 20 }, Ui.Secondary("Checking your tools and files…")));
-                    return;
-                case PlaceState.Failed:
-                    body.Children.Add(Ui.Text("Health couldn't finish: " + vm.Error, "DsCriticalText"));
-                    return;
+                Render();
             }
-
-            if (vm.Error is { } error)
+            else if (e.PropertyName is nameof(HealthViewModel.CheckedText) or nameof(HealthViewModel.ToolsSummary))
             {
-                body.Children.Add(Ui.Text(error, "DsWarningText"));
-            }
-
-            switch (vm.Tab)
-            {
-                case HealthTab.Tools:
-                    Tools(vm, body);
-                    break;
-                case HealthTab.Security:
-                    Security(vm, body);
-                    break;
-                default:
-                    Ports(vm, body);
-                    break;
+                Header();
             }
         }
 
-        subs.On(vm, null, Render);
-        return Ui.Scroll(page);
+        vm.PropertyChanged += OnChanged;
+        subs.Add(() => vm.PropertyChanged -= OnChanged);
+
+        void OnSelection(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is nameof(HealthViewModel.SelectedTool) or nameof(HealthViewModel.SelectedSecurity) or nameof(HealthViewModel.SelectedPort))
+            {
+                SyncSelection(vm, panel, rows);
+            }
+        }
+
+        vm.PropertyChanged += OnSelection;
+        subs.Add(() => vm.PropertyChanged -= OnSelection);
+
+        // Ports are read again every few seconds while this tab is on screen and the window is showing; a hidden window pauses it.
+        if (Environment.GetEnvironmentVariable("DEVSWEEP_SHOTS") is null)
+        {
+            var timer = new Microsoft.UI.Xaml.DispatcherTimer { Interval = PortsRefresh };
+            timer.Tick += (_, _) =>
+            {
+                if (vm.Tab == HealthTab.Ports && vm.State == PlaceState.Ready && window.IsShowing && !vm.IsRefreshingPorts)
+                {
+                    _ = vm.RefreshPortsAsync();
+                }
+            };
+            timer.Start();
+            subs.Add(timer.Stop);
+        }
+
+        return panel.Root;
     }
 
-    private static void Tools(HealthViewModel vm, StackPanel body)
+    private static void ClearSelection(HealthViewModel vm)
+    {
+        switch (vm.Tab)
+        {
+            case HealthTab.Tools:
+                vm.SelectedTool = null;
+                break;
+            case HealthTab.Security:
+                vm.SelectedSecurity = null;
+                break;
+            default:
+                vm.SelectedPort = null;
+                break;
+        }
+    }
+
+    /// <summary>The panel key for the current tab's selection (null when nothing is selected).</summary>
+    public static string? KeyFor(HealthViewModel vm) => vm.Tab switch
+    {
+        HealthTab.Tools => vm.SelectedTool is { } t && vm.AllToolRows.Any(r => r.Id == t) ? "tool:" + t : null,
+        HealthTab.Security => vm.SelectedFinding is { } f ? "sec:" + f.Id : null,
+        _ => vm.SelectedPortInfo is { } p ? "port:" + p.Id : null,
+    };
+
+    private static void SyncSelection(HealthViewModel vm, SidePanel panel, Dictionary<string, ListRow> rows)
+    {
+        string? key = vm.State == PlaceState.Ready ? KeyFor(vm) : null;
+        panel.Select(key);
+        foreach ((string id, ListRow row) in rows)
+        {
+            row.Selected = id == key;
+        }
+    }
+
+    private static void RenderBody(MainViewModel model, HealthViewModel vm, StackPanel body, Dictionary<string, ListRow> rows, Subscriptions subs)
+    {
+        switch (vm.State)
+        {
+            case PlaceState.Unavailable:
+                body.Children.Add(Ds.Card(Ds.EmptyState(Icons.Shield, "Health is off", HealthViewModel.UnavailableText, vm.RestartNeeded ? null : OffButtons(model, vm))));
+                if (vm.RestartNeeded)
+                {
+                    body.Children.Add(Ds.Banner(BannerKind.Info, "Health is switched on. DevSweep applies it the next time it starts: close it from the tray (Quit) and open it again.", "Restart to finish"));
+                }
+
+                return;
+            case PlaceState.NotChecked:
+                body.Children.Add(Ds.Card(Ds.EmptyState(Icons.Shield, "Not checked yet", "DevSweep finds every Node, Python, Java and database on this PC and whether each is still supported, looks for files that look like secrets, and shows what's listening.",
+                    Ui.Button("Check now", () => _ = vm.LoadAsync(), accent: true))));
+                return;
+            case PlaceState.Loading:
+                body.Children.Add(Ds.Card(Ds.Skeleton(6)));
+                return;
+            case PlaceState.Failed:
+                body.Children.Add(Ds.Banner(BannerKind.Critical, vm.Error ?? "Something went wrong.", "Health couldn't finish", "Try again", () => _ = vm.LoadAsync()));
+                return;
+        }
+
+        if (vm.Error is { } error)
+        {
+            body.Children.Add(Ds.Banner(BannerKind.Warning, error));
+        }
+
+        switch (vm.Tab)
+        {
+            case HealthTab.Tools:
+                ToolsTab(vm, body, rows);
+                break;
+            case HealthTab.Security:
+                SecurityTab(model, vm, body, rows);
+                break;
+            default:
+                PortsTab(vm, body, rows);
+                break;
+        }
+    }
+
+    private static UIElement OffButtons(MainViewModel model, HealthViewModel vm)
+        => FlowButtons.Build(vm.CanEnable ? Ui.Button("Turn on Health", vm.Enable, "Turn on Health", accent: true) : null, Ui.Button("Open Settings", () => model.Go("settings"), "Open Settings, Modules"));
+
+    // ---- Tools and versions -------------------------------------------------------------------------------------------------
+
+    private static void ToolsTab(HealthViewModel vm, StackPanel body, Dictionary<string, ListRow> rows)
     {
         if (vm.Report?.Versions is not { } versions)
         {
-            body.Children.Add(Ui.Secondary("Tools and versions is turned off."));
+            body.Children.Add(Ds.Card(Ds.EmptyState(Icons.Terminal, "Tools and versions is off", "Turn it on in Settings, Modules, to see every install of your languages and databases.")));
             return;
         }
 
         if (versions.EolOffline)
         {
-            body.Children.Add(Ui.Caption("Support dates come from an old copy (endoflife.date couldn't be reached)."));
+            body.Children.Add(Ds.Banner(BannerKind.Info, "Support dates come from an old copy (endoflife.date couldn't be reached), so they may be out of date.", "Working offline"));
         }
 
-        foreach (RuntimeReport tool in versions.Runtimes.Where(r => r.Installs.Count > 0 || r.NotInstalls.Count > 0))
+        var filters = new StackPanel { Orientation = Orientation.Horizontal, Spacing = Tokens.Space2 };
+        foreach ((ToolsFilter filter, string title) in (ReadOnlySpan<(ToolsFilter, string)>)[(ToolsFilter.All, "All"), (ToolsFilter.NeedsAttention, "Needs attention"), (ToolsFilter.UpToDate, "Up to date")])
         {
-            var card = new StackPanel { Spacing = 8 };
-            SupportStatus worst = tool.Worst;
-            card.Children.Add(Ui.Row(Ui.Text(tool.Name, "DsSubtitle"), Support(worst)));
-            if (tool.Resolution?.Runs is { } runs)
-            {
-                card.Children.Add(Ui.Caption($"A new terminal runs {runs}{(tool.Resolution.Via is { } via ? $" (via {via})" : string.Empty)}."));
-            }
-
-            foreach (Installation install in tool.Installs)
-            {
-                StackPanel tags = Ui.H(6, Support(install.Support));
-                if (install.IsDefault)
-                {
-                    tags.Children.Insert(0, Ui.Badge("Default", Tone.Accent, "The one a new terminal runs."));
-                }
-
-                if (install.PatchAvailable)
-                {
-                    tags.Children.Add(Ui.Badge($"{install.LatestInCycle} available", Tone.Neutral));
-                }
-
-                card.Children.Add(Ui.Row(Ui.V(0, Ui.Text($"{install.Version} · {install.SourceTitle}", "DsStrong"), Ui.Caption(install.Path)), tags));
-            }
-
-            foreach (string notInstall in tool.NotInstalls)
-            {
-                card.Children.Add(Ui.Caption("Not an install: " + notInstall));
-            }
-
-            foreach (RuntimeIssue issue in tool.Issues)
-            {
-                card.Children.Add(Ui.Text(issue.Text, issue.Level == IssueLevel.Info ? "DsSecondary" : "DsWarningText"));
-            }
-
-            foreach (RuntimeStep step in tool.Steps)
-            {
-                card.Children.Add(Ui.Card(Ui.V(6,
-                    Ui.Row(Ui.V(0, Ui.Text(step.Title, "DsStrong"), Ui.Caption(step.Detail)),
-                        Ui.Button("Copy", () => Shell.Copy(string.Join(Environment.NewLine, step.Commands)), $"Copy the commands for {step.Title}"),
-                        Ui.Button(step.NeedsAdmin ? "Run in PowerShell (asks for admin)" : "Run in PowerShell", () => vm.OpenFix(step), $"Open {step.Title} in PowerShell")),
-                    Ui.Text(string.Join(Environment.NewLine, step.Commands), "DsMono")), "DsCodeBox"));
-            }
-
-            body.Children.Add(Ui.Card(card));
+            int count = vm.FilterCount(filter);
+            filters.Children.Add(Ds.Chip(title, count.ToString(System.Globalization.CultureInfo.InvariantCulture), vm.ToolsFilter == filter, $"Show {title}, {count}", () => vm.ToolsFilter = filter));
         }
 
-        if (versions.Runtimes.Any(r => r.Steps.Count > 0))
+        TextBlock summary = Ui.Secondary(vm.ToolsSummary);
+        summary.VerticalAlignment = VerticalAlignment.Center;
+        AutomationProperties.SetName(summary, vm.ToolsSummary);
+        body.Children.Add(Ds.CommandBar(new ScrollViewer { Content = filters, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled }, null, summary));
+        body.Children.Add(Legend());
+
+        IReadOnlyList<ToolRow> list = vm.ToolRows;
+        var items = new List<UIElement>();
+        foreach (ToolRow row in list)
         {
-            body.Children.Add(Ui.Caption("Run in PowerShell opens a window that lists the commands and waits for you to press Enter. Nothing runs before that, and nothing is elevated without Windows asking you (UAC)."));
+            ListRow item = ToolListRow(vm, row);
+            rows["tool:" + row.Id] = item;
+            items.Add(item.Root);
         }
 
-        if (versions.Projects.Count > 0)
+        if (vm.IsLoadingPackages && vm.Packages is null && vm.ToolsFilter != ToolsFilter.UpToDate)
         {
-            var projects = new StackPanel { Spacing = 6 };
-            foreach (ProjectRequirement requirement in versions.Projects)
-            {
-                Tone tone = requirement.Status == RequirementStatus.Ok ? Tone.Good : Tone.Caution;
-                string status = requirement.Status switch { RequirementStatus.Ok => "OK", RequirementStatus.NotInstalled => "Not installed", _ => "End of life" };
-                projects.Children.Add(Ui.Row(Ui.V(0, Ui.Text($"{requirement.Project} asks for {requirement.ToolName} {requirement.Spec}", "DsStrong"), Ui.Caption($"{requirement.File} · {requirement.Message}")), Ui.Badge(status, tone)));
-            }
+            items.Add(Ds.Card(Ui.H(Tokens.Space3, new ProgressRing { IsActive = true, Width = 18, Height = 18 }, Ui.Secondary("Checking winget, Scoop and Chocolatey…"))));
+        }
 
-            body.Children.Add(Ui.V(8, Ui.Text("Your projects", "DsStrong"),
-                Ui.Caption("Versions your projects ask for, from files like .nvmrc, package.json engines, .python-version, global.json and Gradle toolchains."),
-                Ui.Card(projects)));
+        if (items.Count == 0)
+        {
+            body.Children.Add(Ds.Card(vm.AllToolRows.Count == 0
+                ? Ds.EmptyState(Icons.Terminal, "No tools found", "DevSweep didn't find Node, Python, Java, .NET, Go or a database on this PC.")
+                : Ds.EmptyState(Icons.Filter, vm.ToolsFilter == ToolsFilter.NeedsAttention ? "Everything is up to date" : "Nothing here", vm.ToolsFilter == ToolsFilter.NeedsAttention ? "No tool needs attention right now." : "Every tool has something to look at.")));
+        }
+        else
+        {
+            body.Children.Add(Ds.RowsCard(items));
+        }
+
+        if (vm.Packages is { } packages)
+        {
+            string line = string.Join(" · ", packages.Managers.Where(m => m.Problem is not null).Select(m => m.Name + ": " + m.Problem));
+            if (line.Length > 0)
+            {
+                body.Children.Add(Ui.Caption(line));
+            }
         }
     }
 
-    private static Border Support(SupportStatus status) => status switch
+    private static UIElement Legend()
     {
-        SupportStatus.EndOfLife => Ui.Badge("End of life", Tone.Critical, "No more security fixes from upstream."),
-        SupportStatus.EndingSoon => Ui.Badge("Support ending soon", Tone.Caution, "Support ends within 120 days."),
-        SupportStatus.Supported => Ui.Badge("Supported", Tone.Good),
-        _ => Ui.Badge("Not checked", Tone.Neutral, "No support dates for it."),
+        var legend = new StackPanel { Orientation = Orientation.Horizontal, Spacing = Tokens.Space4 };
+        foreach ((string text, Tone tone) in (ReadOnlySpan<(string, Tone)>)[("Supported", Tone.Good), ("Ending soon", Tone.Caution), ("End of life", Tone.Critical), ("Not running", Tone.Neutral)])
+        {
+            legend.Children.Add(Ui.H(Tokens.Space1, Dot(tone), Ui.Caption(text)));
+        }
+
+        FontIcon terminal = Ui.Icon(Icons.Terminal, 10);
+        legend.Children.Add(Ui.H(Tokens.Space1, terminal, Ui.Caption("A new terminal runs this one")));
+        return new ScrollViewer { Content = legend, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
+    }
+
+    private static Border Dot(Tone tone)
+    {
+        string brush = tone switch { Tone.Good => "SystemFillColorSuccessBrush", Tone.Caution => "SystemFillColorCautionBrush", Tone.Critical => "SystemFillColorCriticalBrush", _ => "TextFillColorTertiaryBrush" };
+        return new Border { Width = 8, Height = 8, CornerRadius = new CornerRadius(4), VerticalAlignment = VerticalAlignment.Center, Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[brush] };
+    }
+
+    private static ListRow ToolListRow(HealthViewModel vm, ToolRow row)
+    {
+        var grid = new Grid { ColumnSpacing = Tokens.Space3 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
+
+        StackPanel name = Ui.V(0, Ui.Text(row.Title, "DsStrong", 1), Ui.Caption(row.Summary));
+        name.VerticalAlignment = VerticalAlignment.Center;
+        grid.Children.Add(name);
+
+        UIElement pills = Pills(vm, row);
+        if (pills is FrameworkElement pillElement)
+        {
+            pillElement.VerticalAlignment = VerticalAlignment.Center;
+        }
+
+        Grid.SetColumn((FrameworkElement)pills, 1);
+        grid.Children.Add(pills);
+
+        UIElement status = row.Alerts == 0
+            ? StatusLine(Icons.CheckCircle, "All good", "SystemFillColorSuccessBrush", "DsCaption")
+            : StatusLine(row.Critical ? Icons.Error : Icons.Warning, $"{row.Alerts} to look at", row.Critical ? "SystemFillColorCriticalBrush" : "SystemFillColorCautionBrush", "DsCaption");
+        ((FrameworkElement)status).VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn((FrameworkElement)status, 2);
+        grid.Children.Add(status);
+
+        Button info = Ui.IconButton(Icons.Info, $"Show details for {row.Title}", () => vm.SelectTool(row.Id));
+        info.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(info, 3);
+        grid.Children.Add(info);
+
+        var item = new ListRow(grid, () => vm.SelectTool(row.Id), tabStop: false);
+        AutomationProperties.SetName(item.Root, $"{row.Title}, {row.Summary}, {(row.Alerts == 0 ? "all good" : row.Alerts + " to look at")}");
+        return item;
+    }
+
+    private static UIElement StatusLine(string glyph, string text, string brush, string style)
+    {
+        FontIcon icon = Ui.Icon(glyph, 14);
+        icon.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[brush];
+        TextBlock label = Ui.Text(text, style);
+        label.TextWrapping = TextWrapping.NoWrap;
+        StackPanel line = Ui.H(Tokens.Space1, icon, label);
+        AutomationProperties.SetName(line, text);
+        return line;
+    }
+
+    private static UIElement Pills(HealthViewModel vm, ToolRow row)
+    {
+        var pills = new List<UIElement>();
+        switch (row.Kind)
+        {
+            case ToolKind.Packages:
+                PackagesResult? packages = vm.Packages;
+                if (packages is { Deprecated: > 0 })
+                {
+                    pills.Add(Ds.StatusTag($"{packages.Deprecated} no longer offered", Tone.Critical));
+                }
+
+                if (packages is { Outdated: > 0 })
+                {
+                    pills.Add(Ds.StatusTag($"{packages.Outdated} outdated", Tone.Caution));
+                }
+
+                if (packages is { Duplicates.Count: > 0 })
+                {
+                    pills.Add(Ds.StatusTag($"{packages.Duplicates.Count} installed twice", Tone.Caution));
+                }
+
+                break;
+            case ToolKind.Projects:
+                IReadOnlyList<ProjectRequirement> requirements = vm.Report?.Versions?.Projects ?? [];
+                int problems = requirements.Count(p => p.Status != RequirementStatus.Ok);
+                if (problems > 0)
+                {
+                    pills.Add(Ds.StatusTag($"{problems} not met", Tone.Caution));
+                }
+
+                pills.Add(Ds.StatusTag($"{requirements.Count - problems} OK", Tone.Good));
+                break;
+            default:
+                foreach (Installation install in row.Report?.Installs ?? [])
+                {
+                    pills.Add(VersionPill(install, row.Kind == ToolKind.Windows));
+                }
+
+                break;
+        }
+
+        return pills.Count == 0 ? Ui.Caption(string.Empty) : FlowButtons.Build(6, [.. pills]);
+    }
+
+    /// <summary>One coloured pill per install: version and owner, a terminal glyph when a new terminal runs it, a dot when the server runs.</summary>
+    internal static UIElement VersionPill(Installation install, bool versionOnly = false)
+    {
+        bool notRunning = install.IsRunning == false;
+        Tone tone = notRunning ? Tone.Neutral : install.Support switch
+        {
+            SupportStatus.EndOfLife => Tone.Critical,
+            SupportStatus.EndingSoon => Tone.Caution,
+            SupportStatus.Supported => Tone.Good,
+            _ => Tone.Neutral,
+        };
+        var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = Tokens.Space1 };
+        string toneName = tone.ToString();
+        if (install.IsDefault)
+        {
+            FontIcon icon = Ui.Icon(Icons.Terminal, 10);
+            icon.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[tone switch { Tone.Good => "SystemFillColorSuccessBrush", Tone.Caution => "SystemFillColorCautionBrush", Tone.Critical => "SystemFillColorCriticalBrush", _ => "TextFillColorSecondaryBrush" }];
+            content.Children.Add(icon);
+        }
+
+        if (install.IsRunning == true)
+        {
+            content.Children.Add(Dot(Tone.Good));
+        }
+
+        content.Children.Add(new TextBlock { Text = versionOnly ? install.Version : $"{install.Version} · {install.SourceTitle}", Style = Ui.Style("DsBadgeText" + toneName), TextWrapping = TextWrapping.NoWrap });
+        var pill = new Border { Style = Ui.Style("DsBadge" + toneName), Child = content, VerticalAlignment = VerticalAlignment.Center };
+        string tip = string.Join(" · ", new[] { SupportText(install.Support), install.IsDefault ? "a new terminal runs this one" : null, install.IsRunning is { } r ? (r ? "running" : "not running") : null }.OfType<string>());
+        Ui.Tip(pill, tip);
+        AutomationProperties.SetName(pill, $"{install.Version} from {install.SourceTitle}, {tip}");
+        return pill;
+    }
+
+    internal static string SupportText(SupportStatus status) => status switch
+    {
+        SupportStatus.EndOfLife => "End of life",
+        SupportStatus.EndingSoon => "Support ending soon",
+        SupportStatus.Supported => "Supported",
+        _ => "Not checked",
     };
 
-    private static void Security(HealthViewModel vm, StackPanel body)
+    internal static Tone SupportTone(SupportStatus status) => status switch
+    {
+        SupportStatus.EndOfLife => Tone.Critical,
+        SupportStatus.EndingSoon => Tone.Caution,
+        SupportStatus.Supported => Tone.Good,
+        _ => Tone.Neutral,
+    };
+
+    // ---- Security -----------------------------------------------------------------------------------------------------------
+
+    private static void SecurityTab(MainViewModel model, HealthViewModel vm, StackPanel body, Dictionary<string, ListRow> rows)
     {
         if (vm.Report?.Security is not { } security)
         {
-            body.Children.Add(Ui.Secondary("Security is turned off."));
+            body.Children.Add(Ds.Card(Ds.EmptyState(Icons.Shield, "Security is off", "Turn it on in Settings, Modules, to look for files that look like secrets.")));
             return;
         }
 
-        if (security.Findings.Count == 0)
+        IReadOnlyList<SecurityFinding> needs = vm.NeedsAction;
+        IReadOnlyList<SecurityFinding> fine = vm.LooksFine;
+        if (needs.Count + fine.Count == 0)
         {
-            body.Children.Add(Ui.Card(Ui.V(6, Ui.Text("No secrets lying around", "DsSubtitle"), Ui.Secondary("DevSweep looked for recovery codes, private keys, cloud keys, password exports and .env files, and found none."))));
+            body.Children.Add(Ds.Card(Ds.EmptyState(Icons.CheckCircle, "No secrets lying around", "DevSweep looked for recovery codes, private keys, cloud keys, password exports and .env files, and found none.")));
         }
 
-        AddSecurity(body, "Needs action", vm.NeedsAction);
-        AddSecurity(body, "Looks fine", vm.LooksFine);
-        body.Children.Add(Ui.Caption($"Looked in {string.Join(", ", security.Looked)}. Names and at most the first 64 KB are read; secrets are never shown or stored.{(security.CloudFilesSkipped > 0 ? $" {security.CloudFilesSkipped} online-only files were not opened." : string.Empty)}"));
+        AddSecurity(vm, body, "Needs action", needs, rows);
+        AddSecurity(vm, body, "Looks fine", fine, rows);
+
+        var notes = new List<string>
+        {
+            $"Looked in {string.Join(", ", security.Looked)}. Names and at most the first 64 KB are read; secrets are never shown or stored."
+            + (security.CloudFilesSkipped > 0 ? $" {security.CloudFilesSkipped} online-only files were not opened." : string.Empty),
+        };
         if (security.GitUnavailable is { } git)
         {
-            body.Children.Add(Ui.Caption(git));
+            notes.Add(git);
+        }
+
+        foreach (string note in notes)
+        {
+            body.Children.Add(Ui.Caption(note));
+        }
+
+        if (vm.IgnoredFindings > 0)
+        {
+            body.Children.Add(Ui.H(Tokens.Space2, Ui.Caption($"{vm.IgnoredFindings} ignored."), Ui.Link("Manage in Settings, Ignored items", () => model.Go("settings"))));
         }
     }
 
-    private static void AddSecurity(StackPanel body, string title, IReadOnlyList<SecurityFinding> findings)
+    private static void AddSecurity(HealthViewModel vm, StackPanel body, string title, IReadOnlyList<SecurityFinding> findings, Dictionary<string, ListRow> rows)
     {
         if (findings.Count == 0)
         {
             return;
         }
 
-        var rows = new StackPanel { Spacing = 10 };
+        var items = new List<UIElement>();
         foreach (SecurityFinding finding in findings)
         {
-            if (rows.Children.Count > 0)
-            {
-                rows.Children.Add(Ui.Divider());
-            }
-
+            var grid = new Grid { ColumnSpacing = Tokens.Space3 };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
+            FontIcon icon = Ui.Icon(KindGlyph(finding.Kind), 16);
+            icon.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+            icon.VerticalAlignment = VerticalAlignment.Center;
+            grid.Children.Add(icon);
+            TextBlock path = Ui.Caption(finding.Path);
+            path.MaxLines = 1;
+            path.TextTrimming = TextTrimming.CharacterEllipsis;
+            StackPanel text = Ui.V(0, Ui.Text(finding.Title, "DsStrong", 1), path);
+            text.VerticalAlignment = VerticalAlignment.Center;
+            Ui.Tip(text, finding.Path);
+            Grid.SetColumn(text, 1);
+            grid.Children.Add(text);
             Tone tone = finding.Level switch { SecurityLevel.Critical => Tone.Critical, SecurityLevel.Warning => Tone.Caution, _ => Tone.Good };
-            rows.Children.Add(Ui.V(4,
-                Ui.Row(Ui.H(10, Ui.Badge(finding.Status, tone), Ui.Text(finding.Title, "DsStrong")), Ui.Button("Show in File Explorer", () => Shell.Reveal(finding.Path), $"Show {finding.Title} in File Explorer")),
-                Ui.Caption(finding.Path),
-                Ui.Secondary(finding.Why),
-                Ui.Text(finding.WhatToDo)));
+            Border tag = Ds.StatusTag(finding.Status, tone);
+            Grid.SetColumn(tag, 2);
+            grid.Children.Add(tag);
+            string id = finding.Id;
+            Button info = Ui.IconButton(Icons.Info, $"Show details for {finding.Title}", () => vm.SelectedSecurity = vm.SelectedSecurity == id ? null : id);
+            info.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(info, 3);
+            grid.Children.Add(info);
+            var row = new ListRow(grid, () => vm.SelectedSecurity = vm.SelectedSecurity == id ? null : id, tabStop: false);
+            AutomationProperties.SetName(row.Root, $"{finding.Title}, {finding.Status}");
+            rows["sec:" + id] = row;
+            items.Add(row.Root);
         }
 
-        body.Children.Add(Ui.V(8, Ui.Text(title, "DsStrong"), Ui.Card(rows)));
+        body.Children.Add(Ui.V(Tokens.Space2, Ds.SectionTitle(title), Ds.RowsCard(items)));
     }
 
-    private static void Ports(HealthViewModel vm, StackPanel body)
+    internal static string KindGlyph(SecurityKind kind) => kind switch
+    {
+        SecurityKind.RecoveryCodes => Icons.Key,
+        SecurityKind.PrivateKey or SecurityKind.PuttyKey => Icons.Key,
+        SecurityKind.ServiceAccountKey or SecurityKind.CloudAccessKeys => Icons.Cloud,
+        SecurityKind.PasswordExport => Icons.Contact,
+        SecurityKind.Certificate => Icons.Certificate,
+        _ => Icons.Page,
+    };
+
+    // ---- Ports --------------------------------------------------------------------------------------------------------------
+
+    private static void PortsTab(HealthViewModel vm, StackPanel body, Dictionary<string, ListRow> rows)
     {
         if (vm.Report?.Ports is not { } ports)
         {
-            body.Children.Add(Ui.Secondary("Ports is turned off."));
+            body.Children.Add(Ds.Card(Ds.EmptyState(Icons.Network, "Ports is off", "Turn it on in Settings, Modules, to see what's listening on this PC.")));
             return;
         }
 
         if (ports.Ports.Count == 0)
         {
-            body.Children.Add(Ui.Card(Ui.V(6, Ui.Text("Nothing is listening", "DsSubtitle"), Ui.Secondary("Dev servers and databases you start show up here."))));
+            body.Children.Add(Ds.Card(Ds.EmptyState(Icons.Network, "Nothing is listening", "Dev servers and databases you start show up here.")));
         }
 
-        AddPorts(body, "Development", vm.DevelopmentPorts);
-        AddPorts(body, "Apps and Windows", vm.OtherPorts);
+        AddPorts(vm, body, "Development", vm.DevelopmentPorts, rows);
+        AddPorts(vm, body, "Apps and Windows", vm.OtherPorts, rows);
         if (ports.OthersHidden > 0)
         {
             body.Children.Add(Ui.Caption($"{ports.OthersHidden} listeners of other users and services are hidden."));
@@ -250,34 +554,55 @@ internal static class HealthView
         {
             body.Children.Add(Ui.Caption(problem));
         }
+
+        body.Children.Add(Ui.Caption("This list updates every few seconds while the tab is open, and pauses when DevSweep's window is hidden."));
     }
 
-    private static void AddPorts(StackPanel body, string title, IReadOnlyList<ListeningPort> list)
+    private static void AddPorts(HealthViewModel vm, StackPanel body, string title, IReadOnlyList<ListeningPort> list, Dictionary<string, ListRow> rows)
     {
         if (list.Count == 0)
         {
             return;
         }
 
-        var rows = new StackPanel { Spacing = 10 };
+        var items = new List<UIElement>();
         foreach (ListeningPort port in list)
         {
-            if (rows.Children.Count > 0)
+            var grid = new Grid { ColumnSpacing = Tokens.Space3 };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(72) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
+            string number = port.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            TextBlock numberText = Ui.Text(number, "DsMono");
+            numberText.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+            numberText.VerticalAlignment = VerticalAlignment.Center;
+            grid.Children.Add(numberText);
+            TextBlock secondary = Ui.Caption(port.Folder ?? $"{port.ProcessName} · PID {port.Pid}");
+            secondary.MaxLines = 1;
+            secondary.TextTrimming = TextTrimming.CharacterEllipsis;
+            StackPanel text = Ui.V(0, Ui.Text(port.Label, "DsStrong", 1), secondary);
+            text.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(text, 1);
+            grid.Children.Add(text);
+            if (port.ReachableFromNetwork)
             {
-                rows.Children.Add(Ui.Divider());
+                Border tag = Ds.StatusTag("On your network", Tone.Caution, "Other devices on your network may be able to connect.");
+                Grid.SetColumn(tag, 2);
+                grid.Children.Add(tag);
             }
 
-            Border exposure = port.Exposure == Exposure.Loopback
-                ? Ui.Badge("Only this PC", Tone.Good)
-                : Ui.Badge("Every network interface", Tone.Caution, "Other devices on your network may be able to connect. Most dev servers can listen on localhost only.");
-            string port1 = port.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            rows.Children.Add(Ui.V(4,
-                Ui.Row(Ui.H(10, Ui.Text($":{port1}", "DsStrong"), Ui.Text($"{port.Label} ({port.ProcessName}, PID {port.Pid})")), exposure,
-                    Ui.Button("Copy port", () => Shell.Copy(port1), $"Copy port {port1}")),
-                port.Folder is { } folder ? Ui.Caption(folder) : null,
-                port.Firewall is { } firewall ? Ui.Caption(firewall.Summary) : null));
+            string id = port.Id;
+            Button info = Ui.IconButton(Icons.Info, $"Show details for port {number}", () => vm.SelectedPort = vm.SelectedPort == id ? null : id);
+            info.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(info, 3);
+            grid.Children.Add(info);
+            var row = new ListRow(grid, () => vm.SelectedPort = vm.SelectedPort == id ? null : id, tabStop: false);
+            AutomationProperties.SetName(row.Root, $"Port {number}, {port.Label}");
+            rows["port:" + id] = row;
+            items.Add(row.Root);
         }
 
-        body.Children.Add(Ui.V(8, Ui.Text(title, "DsStrong"), Ui.Card(rows)));
+        body.Children.Add(Ui.V(Tokens.Space2, Ds.SectionTitle(title), Ds.RowsCard(items)));
     }
 }

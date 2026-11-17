@@ -48,4 +48,18 @@ internal static class Icons
     public const string Filter = "";
     public const string Shield = "";
     public const string Update = "";
+
+    // Health
+    public const string Terminal = "\uE756";
+    public const string Globe = "\uE774";
+    public const string Network = "\uE968";
+    public const string Key = "\uE192";
+    public const string Cloud = "\uE753";
+    public const string Page = "\uE7C3";
+    public const string Package = "\uE7B8";
+    public const string Stop = "\uE71A";
+    public const string Link = "\uE71B";
+    public const string Up = "\uE74A";
+    public const string Certificate = "\uEB95";
+    public const string Contact = "\uE77B";
 }

@@ -1,4 +1,5 @@
 using DevSweep.Core.Health.Common;
+using DevSweep.Core.Health.Packages;
 using DevSweep.Core.Health.Ports;
 using DevSweep.Core.Health.Runtimes;
 using DevSweep.Core.Health.Security;
@@ -80,6 +81,14 @@ public sealed class HealthChecks(HealthFeatures features)
         Require(Features.Runtimes, HealthFeatures.RuntimesFlag);
         var eol = new EndOfLifeClient(EolCacheDirectory(engine), fetcher);
         return new RuntimeHealth().ScanAsync(CreateContext(engine), eol, projectRoots, null, progress, cancellationToken);
+    }
+
+    /// <summary>The package-manager report (winget, Scoop, Chocolatey), part of the Tools and versions tab; read-only queries with time limits.</summary>
+    public Task<PackagesResult> PackagesAsync(DevSweepEngine engine, VersionsResult? versions = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        Require(Features.Runtimes, HealthFeatures.RuntimesFlag);
+        return new PackageReporter(engine.Environment).ReportAsync(versions?.Runtimes, null, cancellationToken);
     }
 
     public SecurityResult Security(DevSweepEngine engine, IReadOnlyList<string>? projectRoots = null)

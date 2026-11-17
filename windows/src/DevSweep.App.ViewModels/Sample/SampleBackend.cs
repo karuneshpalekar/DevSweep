@@ -145,6 +145,22 @@ public sealed class SampleBackend : IDevSweepBackend, IHealthSource, IProjectsSo
 
     Task<HealthReport> IHealthSource.LoadAsync(CancellationToken cancellationToken) => Task.FromResult(SampleData.Health);
 
+    Task<DevSweep.Core.Health.Packages.PackagesResult?> IHealthSource.PackagesAsync(VersionsResult? versions, CancellationToken cancellationToken)
+        => Task.FromResult<DevSweep.Core.Health.Packages.PackagesResult?>(SampleData.Packages);
+
+    Task<DevSweep.Core.Health.Ports.PortsResult?> IHealthSource.PortsAsync(CancellationToken cancellationToken)
+        => Task.FromResult(SampleData.Health.Ports);
+
+    DevSweep.Core.Health.Ports.StopResult? IHealthSource.StopRefusal(DevSweep.Core.Health.Ports.ListeningPort port)
+        => port.OwnedByYou == false
+            ? new DevSweep.Core.Health.Ports.StopResult(DevSweep.Core.Health.Ports.StopOutcome.NotYours, $"{port.ProcessName} is part of Windows or runs as another user, so DevSweep leaves it alone.")
+            : null;
+
+    string? IHealthSource.TrashBlockedReason(DevSweep.Core.Health.Security.SecurityFinding finding)
+        => finding.Path.Contains("OneDrive", StringComparison.OrdinalIgnoreCase)
+            ? "It's online-only in OneDrive. Moving it would first download it, so DevSweep leaves it alone. Make it available on this PC, or delete it from the cloud folder yourself."
+            : null;
+
     ProjectsFeatures IProjectsSource.Features { get; } = ProjectsFeatures.All;
 
     Task<ProjectsReport> IProjectsSource.LoadAsync(CancellationToken cancellationToken)
