@@ -374,10 +374,13 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         Require(ProjectListTab.ListStats?.Invoke() is { Count: 1 }, "projects: the list on screen did not follow the search");
         await ShotAsync("projects-search", suffix);
         box.Text = "design";
+        await window.WaitForRenderAsync();
         Require(vm.Visible.Count == 1 && vm.Visible[0].Name == "design-system", "projects: searching a description/name failed");
         box.Text = "storefront";
+        await window.WaitForRenderAsync();
         Require(vm.Visible.Count == 1 && vm.Visible[0].Name == "web-shop", "projects: searching the description failed");
         box.Text = "zzz-nothing";
+        await window.WaitForRenderAsync();
         await ShotAsync("projects-search-none", suffix);
         box.Text = string.Empty;
         await window.WaitForRenderAsync();
@@ -430,6 +433,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         vm.SelectedId = "alex/dotfiles";
         await window.WaitForRenderAsync();
         new Microsoft.UI.Xaml.Automation.Peers.ButtonAutomationPeer(window.Find<Microsoft.UI.Xaml.Controls.Button>("Download alex/dotfiles")!).Invoke();
+        await window.WaitForRenderAsync();
         Require(vm.Sheet == ProjectSheet.Clone && vm.SheetProject?.Id == "alex/dotfiles", "projects: Download did not open the Clone sheet");
         await ShotAsync("projects-sheet-clone", suffix);
         vm.CloseSheet();
@@ -442,6 +446,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         await ShotAsync("projects-sheet-publish", suffix);
         vm.CloseSheet();
         vm.OpenSheet(ProjectSheet.AddByUrl);
+        await window.WaitForRenderAsync();
         await ShotAsync("projects-sheet-url", suffix);
         window.Find<Microsoft.UI.Xaml.Controls.TextBox>("Repository address")!.Text = "https://github.com/acme/handbook";
         await ShotAsync("projects-sheet-url-filled", suffix);
@@ -501,6 +506,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         // The other tabs.
         vm.SelectedId = null;
         vm.Tab = ProjectsTab.Cleanup;
+        await window.WaitForRenderAsync();
         await ShotAsync("projects-cleanup", suffix);
         vm.SelectedId = "alex/old-web";
         await ShotAsync("projects-cleanup-detail", suffix);
