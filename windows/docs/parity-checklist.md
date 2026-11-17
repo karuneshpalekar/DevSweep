@@ -13,8 +13,8 @@ Updated by P0 (design system): rows marked *built (P0)* are in; they move to *ve
 |---|---|---|---|
 | Sidebar with Home, Clean up, Projects, Health, History, Settings | NavigationView (Fluent), History and Settings in the footer | built (P0 polish: spacing, accent indicator, glyph map) | P0 |
 | Selected item highlight slides between rows | NavigationView's own indicator slide | built | P0 |
-| Sidebar volume card (free space, cleanable) | none (Home carries it) | not started | P3 |
-| Sidebar "Needs your attention" cards | none (Home carries it) | not started | P3 |
+| Sidebar volume card (free space, cleanable) | Pane header card, hidden when the pane is compact | verified-by-screenshot (light, dark, high contrast) | P3 |
+| Sidebar "Needs your attention" cards, counts on the places, last scan / next scan line | Pane footer (scrolls, never hides History and Settings), `InfoBadge`-style numbers | verified-by-screenshot (light, dark, high contrast; minimum size) | P3 |
 | Clean up kind filters in the sidebar | Filter chips on the Clean up page | built (different place, same filters) | P4 |
 | Update card | Sidebar update card (restyled) | built | P0 |
 | Motion (panel 0.38 s, swap 0.2 s, screen 0.22 s) | `Design/Motion.cs`, off when Windows animation effects are off | built (P0) | P0 |
@@ -29,7 +29,8 @@ Updated by P0 (design system): rows marked *built (P0)* are in; they move to *ve
 | Since last week (Grew, New, Cleaned) | Home, list rows | built (P0) | P0 |
 | Needs attention (4 most important, links) | Home, list rows | built (P0) | P0 |
 | First-scan message, rule-pack errors | Home | built | P0 |
-| Full Disk Access banner | n/a on Windows (no equivalent) | not started | P3 |
+| Full Disk Access banner | "Windows blocked some folders" banner with Open Settings to Permissions (Controlled folder access) | verified-by-screenshot (light) | P3 |
+| Subtitle "Scanned … · next scan …", refresh button, "Showing the N most important", not scanned / scanning / first scan states, rule-pack banner | Home | verified-by-screenshot (light); dark and high contrast shots exist but were not opened | P3 |
 
 ## Clean up
 
@@ -91,10 +92,11 @@ Status after P1: rows marked *verified-by-screenshot* were looked at in the `win
 
 | Mac feature | Windows screen | Status | Milestone |
 |---|---|---|---|
-| Appearance, updates, open at login, schedule, alerts | Settings tabs | built | P3 |
-| GitHub accounts (identity editor, Add account, Refresh) | none | not started | P3 |
-| Downloads folder | none | not started | P3 |
-| Project folders, ignored items | Settings | built | P3 |
-| Permissions and privacy text | none | not started | P3 |
-| Troubleshooting (copy scan report) | none | not started | P3 |
-| Menu bar item | Tray menu (M5) | built, to match the Mac menu and check on a real PC | P3 |
+| Appearance, updates, open at login, schedule, alerts | Settings sections (one page, group chips, Search settings) | verified-by-screenshot (light and dark: general, alerts) | P3 |
+| GitHub accounts (identity editor with email check, Add account, Refresh) | Settings, GitHub accounts | verified-by-screenshot (light, high contrast) | P3 |
+| Downloads folder | Settings, Downloads (shared with the Clone sheet) | verified-by-screenshot (light) | P3 |
+| Project folders (usual vs added, Add, Remove, Restore defaults, missing skipped), ignored items | Settings | verified-by-screenshot (light) | P3 |
+| Permissions and privacy text (Windows wording, Controlled folder access, links to Windows Security and Privacy) | Settings, Permissions and privacy | verified-by-screenshot (light, high contrast) | P3 |
+| Troubleshooting (copy scan report without names, diagnostics, log folder) | Settings, Troubleshooting | verified-by-screenshot (light); clipboard not tried on a real PC | P3 |
+| Menu bar item | Left-click flyout window plus the native right-click menu | flyout built and captured (light shot opened: it was cropped, resized in the last commit, not re-opened); real tray position not verified | P3 |
+| Welcome sheet | Welcome | built (third column adds Controlled folder access) | P3 |

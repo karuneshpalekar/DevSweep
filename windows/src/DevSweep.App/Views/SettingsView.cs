@@ -142,7 +142,9 @@ internal static class SettingsView
     {
         TextBlock heading = Ui.Text(title);
         heading.TextWrapping = TextWrapping.Wrap;
-        Grid row = Ui.Row(Ui.V(2, heading, caption is null ? null : Note(caption)), controls);
+        StackPanel left = Ui.V(2, heading, caption is null ? null : Note(caption));
+        left.VerticalAlignment = VerticalAlignment.Center;
+        Grid row = Ui.Row(left, controls);
         return new Border { Padding = new Thickness(Tokens.Space3), Child = row };
     }
 

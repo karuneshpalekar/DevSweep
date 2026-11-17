@@ -183,7 +183,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>The Permissions line: all fine, or how many folders Windows blocked and what to do.</summary>
     public string PermissionsText => BlockedFolderCount == 0
         ? "Nothing is blocked. DevSweep can read every folder it looked at, as you."
-        : $"Windows blocked {(BlockedFolderCount == 1 ? "1 folder" : BlockedFolderCount + " folders")}, so a few leftovers can be missed. This is usually Controlled folder access (Windows Security, Virus and threat protection, Ransomware protection). Allowing DevSweep there lets it look; DevSweep never changes the setting itself.";
+        : $"{(BlockedFolderCount == 1 ? "One folder" : BlockedFolderCount + " folders")} couldn't be read, so a few leftovers can be missed. This is usually Controlled folder access (Windows Security, Virus and threat protection, Ransomware protection). Allowing DevSweep there lets it look; DevSweep never changes the setting itself.";
 
     /// <summary>Windows Security's Ransomware protection page (Controlled folder access).</summary>
     public static Uri RansomwareProtectionUri => new("windowsdefender://ransomwareprotection");

@@ -205,7 +205,8 @@ internal sealed class TrayFlyoutWindow : Window
         RectInt32 work = DisplayArea.GetFromPoint(new PointInt32(x, y), DisplayAreaFallback.Nearest).WorkArea;
         int left = Math.Clamp(x - (width / 2), work.X + 8, Math.Max(work.X + 8, work.X + work.Width - width - 8));
         int top = y - height - 12 >= work.Y ? y - height - 12 : Math.Min(y + 12, work.Y + work.Height - height);
-        AppWindow.MoveAndResize(new RectInt32(left, top, width, height));
+        AppWindow.MoveAndResize(new RectInt32(left, top, width + 16, height + 16));
+        AppWindow.ResizeClient(new SizeInt32(width, height));
         AppWindow.Show();
         Activate();
     }
