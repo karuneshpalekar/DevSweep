@@ -173,7 +173,8 @@ public sealed class PackageReportTests
         Installation Install(string cycle, InstallSource source) => new() { Version = cycle + ".1", Cycle = cycle, Path = @"C:\x\" + source, Source = source };
         var node = new RuntimeReport { Id = "node", Name = "Node.js", Installs = [Install("20", InstallSource.Scoop), Install("20", InstallSource.NodejsOrg), Install("22", InstallSource.Nvm), Install("22", InstallSource.IdeBundled)] };
         DuplicateInstall duplicate = Assert.Single(PackageReporter.Duplicates([node]));
-        Assert.Equal(("node", "20", ["Scoop", "nodejs.org installer"]), (duplicate.Tool, duplicate.Cycle, duplicate.Owners.ToArray()));
+        Assert.Equal(("node", "20"), (duplicate.Tool, duplicate.Cycle));
+        Assert.Equal(["Scoop", "nodejs.org installer"], duplicate.Owners);
         Assert.Contains("Node.js 20 is installed more than once", duplicate.Text, StringComparison.Ordinal);
     }
 }
