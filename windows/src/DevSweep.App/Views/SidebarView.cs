@@ -98,7 +98,7 @@ internal static class SidebarView
 
     private static UIElement Card(MainViewModel model, AttentionRow row)
     {
-        var dot = new Border { Style = Ui.Style(row.Tone == Tone.Critical ? "DsBadgeCritical" : "DsBadgeCaution"), Width = 10, Height = 10, Padding = new Thickness(0), CornerRadius = new CornerRadius(5), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 3, 0, 0) };
+        var dot = new Border { Style = Ui.Style(row.Tone == Tone.Critical ? "DsBadgeCritical" : "DsBadgeCaution"), Width = 10, Height = 10, Padding = new Thickness(0), BorderThickness = new Thickness(5), CornerRadius = new CornerRadius(5), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 3, 0, 0) };
         TextBlock text = Ui.Caption(row.Text);
         text.TextWrapping = TextWrapping.Wrap;
         text.MaxLines = 2;

@@ -117,7 +117,7 @@ internal static class HomeView
             AutomationProperties.SetName(review, home.ReviewLabel);
             Ui.Show(review, home.ReviewLabel.Length > 0);
         });
-        subs.On(scanModel, nameof(ScanViewModel.IsScanning), () => Ui.Show(scan, !scanModel.HasScanned && !scanModel.IsScanning));
+        subs.On(scanModel, null, () => Ui.Show(scan, !scanModel.HasScanned && !scanModel.IsScanning));
         subs.OnCollection(home.Volumes, () =>
         {
             volumes.Children.Clear();

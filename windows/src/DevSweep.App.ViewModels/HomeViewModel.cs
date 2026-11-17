@@ -144,7 +144,7 @@ public sealed partial class HomeViewModel : ObservableObject
             ? denied.AccessDenied.Count == 1 ? "One folder can't be read, so a few leftovers can be missed." : $"{denied.AccessDenied.Count} folders can't be read, so a few leftovers can be missed."
             : null;
         RuleErrorsText = _scan.Report is { RuleErrors.Count: > 0 } errors
-            ? "Some rule packs couldn't be read, so their checks were skipped: " + string.Join("; ", errors.RuleErrors.Take(2).Select(e => e.Message)) + (errors.RuleErrors.Count > 2 ? $" (and {errors.RuleErrors.Count - 2} more)" : string.Empty)
+            ? "Their checks were skipped: " + string.Join("; ", errors.RuleErrors.Take(2).Select(e => e.Message)) + (errors.RuleErrors.Count > 2 ? $" (and {errors.RuleErrors.Count - 2} more)" : string.Empty)
             : null;
         OnPropertyChanged(nameof(State));
         RefreshChanges();
