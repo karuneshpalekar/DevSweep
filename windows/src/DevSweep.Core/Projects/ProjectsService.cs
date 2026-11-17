@@ -6,6 +6,7 @@ using DevSweep.Core.Platform.Quarantine;
 using DevSweep.Core.Platform.Recycling;
 using DevSweep.Core.Projects.Actions;
 using DevSweep.Core.Projects.Discovery;
+using DevSweep.Core.Projects.Editors;
 using DevSweep.Core.Projects.Git;
 using DevSweep.Core.Projects.GitHub;
 using DevSweep.Core.Projects.Storage;
@@ -19,6 +20,12 @@ public sealed record ProjectsScanOptions
 {
     /// <summary>Folders to search instead of the defaults (workspace, Settings' folders, common roots).</summary>
     public IReadOnlyList<string>? Roots { get; init; }
+
+    /// <summary>Folders searched in addition to the defaults (the folders added in Settings or on the Projects page).</summary>
+    public IReadOnlyList<string>? ExtraRoots { get; init; }
+
+    /// <summary>Re-check WSL repositories found earlier (running distributions only; a stopped one is never started).</summary>
+    public bool IncludeWsl { get; init; } = true;
 
     /// <summary>Ask GitHub for each account's repositories (needs the accounts feature).</summary>
     public bool IncludeGitHub { get; init; } = true;
@@ -39,6 +46,9 @@ public sealed record AccountSummary(string Login, bool IsActive, int Repos, int 
 /// <summary>Clones from an owner nobody here is signed in as.</summary>
 public sealed record OutsideOwner(string Owner, int Projects, long Bytes);
 
+/// <summary>What a "Find all repos on this PC" run did.</summary>
+public sealed record DeepSearchOutcome(DeepSearchResult Local, WslSearchResult? Wsl, DeepSearchSummary Summary);
+
 /// <summary>Everything the Projects place shows after a refresh (view-model friendly: immutable, no live objects).</summary>
 public sealed record ProjectsSnapshot
 {
@@ -47,6 +57,12 @@ public sealed record ProjectsSnapshot
     public GitHubAccounts? Accounts { get; init; }
 
     public FinderResult Search { get; init; } = new();
+
+    /// <summary>What the last "Find all repos on this PC" covered; null when it was never run.</summary>
+    public DeepSearchSummary? DeepSearch { get; init; }
+
+    /// <summary>The WSL distributions and whether each is running (a stopped one is not searched).</summary>
+    public IReadOnlyList<WslDistro> Wsl { get; init; } = [];
 
     /// <summary>Problems worth showing ("Couldn't list X's repositories: ...").</summary>
     public IReadOnlyList<string> Messages { get; init; } = [];
@@ -91,11 +107,18 @@ public sealed record ProjectsSnapshot
 public sealed class ProjectsService
 {
     private readonly ISystemEnvironment _environment;
+    private readonly Func<bool, IReadOnlyList<string>> _driveRoots;
+    private readonly IEditorEnvironment? _editorEnvironment;
+    private IReadOnlyList<EditorInfo>? _editors;
 
     public ProjectsService(
         ProjectsFeatures features, IGit git, IGitHubCli gh, GitHubApi api, ProjectStore store, ISystemEnvironment environment,
-        ISecretCheck? secrets = null, IItemMeasurer? measurer = null)
+        ISecretCheck? secrets = null, IItemMeasurer? measurer = null, IWslSource? wsl = null, Func<bool, IReadOnlyList<string>>? driveRoots = null,
+        IEditorEnvironment? editors = null)
     {
+        Wsl = wsl ?? new WindowsWslSource();
+        _driveRoots = driveRoots ?? Discovery.DeepSearch.DriveRoots;
+        _editorEnvironment = editors;
         Features = features ?? throw new ArgumentNullException(nameof(features));
         Git = git ?? throw new ArgumentNullException(nameof(git));
         GitHubCli = gh ?? throw new ArgumentNullException(nameof(gh));
@@ -123,6 +146,8 @@ public sealed class ProjectsService
 
     public SafetyChecker Checker { get; }
 
+    public IWslSource Wsl { get; }
+
     /// <summary>The service on the engine's machine, or null when <c>module:projects</c> is off.</summary>
     public static ProjectsService? Create(DevSweepEngine engine, HttpClient http, ProjectStore? store = null)
     {
@@ -138,7 +163,8 @@ public sealed class ProjectsService
 
     /// <summary>The folders a refresh searches.</summary>
     public IReadOnlyList<string> Roots(ProjectsScanOptions? options = null)
-        => options?.Roots ?? ProjectFinder.DefaultRoots(_environment, Store.State.ProjectRoots, Store.State.WorkspaceRoot ?? Path.Join(Profile, "Code"));
+        => [.. (options?.Roots ?? ProjectFinder.DefaultRoots(_environment, Store.State.ProjectRoots, Store.State.WorkspaceRoot ?? Path.Join(Profile, "Code")))
+            .Concat(options?.ExtraRoots ?? []).Distinct(StringComparer.OrdinalIgnoreCase)];
 
     public async Task<ProjectsSnapshot> ScanAsync(ProjectsScanOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -147,7 +173,13 @@ public sealed class ProjectsService
         var messages = new List<string>();
         IReadOnlyList<string> roots = Roots(options);
         options.Progress?.Report("Looking for projects");
-        IEnumerable<string> remembered = Store.State.Known.Where(k => k.RemovedAt is null && k.LastPath is not null).Select(k => k.LastPath!);
+        List<string> remembered = [.. Store.State.Known.Where(k => k.RemovedAt is null && k.LastPath is not null).Select(k => k.LastPath!).Concat(Store.State.DeepRepos)];
+        IReadOnlyList<WslDistro> distros = options.IncludeWsl && remembered.Exists(WslDiscovery.IsWslPath)
+            ? await WslDiscovery.ListAsync(Wsl, cancellationToken).ConfigureAwait(false)
+            : [];
+        var running = distros.Where(d => d.Running).Select(d => d.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        List<string> wslPaths = [.. remembered.Where(p => WslDiscovery.IsWslPath(p) && WslDiscovery.DistroOf(p) is { } d && running.Contains(d)).Distinct(StringComparer.OrdinalIgnoreCase)];
+        remembered.RemoveAll(WslDiscovery.IsWslPath);
         FinderResult search = await Task.Run(() => ProjectFinder.Find(roots, remembered, cancellationToken: cancellationToken), cancellationToken).ConfigureAwait(false);
         var inspector = new CloneInspector(Git, Measurer, RemoteUrls.SshAliasesFromProfile(Profile));
         using var gate = new SemaphoreSlim(Math.Max(1, options.Parallelism));
@@ -165,7 +197,8 @@ public sealed class ProjectsService
             }
         })).ConfigureAwait(false);
 
-        RememberClones(local);
+        local = [.. local, .. await Task.Run(() => WslClones(wslPaths), cancellationToken).ConfigureAwait(false)];
+        RememberClones(local.Where(c => !WslDiscovery.IsWslPath(c.Path)));
         if (Git.Program is null)
         {
             messages.Add("git isn't installed, so projects could not be checked (Git for Windows: winget install Git.Git).");
@@ -217,6 +250,8 @@ public sealed class ProjectsService
             Projects = projects,
             Accounts = accounts,
             Search = search,
+            DeepSearch = Store.State.LastDeepSearch,
+            Wsl = distros,
             Messages = messages,
             Features = Features,
             Identities = Store.State.Identities,
@@ -224,6 +259,81 @@ public sealed class ProjectsService
             Date = DateTimeOffset.UtcNow,
         };
     }
+
+    /// <summary>
+    /// "Find all repos on this PC": walks every fixed drive (and removable ones when chosen), then the running WSL distributions,
+    /// reading folder names only. What it found is remembered (so later refreshes re-check those folders directly) and a summary of what it
+    /// covered is kept for the Projects page. Cancelling keeps what was found so far and flags the summary as partial.
+    /// </summary>
+    public async Task<DeepSearchOutcome> DeepSearchAsync(IProgress<DeepSearchProgress>? progress = null, bool? includeRemovable = null, CancellationToken cancellationToken = default)
+    {
+        bool removable = includeRemovable ?? Store.State.SearchRemovableDrives;
+        IReadOnlyList<string> drives = _driveRoots(removable);
+        DeepSearchResult local = await Discovery.DeepSearch.RunAsync(new DeepSearchOptions { Roots = drives, Progress = progress }, cancellationToken).ConfigureAwait(false);
+        WslSearchResult? wsl = null;
+        if (local.Stopped != DeepSearchStop.Cancelled)
+        {
+            wsl = await WslDiscovery.SearchAsync(Wsl, progress: progress, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+
+        List<string> found = [.. local.Repos.Select(r => r.Path), .. wsl?.Repos.Select(r => r.Path) ?? []];
+        bool complete = local.Complete && (wsl?.Complete ?? true);
+        var summary = new DeepSearchSummary
+        {
+            Date = DateTimeOffset.UtcNow,
+            Roots = [.. local.Roots, .. (wsl?.Distros ?? []).Where(d => d.Running).Select(d => d.Root)],
+            Folders = local.FoldersVisited + (wsl?.Folders ?? 0),
+            Repos = found.Count,
+            Seconds = local.Elapsed.TotalSeconds,
+            Complete = complete,
+            Unreadable = local.Unreadable,
+            CloudOnly = local.CloudOnly,
+            CloudOnlySample = [.. local.CloudOnlySample],
+            LinksNotFollowed = local.LinksNotFollowed,
+            BareRepos = local.BareRepos,
+        };
+        Store.Update(s => s with
+        {
+            DeepSearchConsent = true,
+            DeepRepos = complete ? found : [.. s.DeepRepos.Concat(found).Distinct(StringComparer.OrdinalIgnoreCase)],
+            LastDeepSearch = summary,
+        });
+        Store.Log(ActivityKind.Search, "This PC", string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"Looked through {summary.Folders:N0} folders on {drives.Count} drive{(drives.Count == 1 ? string.Empty : "s")} and found {found.Count} repositor{(found.Count == 1 ? "y" : "ies")}{(complete ? string.Empty : " (stopped early)")}"));
+        return new DeepSearchOutcome(local, wsl, summary);
+    }
+
+    /// <summary>Remembers the answer to "Look for projects everywhere on this PC?".</summary>
+    public void SetDeepSearchConsent(bool allowed) => Store.Update(s => s with { DeepSearchConsent = allowed });
+
+    public void SetSearchRemovableDrives(bool include) => Store.Update(s => s with { SearchRemovableDrives = include });
+
+    public void SetWorkspaceRoot(string? folder) => Store.Update(s => s with { WorkspaceRoot = string.IsNullOrWhiteSpace(folder) ? null : folder });
+
+    /// <summary>Where downloads go by default: <c>&lt;this&gt;\&lt;account&gt;\&lt;name&gt;</c>.</summary>
+    public string WorkspaceRoot => Store.State.WorkspaceRoot ?? Path.Join(Profile, "Code");
+
+    /// <summary>The editors found on this PC (looked for once).</summary>
+    public IReadOnlyList<EditorInfo> Editors() => _editors ??= EditorDetector.Detect(_editorEnvironment);
+
+    public void SetDefaultEditor(string? id) => Store.Update(s => s with { DefaultEditor = string.IsNullOrWhiteSpace(id) ? null : id });
+
+    /// <summary>
+    /// Opens the project's folder in the chosen editor (else the first found, else File Explorer) and counts it as opened now.
+    /// Returns what was used ("Visual Studio Code" or "File Explorer").
+    /// </summary>
+    public string OpenInEditor(Project project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        string path = project.LocalPath ?? throw new InvalidOperationException($"{project.NameWithOwner} isn't on this PC.");
+        EditorInfo? editor = EditorDetector.Choose(Editors(), Store.State.DefaultEditor);
+        EditorDetector.Open(editor, path);
+        Store.Update(s => s with { LastOpened = new Dictionary<string, DateTimeOffset>(s.LastOpened, StringComparer.OrdinalIgnoreCase) { [project.NameWithOwner] = DateTimeOffset.UtcNow } });
+        return editor?.Name ?? "File Explorer";
+    }
+
+    /// <summary>Opens a visible window that installs the GitHub CLI with winget (nothing runs until the person presses Enter).</summary>
+    public static TerminalLaunch InstallGitHubCli() => TerminalLauncher.Open(TerminalLauncher.InstallGitHubCli());
 
     /// <summary>Checks one folder now; with <paramref name="fetch"/>, after <c>git fetch</c> as the project's account.</summary>
     public async Task<RemovalSafety> CheckAsync(string folder, bool fetch = false, string? account = null, CancellationToken cancellationToken = default)
@@ -402,6 +512,48 @@ public sealed class ProjectsService
             Account = account ?? project.Account,
             RemoteKB = project.RemoteKB,
         };
+    }
+
+    /// <summary>
+    /// WSL repositories are listed read-only: their <c>origin</c> is read from the repository's config file over the 9P share, and nothing else
+    /// (no size, no git, no removal: Windows git on a Linux file system is unreliable and slow, and a stopped distribution must stay stopped).
+    /// </summary>
+    private List<LocalClone> WslClones(IEnumerable<string> paths)
+    {
+        IReadOnlySet<string> aliases = RemoteUrls.SshAliasesFromProfile(Profile);
+        var clones = new List<LocalClone>();
+        foreach (string path in paths)
+        {
+            try
+            {
+                if (!Directory.Exists(Path.Join(path, ".git")))
+                {
+                    continue;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            string? origin = CloneInspector.ReadOriginWithoutGit(path);
+            clones.Add(new LocalClone
+            {
+                Path = path,
+                SizeComplete = false,
+                OriginUrl = origin,
+                Slug = origin is null ? null : RemoteUrls.GitHubSlug(origin, aliases),
+                Safety = new RemovalSafety
+                {
+                    Path = path,
+                    State = SafetyState.NotChecked,
+                    NotCheckedReason = $"In WSL ({WslDiscovery.DistroOf(path)}), read-only: DevSweep lists it but doesn't measure, check or remove it from Windows.",
+                    CheckedAt = DateTimeOffset.UtcNow,
+                },
+            });
+        }
+
+        return clones;
     }
 
     private void RememberClones(IEnumerable<LocalClone> local)

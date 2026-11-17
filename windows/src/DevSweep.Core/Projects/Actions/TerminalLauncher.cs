@@ -75,6 +75,11 @@ public static class TerminalLauncher
         return new TerminalJob("sign-in", "Sign in to GitHub", "Sign in through the browser. When you're done, come back to DevSweep and press Refresh.", commands);
     }
 
+    /// <summary>Installs the GitHub CLI with winget in a visible window (the script waits for Enter first).</summary>
+    public static TerminalJob InstallGitHubCli()
+        => new("install-gh", "Install the GitHub CLI", "Installs GitHub's command-line tool with winget. When it finishes, come back to DevSweep and press Refresh.",
+            [new TerminalCommand("winget install --id GitHub.cli -e", "& winget install --id GitHub.cli -e")]);
+
     public static string Script(TerminalJob job)
     {
         ArgumentNullException.ThrowIfNull(job);

@@ -132,7 +132,30 @@ public static class ProjectMerger
             Safety = c.Safety,
             LastActivity = activity,
             InCloudFolder = c.InCloudFolder,
+            OriginUrl = Redact(c.OriginUrl),
         };
+    }
+
+    /// <summary>The URL without a user name or token in it (<c>https://user:token@host/x</c> becomes <c>https://host/x</c>).</summary>
+    internal static string? Redact(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return null;
+        }
+
+        int scheme = url.IndexOf("://", StringComparison.Ordinal);
+        if (scheme < 0)
+        {
+            return url;
+        }
+
+        int slash = url.IndexOf('/', scheme + 3);
+        string authority = slash < 0 ? url[(scheme + 3)..] : url[(scheme + 3)..slash];
+        int at = authority.LastIndexOf('@');
+        return at < 0 || url[..scheme].Equals("ssh", StringComparison.OrdinalIgnoreCase)
+            ? url
+            : url[..(scheme + 3)] + authority[(at + 1)..] + (slash < 0 ? string.Empty : url[slash..]);
     }
 
     private static DateTimeOffset? Newest(DateTimeOffset? a, DateTimeOffset? b)

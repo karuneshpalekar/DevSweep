@@ -144,7 +144,7 @@ public static class ProjectFinder
 
                     if (entry.IsReparsePoint)
                     {
-                        if (EnterableLink(entry.Path, out bool placeholder))
+                        if (IsEnterableCloudFolder(entry.Path, out bool placeholder))
                         {
                             pending.Push((entry.Path, depth + 1, true));
                         }
@@ -187,10 +187,10 @@ public static class ProjectFinder
     /// <summary>The folder is a link, or is reached through one (cloud folders and volume mount points are not links).</summary>
     private static bool IsLinked(string folder)
         => (OperatingSystem.IsWindows() && ReparseGuard.FindReparseAncestor(folder) is not null)
-            || (FileProbe.Stat(folder) is { IsReparsePoint: true } && !EnterableLink(folder, out _));
+            || (FileProbe.Stat(folder) is { IsReparsePoint: true } && !IsEnterableCloudFolder(folder, out _));
 
     /// <summary>A reparse point that is a OneDrive (cloud-provider) folder whose contents are on this disk; every other kind is a link.</summary>
-    private static bool EnterableLink(string path, out bool placeholder)
+    internal static bool IsEnterableCloudFolder(string path, out bool placeholder)
     {
         placeholder = false;
         if (!OperatingSystem.IsWindows())
