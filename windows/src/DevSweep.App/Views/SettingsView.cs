@@ -125,6 +125,11 @@ internal static class SettingsView
             folders,
             Ui.H(8, path, add, browse, Ui.Button("Restore defaults", vm.RestoreDefaultFolders)))));
 
+        if (window.Model.Projects.Source is { } projects)
+        {
+            page.Children.Add(Section("Projects: editor, downloads and searching", ProjectSettings(window.Model.Projects, projects, window)));
+        }
+
         var ignored = new StackPanel { Spacing = 6 };
         subs.OnCollection(vm.Ignored, () =>
         {
@@ -334,6 +339,47 @@ internal static class SettingsView
             Ui.Secondary(SettingsViewModel.Privacy),
             Ui.Caption($"Settings, History and the quarantine live in {vm.DataFolder}."),
             Ui.Caption("Unsigned: Windows SmartScreen may warn the first time (More info, then Run anyway)."))));
+    }
+
+    /// <summary>Default editor, the Downloads folder, and the "look everywhere" choices (Projects).</summary>
+    private static UIElement ProjectSettings(ProjectsViewModel pvm, DevSweep.App.ViewModels.Places.IProjectsSource source, MainWindow window)
+    {
+        var editor = new ComboBox { MinWidth = 260 };
+        IReadOnlyList<DevSweep.Core.Projects.Editors.EditorInfo> editors = source.Editors;
+        editor.Items.Add("First one found (or File Explorer)");
+        foreach (DevSweep.Core.Projects.Editors.EditorInfo e in editors)
+        {
+            editor.Items.Add(e.Name);
+        }
+
+        int selected = editors.ToList().FindIndex(e => e.Id == source.Preferences.DefaultEditor);
+        editor.SelectedIndex = selected + 1;
+        editor.SelectionChanged += (_, _) => source.SetDefaultEditor(editor.SelectedIndex <= 0 ? null : editors[editor.SelectedIndex - 1].Id);
+        AutomationProperties.SetName(editor, "Editor that Open in editor uses");
+
+        TextBlock root = Ui.Text(source.Preferences.WorkspaceRoot, "DsMono");
+        Button change = Ui.Button("Change…", async () =>
+        {
+            if (await window.PickFolderAsync() is { } picked)
+            {
+                source.SetWorkspaceRoot(picked);
+                root.Text = picked;
+            }
+        }, "Change the Downloads folder for projects");
+
+        var removable = new CheckBox { Content = "Include removable drives when looking for projects", IsChecked = source.Preferences.SearchRemovable };
+        removable.Checked += (_, _) => source.SetSearchRemovable(true);
+        removable.Unchecked += (_, _) => source.SetSearchRemovable(false);
+        AutomationProperties.SetName(removable, "Include removable drives when looking for projects");
+        return Ui.V(12,
+            Ui.Row(Ui.V(2, Ui.Text("Open in editor uses"), Ui.Caption("Detected: VS Code, VS Code Insiders, Visual Studio, Rider, Cursor, Windsurf. With none, File Explorer opens.")), editor),
+            Ui.Row(Ui.V(2, Ui.Text("Downloads folder"), Ui.Caption("New downloads go to <this folder>\\<account>\\<project>."), root), change),
+            removable,
+            Ui.H(8, Ui.Button("Find all repos on this PC", () =>
+            {
+                window.Model.Go("projects");
+                _ = pvm.StartDeepSearchAsync();
+            }, "Find all repos on this PC"), Ui.Caption("Reads folder names only, every fixed drive, skipping system and dependency folders.")));
     }
 
     private static UIElement Section(string title, UIElement content) => Ui.V(8, Ui.Text(title, "DsStrong"), Ui.Card(content));
