@@ -106,7 +106,7 @@ internal static class ContrastCheck
                 double need = isIcon || large ? 3.0 : required;
                 Color fg = Blend(under, solid.Color, solid.Opacity * opacity);
                 double ratio = Ratio(fg, under);
-                if (templateGlyph && ratio < 1.5)
+                if (templateGlyph && ratio < 2.0)
                 {
                     // A white glyph inside a system control (a check mark, an InfoBar icon) sits on a fill that is not readable here.
                     skipped++;

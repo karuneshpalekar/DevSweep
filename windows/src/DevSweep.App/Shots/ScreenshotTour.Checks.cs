@@ -8,8 +8,8 @@ namespace DevSweep.App.Shots;
 /// <summary>The checks run on every screenshot: text and icon contrast, and (on the main screens) the keyboard order.</summary>
 internal sealed partial class ScreenshotTour
 {
-    /// <summary>When true, a contrast offender or an unnamed control fails the tour. Offenders are always logged.</summary>
-    private static readonly bool StrictChecks = Environment.GetEnvironmentVariable("DEVSWEEP_STRICT_CHECKS") == "1";
+    /// <summary>A contrast offender or an unnamed control fails the tour (set DEVSWEEP_STRICT_CHECKS=0 to only log them).</summary>
+    private static readonly bool StrictChecks = Environment.GetEnvironmentVariable("DEVSWEEP_STRICT_CHECKS") != "0";
 
     private readonly Dictionary<string, (ContrastOffender First, int Count)> _offenders = [];
     private readonly HashSet<string> _unnamed = [];

@@ -571,6 +571,40 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         scan.Checks.Clear();
     }
 
+    /// <summary>Projects in high contrast: the list, a panel, a sheet, the GitHub card, search with no result and the other three tabs.</summary>
+    private async Task ProjectsHighContrastAsync()
+    {
+        ProjectsViewModel vm = model.Projects;
+        vm.Tab = ProjectsTab.Projects;
+        vm.Filter = ProjectFilter.All;
+        vm.Search = string.Empty;
+        vm.SelectedId = null;
+        vm.CloseSheet();
+        vm.Dismiss();
+        vm.Report = new ProjectsReport(SampleData.Projects, SampleData.Activity);
+        await ShotAsync("projects-projects", "highcontrast");
+        vm.SelectedId = "alex/web-shop";
+        await ShotAsync("projects-detail-unpushed", "highcontrast");
+        vm.SelectedId = null;
+        vm.Search = "zzz-nothing";
+        await ShotAsync("projects-search-none", "highcontrast");
+        vm.Search = string.Empty;
+        vm.OpenSheet(ProjectSheet.Publish, vm.All.First(p => p.Id == @"local:C:\Users\alex\Documents\scratch-notes"));
+        await Task.Delay(300);
+        await ShotAsync("projects-sheet-publish", "highcontrast");
+        vm.CloseSheet();
+        vm.Report = new ProjectsReport(SampleData.ProjectsWith(GitHubStatus.NotInstalled), []);
+        await ShotAsync("projects-gh-missing", "highcontrast");
+        vm.Report = new ProjectsReport(SampleData.Projects, SampleData.Activity);
+        foreach ((ProjectsTab tab, string shot) in new[] { (ProjectsTab.Cleanup, "projects-cleanup"), (ProjectsTab.Accounts, "projects-accounts"), (ProjectsTab.Activity, "projects-activity") })
+        {
+            vm.Tab = tab;
+            await ShotAsync(shot, "highcontrast");
+        }
+
+        vm.Tab = ProjectsTab.Projects;
+    }
+
     private async Task HighContrastAsync()
     {
         if (!HighContrast.Set(true))
@@ -594,6 +628,17 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             await model.Review.OpenAsync(model.CleanUp.All.Where(f => f.CanSelect).Take(5).Select(f => new PlannedAction(f.Finding, f.ChosenAction)).ToList());
             await ShotAsync("review", "highcontrast");
             model.Review.Close();
+            model.CleanUp.Inspect(model.CleanUp.All.First(f => f.Id == "chrome-cache"));
+            await ShotAsync("inspector-blocked", "highcontrast");
+            model.CleanUp.Inspected = null;
+            await GoAsync("history");
+            await ShotAsync("history", "highcontrast");
+            if (model.Places.Any(p => p.Id == "projects"))
+            {
+                await GoAsync("projects");
+                await ProjectsHighContrastAsync();
+            }
+
             await HealthHighContrastAsync();
         }
         finally
