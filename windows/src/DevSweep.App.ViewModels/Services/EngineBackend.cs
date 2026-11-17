@@ -52,7 +52,7 @@ public sealed class EngineBackend : IDevSweepBackend
         _featuresFile = Path.Join(dataFolder, "features.json");
         Modules = DescribeModules(engine);
         Health = CoreHealthSource.From(engine, () => _settings.Current.ProjectFolders.Count == 0 ? null : _settings.Current.ProjectFolders);
-        Projects = CoreProjectsSource.From(engine, () => _settings.Current.ProjectFolders.Count == 0 ? null : _settings.Current.ProjectFolders);
+        Projects = CoreProjectsSource.From(engine, () => _settings.Current.ProjectFolders.Count == 0 ? null : _settings.Current.ProjectFolders, _settings);
     }
 
     /// <summary>The engine with the user's flags (<c>features.json</c> and <c>DEVSWEEP_FEATURES</c>), as the CLI builds it.</summary>

@@ -5,7 +5,11 @@ using DevSweep.App.ViewModels.Background;
 using DevSweep.App.ViewModels.Settings;
 using DevSweep.App.ViewModels.Sample;
 using DevSweep.Core.Cleaning;
+using DevSweep.Core.Projects;
+using DevSweep.Core.Projects.GitHub;
 using DevSweep.Core.Scanning;
+using DevSweep.App.ViewModels.Places;
+using DevSweep.App.Views;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -301,11 +305,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         if (model.Places.Any(p => p.Id == "projects"))
         {
             await GoAsync("projects");
-            foreach (ProjectsTab tab in model.Projects.Tabs)
-            {
-                model.Projects.Tab = tab;
-                await ShotAsync("projects-" + tab.ToString().ToLowerInvariant(), suffix);
-            }
+            await ProjectsTourAsync(suffix);
         }
 
         if (model.Places.Any(p => p.Id == "health"))
@@ -328,6 +328,193 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         }
 
         model.SettingsPage.Tab = SettingsTab.General;
+    }
+
+    /// <summary>
+    /// Every state of the Projects page with the sample data: the first-run question, the list with each filter, search with results and
+    /// without, the detail panel for each kind of repo, each sheet, the GitHub cards, the deep search running and finished, a 5,000-project
+    /// list (only the rows on screen are built), and the three other tabs. Also checks, the way UI Automation would, that every action in
+    /// the panel is on screen and that typing in the search box filters the list.
+    /// </summary>
+    private async Task ProjectsTourAsync(string suffix)
+    {
+        ProjectsViewModel vm = model.Projects;
+        vm.Tab = ProjectsTab.Projects;
+        vm.Filter = ProjectFilter.All;
+        vm.Search = string.Empty;
+        vm.AccountFilter = null;
+        vm.SelectedId = null;
+        vm.CloseSheet();
+        vm.Dismiss();
+        vm.DeepState = DeepSearchState.Idle;
+        vm.DeepResult = null;
+        (model.Backend as SampleBackend)?.ResetProjectsConsent();
+        vm.Report = new DevSweep.App.ViewModels.Places.ProjectsReport(SampleData.Projects, SampleData.Activity);
+        await window.WaitForRenderAsync();
+
+        if (vm.NeedsDeepSearchConsent)
+        {
+            await ShotAsync("projects-consent", suffix);
+            await vm.AnswerDeepSearchAsync(false);
+            vm.Dismiss();
+        }
+
+        // The full list, every filter, the account filter.
+        await ShotAsync("projects-projects", suffix);
+        vm.Filter = ProjectFilter.OnThisPc;
+        await ShotAsync("projects-onpc", suffix);
+        vm.Filter = ProjectFilter.OnGitHub;
+        await ShotAsync("projects-github", suffix);
+        vm.Filter = ProjectFilter.All;
+        vm.AccountFilter = "alex-acme";
+        await ShotAsync("projects-account", suffix);
+        vm.AccountFilter = null;
+
+        // Search, driven through the box itself.
+        Microsoft.UI.Xaml.Controls.AutoSuggestBox box = window.Find<Microsoft.UI.Xaml.Controls.AutoSuggestBox>("Search projects") ?? throw new InvalidOperationException("projects: the search box is not on screen.");
+        int all = vm.Visible.Count;
+        box.Text = "PAY";
+        await window.WaitForRenderAsync();
+        Require(vm.Search == "PAY" && vm.Visible.Count == 1 && vm.Visible[0].NameWithOwner == "acme/payments", $"projects: typing PAY gave {vm.Visible.Count} projects (search '{vm.Search}')");
+        Require(ProjectListTab.ListStats?.Invoke() is { Count: 1 }, "projects: the list on screen did not follow the search");
+        await ShotAsync("projects-search", suffix);
+        box.Text = "design";
+        Require(vm.Visible.Count == 1 && vm.Visible[0].Name == "design-system", "projects: searching a description/name failed");
+        box.Text = "storefront";
+        Require(vm.Visible.Count == 1 && vm.Visible[0].Name == "web-shop", "projects: searching the description failed");
+        box.Text = "zzz-nothing";
+        await ShotAsync("projects-search-none", suffix);
+        box.Text = string.Empty;
+        await window.WaitForRenderAsync();
+        Require(vm.Visible.Count == all, "projects: clearing the search did not bring everything back");
+        Log.Write($"projects: search filters the list ({all} projects, PAY gives 1, nothing gives 0) through the search box");
+
+        // The panel for each kind of repo; each action is on screen.
+        (string Id, string Shot, string[] Buttons)[] panels =
+        [
+            ("alex/inventory-api", "projects-detail-safe", ["Open inventory-api in editor (Visual Studio Code)", "Show in File Explorer", "Open on GitHub", "Compare inventory-api with GitHub now", "Remove inventory-api from this PC"]),
+            ("alex/web-shop", "projects-detail-unpushed", ["Open web-shop in editor (Visual Studio Code)", "Push 3 commits in a terminal window", "Remove web-shop from this PC"]),
+            (@"local:C:\Users\alex\Documents\scratch-notes", "projects-detail-noremote", ["Publish scratch-notes to GitHub", "Remove scratch-notes from this PC", "Show in File Explorer"]),
+            ("alex/dotfiles", "projects-detail-github", ["Download alex/dotfiles", "Open on GitHub"]),
+            ("alex/ml-notebooks", "projects-detail-onedrive", ["Show in File Explorer", "Remove ml-notebooks from this PC"]),
+            ("alex/lfs-assets", "projects-detail-lfs", ["Open lfs-assets in editor (Visual Studio Code)", "Compare lfs-assets with GitHub now"]),
+            ("alex/api-experiments", "projects-detail-wsl", ["Show in File Explorer", "Open on GitHub"]),
+            (@"local:D:\clients\landing-page", "projects-detail-otherhost", ["Open landing-page in editor (Visual Studio Code)", "Compare landing-page with gitlab.com now", "Show in File Explorer"]),
+        ];
+        foreach ((string id, string shot, string[] buttons) in panels)
+        {
+            vm.SelectedId = id;
+            await window.WaitForRenderAsync();
+            foreach (string name in buttons)
+            {
+                Require(window.Find<Microsoft.UI.Xaml.Controls.Button>(name) is not null, $"projects: '{name}' is not reachable in the panel of {id}");
+            }
+
+            if (id == "alex/api-experiments")
+            {
+                Require(window.Find<Microsoft.UI.Xaml.Controls.Button>("Remove api-experiments from this PC") is null && window.Find<Microsoft.UI.Xaml.Controls.Button>("Open api-experiments in editor (Visual Studio Code)") is null,
+                    "projects: a WSL project offers removal or an editor");
+            }
+
+            await ShotAsync(shot, suffix);
+        }
+
+        // Invoking actions the way UI Automation does.
+        vm.SelectedId = "alex/inventory-api";
+        await window.WaitForRenderAsync();
+        var fetch = window.Find<Microsoft.UI.Xaml.Controls.Button>("Compare inventory-api with GitHub now")!;
+        new Microsoft.UI.Xaml.Automation.Peers.ButtonAutomationPeer(fetch).Invoke();
+        for (int i = 0; i < 40 && vm.IsFetching; i++)
+        {
+            await Task.Delay(50);
+        }
+
+        Require(vm.Notice is { } n && n.Text.Contains("inventory-api", StringComparison.Ordinal), "projects: Fetch now did nothing");
+        vm.SelectedId = null;
+        vm.Dismiss();
+        vm.SelectedId = "alex/dotfiles";
+        await window.WaitForRenderAsync();
+        new Microsoft.UI.Xaml.Automation.Peers.ButtonAutomationPeer(window.Find<Microsoft.UI.Xaml.Controls.Button>("Download alex/dotfiles")!).Invoke();
+        Require(vm.Sheet == ProjectSheet.Clone && vm.SheetProject?.Id == "alex/dotfiles", "projects: Download did not open the Clone sheet");
+        await ShotAsync("projects-sheet-clone", suffix);
+        vm.CloseSheet();
+        vm.SelectedId = null;
+        Log.Write("projects: every action of the panel is on screen for each kind of repo; Fetch now and Download work through UI Automation");
+
+        // The other sheets.
+        vm.OpenSheet(ProjectSheet.Publish, vm.All.First(p => p.Id == @"local:C:\Users\alex\Documents\scratch-notes"));
+        await Task.Delay(300);
+        await ShotAsync("projects-sheet-publish", suffix);
+        vm.CloseSheet();
+        vm.OpenSheet(ProjectSheet.AddByUrl);
+        await ShotAsync("projects-sheet-url", suffix);
+        window.Find<Microsoft.UI.Xaml.Controls.TextBox>("Repository address")!.Text = "https://github.com/acme/handbook";
+        await ShotAsync("projects-sheet-url-filled", suffix);
+        vm.CloseSheet();
+        vm.OpenSheet(ProjectSheet.AddAccount);
+        await ShotAsync("projects-sheet-account", suffix);
+        vm.CloseSheet();
+
+        // GitHub not set up: every local clone is still listed.
+        foreach ((GitHubStatus status, string shot) in new[] { (GitHubStatus.NotInstalled, "projects-gh-missing"), (GitHubStatus.NotSignedIn, "projects-gh-signedout") })
+        {
+            vm.Report = new DevSweep.App.ViewModels.Places.ProjectsReport(SampleData.ProjectsWith(status), []);
+            await window.WaitForRenderAsync();
+            Require(vm.Visible.Count > 0 && vm.Visible.All(p => p.OnDisk), $"projects: with {status}, local clones were not all listed");
+            Require(window.Find<Microsoft.UI.Xaml.Controls.Button>(status == GitHubStatus.NotInstalled ? "Install GitHub CLI" : "Sign in to GitHub…") is not null, $"projects: the {status} card has no button");
+            await ShotAsync(shot, suffix);
+        }
+
+        vm.Report = new DevSweep.App.ViewModels.Places.ProjectsReport(SampleData.Projects, SampleData.Activity);
+        await window.WaitForRenderAsync();
+
+        // Deep search, running and finished.
+        vm.DeepState = DeepSearchState.Running;
+        vm.DeepProgress = new DevSweep.Core.Projects.Discovery.DeepSearchProgress(184_231, 11, @"C:\Users\alex\AppData\Local\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState");
+        await ShotAsync("projects-deep-running", suffix);
+        vm.DeepState = DeepSearchState.Done;
+        vm.DeepResult = "Looked through 482,113 folders on C: and D: in 2 min 14 s and found 11 repos.";
+        await ShotAsync("projects-deep-result", suffix);
+        vm.DeepResult = null;
+        vm.DeepState = DeepSearchState.Idle;
+
+        // Thousands of projects: only the rows on screen exist.
+        var many = new List<Project>(SampleData.Projects.Projects);
+        for (int i = 0; i < 5000; i++)
+        {
+            many.Add(new Project
+            {
+                Id = $"bulk/repo-{i:0000}", Name = $"repo-{i:0000}", NameWithOwner = $"bulk/repo-{i:0000}", Owner = "bulk", OnGitHub = true, Account = "alex",
+                Description = "Generated for the list test", RemoteKB = 1024 + i, LastActivity = SampleData.Now.AddDays(-i % 400),
+            });
+        }
+
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        vm.Report = new DevSweep.App.ViewModels.Places.ProjectsReport(SampleData.Projects with { Projects = many }, SampleData.Activity);
+        await window.WaitForRenderAsync();
+        watch.Stop();
+        (int count, int realized) = ProjectListTab.ListStats?.Invoke() ?? (0, 0);
+        Require(count == many.Count && realized is > 5 and < 60, $"projects: a list of {many.Count} built {realized} rows");
+        var filter = System.Diagnostics.Stopwatch.StartNew();
+        int hits = ProjectListing.Apply(many, ProjectFilter.All, null, "repo-49").Count;
+        filter.Stop();
+        Log.Write($"projects: {count} projects listed with {realized} rows built ({watch.ElapsedMilliseconds} ms to show them); searching them took {filter.Elapsed.TotalMilliseconds:0.0} ms ({hits} hits)");
+        await ShotAsync("projects-many", suffix);
+        vm.Report = new DevSweep.App.ViewModels.Places.ProjectsReport(SampleData.Projects, SampleData.Activity);
+        await window.WaitForRenderAsync();
+
+        // The other tabs.
+        vm.SelectedId = null;
+        vm.Tab = ProjectsTab.Cleanup;
+        await ShotAsync("projects-cleanup", suffix);
+        vm.SelectedId = "alex/old-web";
+        await ShotAsync("projects-cleanup-detail", suffix);
+        vm.SelectedId = null;
+        vm.Tab = ProjectsTab.Accounts;
+        await ShotAsync("projects-accounts", suffix);
+        vm.Tab = ProjectsTab.Activity;
+        await ShotAsync("projects-activity", suffix);
+        vm.Tab = ProjectsTab.Projects;
     }
 
     /// <summary>Home while a scan runs (the cleanable number gives way to the progress).</summary>

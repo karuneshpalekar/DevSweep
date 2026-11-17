@@ -288,7 +288,7 @@ public sealed class EngineBackendTests
         List<Core.Projects.Project> projects = [.. vm.Report!.Snapshot.Projects];
         Assert.Equal("In OneDrive, not checked", ProjectsViewModel.Safety(projects.Single(p => p.Name == "ml-notebooks")).Text);
         Assert.Equal("Unknown: not safe", ProjectsViewModel.Safety(projects.Single(p => p.Name == "lfs-assets")).Text);
-        Assert.Equal("Safe to remove", ProjectsViewModel.Safety(projects.Single(p => p.Name == "old-web")).Text);
+        Assert.Equal("Up to date", ProjectsViewModel.Safety(projects.Single(p => p.Name == "old-web")).Text);
         Assert.Contains("as of the last fetch", ProjectsViewModel.Safety(projects.Single(p => p.Name == "old-web")).Tooltip, StringComparison.Ordinal);
         Assert.NotNull(vm.Idle);
         Assert.DoesNotContain(vm.Idle.Safe, p => p.Project.Name is "ml-notebooks" or "lfs-assets" or "design-system");

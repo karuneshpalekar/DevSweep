@@ -6,7 +6,12 @@ using DevSweep.Core.Cleaning;
 using DevSweep.Core.Health;
 using DevSweep.Core.Health.Runtimes;
 using DevSweep.Core.Projects;
+using DevSweep.Core.Projects.Actions;
+using DevSweep.Core.Projects.Discovery;
+using DevSweep.Core.Projects.Editors;
+using DevSweep.Core.Projects.Git;
 using DevSweep.Core.Projects.GitHub;
+using DevSweep.Core.Projects.Storage;
 using DevSweep.Core.Platform;
 using DevSweep.Core.Platform.Quarantine;
 using DevSweep.Core.Platform.Recycling;
@@ -160,6 +165,88 @@ public sealed class SampleBackend : IDevSweepBackend, IHealthSource, IProjectsSo
     void IProjectsSource.SignIn(string? activeBefore)
     {
     }
+
+    void IProjectsSource.SignIn(string? login, GitIdentity? identity, string? activeBefore)
+    {
+    }
+
+    void IProjectsSource.InstallGitHubCli()
+    {
+    }
+
+    /// <summary>Asks the first-run question again (the screenshot tour shows it in each theme).</summary>
+    public void ResetProjectsConsent() => _preferences = _preferences with { DeepSearchConsent = null };
+
+    private ProjectsPreferences _preferences = new(null, false, null, @"C:\Users\alex\Code", [@"D:\clients"]);
+
+    /// <summary>Sample "what the person chose" (the first-run question is still open until it is answered).</summary>
+    ProjectsPreferences IProjectsSource.Preferences => _preferences;
+
+    IReadOnlyList<EditorInfo> IProjectsSource.Editors { get; } =
+    [
+        new("vscode", "Visual Studio Code", @"C:\Users\alex\AppData\Local\Programs\Microsoft VS Code\Code.exe"),
+        new("rider", "JetBrains Rider", @"C:\Program Files\JetBrains\JetBrains Rider 2025.2\bin\rider64.exe"),
+    ];
+
+    void IProjectsSource.SetDefaultEditor(string? id) => _preferences = _preferences with { DefaultEditor = id };
+
+    void IProjectsSource.SetDeepSearchConsent(bool allowed) => _preferences = _preferences with { DeepSearchConsent = allowed };
+
+    void IProjectsSource.SetSearchRemovable(bool include) => _preferences = _preferences with { SearchRemovable = include };
+
+    void IProjectsSource.SetWorkspaceRoot(string folder) => _preferences = _preferences with { WorkspaceRoot = folder };
+
+    void IProjectsSource.AddSearchFolder(string folder) => _preferences = _preferences with { Folders = [.. _preferences.Folders, folder] };
+
+    void IProjectsSource.RemoveSearchFolder(string folder) => _preferences = _preferences with { Folders = [.. _preferences.Folders.Where(f => f != folder)] };
+
+    async Task<DeepSearchOutcome> IProjectsSource.DeepSearchAsync(IProgress<DeepSearchProgress>? progress, CancellationToken cancellationToken)
+    {
+        for (int i = 1; i <= 3; i++)
+        {
+            progress?.Report(new DeepSearchProgress(i * 1_000, i, @"C:\Users\alex\Documents"));
+            await Task.Delay(1, cancellationToken).ConfigureAwait(false);
+        }
+
+        DeepSearchSummary summary = SampleData.Projects.DeepSearch!;
+        return new DeepSearchOutcome(new DeepSearchResult { Roots = summary.Roots, FoldersVisited = summary.Folders, Elapsed = TimeSpan.FromSeconds(summary.Seconds) }, null, summary);
+    }
+
+    Task<RemovalSafety> IProjectsSource.CheckAsync(Project project, bool fetch, CancellationToken cancellationToken)
+        => Task.FromResult((project.Safety ?? new RemovalSafety()) with { Fetched = fetch, CheckedAt = SampleData.Now });
+
+    string IProjectsSource.OpenInEditor(Project project) => "Visual Studio Code";
+
+    Task<RemoveResult> IProjectsSource.RemoveAsync(Project project, CancellationToken cancellationToken)
+        => Task.FromResult(new RemoveResult(project.Safety?.IsSafeToRemove == true, project.Safety?.IsSafeToRemove == true ? "Removed." : project.Name + " was not removed: " + project.Safety?.Headline + ".", project.Safety));
+
+    DownloadPlan IProjectsSource.PlanDownload(Project project, CloneStrategy strategy, string? destination, string? account)
+        => Downloader.Plan(new DownloadRequest
+        {
+            NameWithOwner = project.NameWithOwner,
+            Destination = destination ?? Path.Join(_preferences.WorkspaceRoot, account ?? project.Owner, project.Name),
+            Strategy = strategy,
+            Account = account,
+            RemoteKB = project.RemoteKB,
+        });
+
+    Task<DownloadResult> IProjectsSource.DownloadAsync(Project project, CloneStrategy strategy, string? destination, string? account, CancellationToken cancellationToken)
+        => Task.FromResult(new DownloadResult(true, "Downloaded.", destination));
+
+    Task<PublishPreview> IProjectsSource.PreviewPublishAsync(PublishRequest request, CancellationToken cancellationToken)
+        => Task.FromResult(new PublishPreview([Path.Join(request.Folder, "app.py"), Path.Join(request.Folder, "deploy_key.pem")], [new SecretFile(Path.Join(request.Folder, "deploy_key.pem"), "Private key without a passphrase")], null));
+
+    Task<PublishResult> IProjectsSource.PublishAsync(PublishRequest request, CancellationToken cancellationToken)
+        => Task.FromResult(new PublishResult(true, "Published."));
+
+    Task<(RemoteRepo? Repo, string? Error)> IProjectsSource.AddByUrlAsync(string text, CancellationToken cancellationToken)
+        => Task.FromResult<(RemoteRepo?, string?)>((new RemoteRepo { Name = "x", NameWithOwner = "o/x", Account = "alex" }, null));
+
+    void IProjectsSource.SaveIdentity(string account, GitIdentity identity)
+    {
+    }
+
+    IReadOnlyList<ActivityEntry> IProjectsSource.Activity() => SampleData.Activity;
 
     /// <summary>A made-up machine: everything allowed, Chrome running, the Android image too big for the Recycle Bin.</summary>
     private sealed class SampleProbe : IReviewProbe
