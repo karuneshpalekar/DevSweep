@@ -82,4 +82,5 @@ internal sealed record RemoveJson(bool Succeeded, string Message, RemovalSafety?
 [JsonSerializable(typeof(RemoveJson))]
 [JsonSerializable(typeof(PublishPreview))]
 [JsonSerializable(typeof(TerminalLaunch))]
+[JsonSerializable(typeof(DevSweep.Core.Projects.Discovery.DeepSearchResult))]
 internal sealed partial class ProjectsCliJsonContext : JsonSerializerContext;

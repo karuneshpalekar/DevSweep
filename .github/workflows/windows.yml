@@ -293,6 +293,41 @@ jobs:
       # --- end Projects (M3c) ---
 
       # --- M3a (Windows rule packs): golden scan with every pack, and the scan-time budget ---
+      - name: Find all repos on this PC (Projects P1, every drive)
+        run: |
+          $exe = Resolve-Path artifacts/cli/devsweep.exe
+          $env:GIT_AUTHOR_NAME = 'CI'; $env:GIT_AUTHOR_EMAIL = 'ci@example.com'; $env:GIT_COMMITTER_NAME = 'CI'; $env:GIT_COMMITTER_EMAIL = 'ci@example.com'
+          $places = @{
+            root      = 'C:\DevSweepP1\Work\rooted-repo'
+            downloads = (Join-Path $env:USERPROFILE 'Downloads\p1-downloaded-main')
+            deep      = 'C:\DevSweepP1\a\b\c\d\e\f\g\deep-repo'
+            skipped   = 'C:\DevSweepP1\web\node_modules\left-pad'
+          }
+          foreach ($path in $places.Values) {
+            New-Item -ItemType Directory -Force $path | Out-Null
+            git init -q -b main $path
+            git -C $path remote add origin https://gitlab.com/example/p1-other-host.git
+          }
+          "== devsweep projects find (every fixed drive, remembered)"
+          $found = & $exe projects find 2> $null
+          $found | Out-Host
+          foreach ($key in 'root', 'downloads', 'deep') {
+            if (-not ($found -contains $places[$key])) { throw "the deep search did not find $($places[$key])" }
+          }
+          if ($found -contains $places['skipped']) { throw "the deep search entered node_modules" }
+          $summary = $found | Where-Object { $_ -like 'Searched *' }
+          if (-not $summary) { throw "no summary line" }
+          "== the remembered repositories are listed by a plain refresh, one with another host"
+          $list = & $exe projects --offline --json | ConvertFrom-Json
+          foreach ($key in 'root', 'downloads', 'deep') {
+            $project = $list.projects | Where-Object { $_.localPath -eq $places[$key] }
+            if (-not $project) { throw "projects did not list $($places[$key])" }
+            if ($project.originUrl -ne 'https://gitlab.com/example/p1-other-host.git') { throw "origin of $($places[$key]) is $($project.originUrl)" }
+          }
+          if (-not $list.deepSearch) { throw "the snapshot has no deepSearch summary" }
+          "deep search summary in the snapshot: {0:N0} folders, {1} repositories, complete {2}" -f $list.deepSearch.folders, $list.deepSearch.repos, $list.deepSearch.complete
+          Remove-Item -Recurse -Force 'C:\DevSweepP1', (Join-Path $env:USERPROFILE 'Downloads\p1-downloaded-main') -ErrorAction SilentlyContinue
+
       - name: M3a packs golden scan and scan-time budget (administrator)
         run: |
           $exe = Resolve-Path artifacts/cli/devsweep.exe
