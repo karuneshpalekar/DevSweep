@@ -34,6 +34,24 @@ internal static class Shell
         }
     }
 
+    /// <summary>Opens a web address (http or https only) in the default browser.</summary>
+    public static void OpenUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) || uri.Scheme is not ("http" or "https"))
+        {
+            return;
+        }
+
+        try
+        {
+            using Process? process = Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // No browser could be started; nothing else to do.
+        }
+    }
+
     public static void Copy(string text)
     {
         var package = new DataPackage();

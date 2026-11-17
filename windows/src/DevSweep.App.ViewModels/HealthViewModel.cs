@@ -58,8 +58,9 @@ public sealed record HealthActionResult(bool Succeeded, string Message);
 /// </summary>
 /// <param name="source">The Health module; null when it is off or not in this build.</param>
 /// <param name="settings">Where ignored items are kept (Settings, Ignored items).</param>
+/// <param name="clock">What time it is (sample data has its own).</param>
 /// <param name="setModule">Turns a flag on or off for the next start (<c>features.json</c>).</param>
-public sealed partial class HealthViewModel(IHealthSource? source, AppSettingsStore? settings = null, Action<string, bool>? setModule = null) : ObservableObject
+public sealed partial class HealthViewModel(IHealthSource? source, AppSettingsStore? settings = null, Action<string, bool>? setModule = null, Func<DateTimeOffset>? clock = null) : ObservableObject
 {
     private int _portsBusy;
 
@@ -113,6 +114,8 @@ public sealed partial class HealthViewModel(IHealthSource? source, AppSettingsSt
     public partial bool IsRefreshingPorts { get; set; }
 
     public IHealthSource? Source => source;
+
+    public DateTimeOffset Now => clock?.Invoke() ?? DateTimeOffset.Now;
 
     /// <summary>The last package-report load (tests and the screenshot tour wait on it).</summary>
     public Task PackagesTask { get; private set; } = Task.CompletedTask;

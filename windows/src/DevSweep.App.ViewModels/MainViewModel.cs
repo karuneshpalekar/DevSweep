@@ -28,7 +28,7 @@ public sealed partial class MainViewModel : ObservableObject
         Backend = backend;
         Settings = settings;
         Scan = new ScanViewModel(backend);
-        Health = new HealthViewModel(backend.Health, settings, backend.SetModuleEnabled);
+        Health = new HealthViewModel(backend.Health, settings, backend.SetModuleEnabled, () => backend.Now);
         Projects = new ProjectsViewModel(backend.Projects);
         Home = new HomeViewModel(backend, Scan, Health);
         CleanUp = new CleanUpViewModel(Scan, settings, backend.ProfilePath);
