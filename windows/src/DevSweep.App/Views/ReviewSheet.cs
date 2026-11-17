@@ -58,12 +58,12 @@ internal static class ReviewSheet
                     body.Children.Add(Ui.V(Tokens.Space2, Ui.Secondary(vm.Status), bar));
                     if (stage == ReviewStage.Cleaning)
                     {
-                        RenderGroups(vm, body);
+                        body.Children.Add(CleaningRows(vm));
                     }
 
                     break;
                 case ReviewStage.Ready:
-                    RenderGroups(vm, body);
+                    RenderGroups(model, window, vm, body);
                     break;
                 case ReviewStage.Done:
                     RenderOutcomes(vm, body);
@@ -75,7 +75,7 @@ internal static class ReviewSheet
         return frame.Root;
     }
 
-    private static void RenderGroups(ReviewViewModel vm, StackPanel body)
+    private static void RenderGroups(MainViewModel model, MainWindow window, ReviewViewModel vm, StackPanel body)
     {
         if (vm.Warning is { } warning)
         {
@@ -109,7 +109,9 @@ internal static class ReviewSheet
                     lines.Children.Add(Ui.Caption(note));
                 }
 
-                rows.Add(new ListRow(Ui.Row(lines, Ui.Size(row.SizeText, row.Badges, row.SizeTooltip))).Root);
+                IReadOnlyList<string> quit = row.QuitApps;
+                UIElement? quitButtons = quit.Count > 0 ? QuitButtons.Build(model, window, quit, () => _ = vm.RecheckAsync(), small: true) : null;
+                rows.Add(new ListRow(Ui.Row(lines, quitButtons, Ui.Size(row.SizeText, row.Badges, row.SizeTooltip))).Root);
             }
 
             Grid header = Ui.Row(Ui.H(Tokens.Space3, Ds.StatusTag(group.Title, group.Tone)), Ui.Secondary(group.SizeText));
@@ -133,6 +135,48 @@ internal static class ReviewSheet
         }
     }
 
+    /// <summary>While cleaning: every item with its state (done, in progress, waiting), so a long clean is never a silent bar.</summary>
+    private static UIElement CleaningRows(ReviewViewModel vm)
+    {
+        var rows = new List<UIElement>();
+        for (int i = 0; i < vm.RunTitles.Count; i++)
+        {
+            string state = i < vm.CleanedCount ? "Done" : i == vm.CleanedCount ? "Cleaning now" : "Waiting";
+            FrameworkElement mark;
+            if (i < vm.CleanedCount)
+            {
+                FontIcon tick = Ui.Icon(Icons.CheckCircle, 16);
+                Ui.Tint(tick, "SystemFillColorSuccessBrush");
+                mark = tick;
+            }
+            else if (i == vm.CleanedCount)
+            {
+                mark = new ProgressRing { IsActive = true, Width = 16, Height = 16 };
+            }
+            else
+            {
+                mark = Ui.Icon(Icons.Clock, 16);
+            }
+
+            mark.VerticalAlignment = VerticalAlignment.Center;
+            var line = new Grid { ColumnSpacing = Tokens.Space3 };
+            line.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });
+            line.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            line.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            TextBlock title = Ui.Text(vm.RunTitles[i], i == vm.CleanedCount ? "DsStrong" : "DsBody", maxLines: 1);
+            TextBlock status = Ui.Caption(state);
+            Grid.SetColumn(title, 1);
+            Grid.SetColumn(status, 2);
+            line.Children.Add(mark);
+            line.Children.Add(title);
+            line.Children.Add(status);
+            AutomationProperties.SetName(line, $"{vm.RunTitles[i]}: {state}");
+            rows.Add(new ListRow(line).Root);
+        }
+
+        return Ds.RowsCard(rows);
+    }
+
     private static void RenderOutcomes(ReviewViewModel vm, StackPanel body)
     {
         var rows = new List<UIElement>();
@@ -144,7 +188,7 @@ internal static class ReviewSheet
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             FontIcon icon = Ui.Icon(row.Succeeded ? Icons.CheckCircle : Icons.Warning, 16);
-            icon.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[row.Succeeded ? "SystemFillColorSuccessBrush" : "SystemFillColorCautionBrush"];
+            Ui.Tint(icon, row.Succeeded ? "SystemFillColorSuccessBrush" : "SystemFillColorCautionBrush");
             icon.VerticalAlignment = VerticalAlignment.Top;
             icon.Margin = new Thickness(0, 2, 0, 0);
             TextBlock freed = Ui.Secondary(row.FreedText);

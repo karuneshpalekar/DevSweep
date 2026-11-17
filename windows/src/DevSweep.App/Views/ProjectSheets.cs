@@ -91,7 +91,7 @@ internal static class ProjectSheets
                 bool selected = s == strategy;
                 string? estimate = s.EstimateBytes(project.RemoteKB) is { } bytes ? "about " + SizeText.Format(bytes) : null;
                 FontIcon radio = Ui.Icon(selected ? "" : "", 16);
-                radio.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[selected ? "AccentFillColorDefaultBrush" : "TextFillColorSecondaryBrush"];
+                Ui.Tint(radio, selected ? "AccentFillColorDefaultBrush" : "TextFillColorSecondaryBrush");
                 radio.VerticalAlignment = VerticalAlignment.Top;
                 radio.Margin = new Thickness(0, 2, 0, 0);
                 StackPanel text = Ui.V(2, Ui.H(Tokens.Space2, Ui.Text(s.Title(), "DsStrong"), estimate is null ? null : Ui.Caption(estimate)), Ui.Secondary(s.Summary()));

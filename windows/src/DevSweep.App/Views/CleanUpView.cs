@@ -17,17 +17,17 @@ internal static class CleanUpView
     {
         CleanUpViewModel vm = model.CleanUp;
         TextBlock subtitle = Ui.Secondary(string.Empty);
-        var filters = new StackPanel { Orientation = Orientation.Horizontal, Spacing = Tokens.Space2 };
+        var filters = new Border();
         var search = new AutoSuggestBox { PlaceholderText = "Search", Width = 240, QueryIcon = new SymbolIcon(Symbol.Find) };
         AutomationProperties.SetName(search, "Search Clean up");
         search.TextChanged += (_, _) => vm.Search = search.Text;
         var list = new StackPanel { Spacing = Tokens.Space6 };
         var reportHost = new Border();
-        var chips = new ScrollViewer { Content = filters, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalAlignment = VerticalAlignment.Center };
+        var groupLinks = new List<(HyperlinkButton Link, RiskGroup Group)>();
 
         StackPanel page = Ui.V(Tokens.Space4,
             Ds.PageHeader("Clean up", subtitle, ScanButtons.Build(model.Scan, subs)),
-            Ds.CommandBar(chips, search),
+            Ds.CommandBar(filters, search),
             ScanProgressView.Build(model.Scan, subs, compact: false),
             list,
             reportHost);
@@ -60,37 +60,51 @@ internal static class CleanUpView
         subs.On(vm, nameof(CleanUpViewModel.Subtitle), () => subtitle.Text = vm.Subtitle);
         subs.OnCollection(vm.Filters, () => RenderFilters(vm, filters));
         subs.On(vm, nameof(CleanUpViewModel.SelectedKind), () => RenderFilters(vm, filters));
-        subs.OnCollection(vm.Groups, () => RenderList(model, vm, list, subs));
+        subs.OnCollection(vm.Groups, () => RenderList(model, vm, list, subs, groupLinks));
         subs.On(model.Scan, nameof(ScanViewModel.Report), () =>
         {
             reportHost.Child = model.Scan.Report is { } report
                 ? Ui.V(Tokens.Space2, Ds.SectionTitle("About this scan"), Ds.Card(ScanReportView.Build(report, expanded: false)))
                 : null;
-            RenderList(model, vm, list, subs);
+            RenderList(model, vm, list, subs, groupLinks);
         });
-        subs.On(model.Scan, nameof(ScanViewModel.IsScanning), () => RenderList(model, vm, list, subs));
+        subs.On(model.Scan, nameof(ScanViewModel.IsScanning), () => RenderList(model, vm, list, subs, groupLinks));
+        subs.On(vm, nameof(CleanUpViewModel.SelectedCount), () =>
+        {
+            foreach ((HyperlinkButton link, RiskGroup group) in groupLinks)
+            {
+                link.Content = GroupLinkText(group);
+            }
+        });
         subs.On(vm, nameof(CleanUpViewModel.Inspected), () => panel.Select(vm.Inspected?.Id));
         subs.On(vm, nameof(CleanUpViewModel.SelectedCount), () => Ui.Show(bar, model.Scan.HasScanned && vm.All.Count > 0));
         return panel.Root;
     }
 
-    private static void RenderFilters(CleanUpViewModel vm, StackPanel filters)
+    private static string GroupLinkText(RiskGroup group)
+        => group.Items.Where(i => i.CanSelect).All(i => i.IsSelected) ? "Deselect all" : "Select all";
+
+    private static void RenderFilters(CleanUpViewModel vm, Border filters)
     {
-        filters.Children.Clear();
         if (vm.All.Count == 0)
         {
+            Ui.Fill(filters, null);
             return;
         }
 
+        var chips = new List<UIElement>();
         foreach (KindFilter filter in vm.Filters)
         {
-            filters.Children.Add(Ds.Chip(filter.Title, filter.Detail, filter.Kind == vm.SelectedKind, $"Show {filter.Title}, {filter.Detail}", () => vm.SelectedKind = filter.Kind));
+            chips.Add(Ds.Chip(filter.Title, filter.Detail, filter.Kind == vm.SelectedKind, $"Show {filter.Title}, {filter.Detail}", () => vm.SelectedKind = filter.Kind));
         }
+
+        Ui.Fill(filters, FlowButtons.Build([.. chips]));
     }
 
-    private static void RenderList(MainViewModel model, CleanUpViewModel vm, StackPanel list, Subscriptions subs)
+    private static void RenderList(MainViewModel model, CleanUpViewModel vm, StackPanel list, Subscriptions subs, List<(HyperlinkButton Link, RiskGroup Group)> groupLinks)
     {
         list.Children.Clear();
+        groupLinks.Clear();
         if (!model.Scan.HasScanned)
         {
             list.Children.Add(model.Scan.IsScanning
@@ -116,8 +130,13 @@ internal static class CleanUpView
             }
 
             HyperlinkButton? all = group.CanSelectAll
-                ? Ui.Link("Select all", () => CleanUpViewModel.ToggleGroup(group), $"Select or deselect all {group.Title} items")
+                ? Ui.Link(GroupLinkText(group), () => CleanUpViewModel.ToggleGroup(group), $"Select or deselect all {group.Title} items")
                 : null;
+            if (all is not null)
+            {
+                groupLinks.Add((all, group));
+            }
+
             Grid header = Ui.Row(Ui.H(Tokens.Space3, Ds.StatusTag(group.Title, group.Tone, group.Summary), Ui.Secondary(group.Detail)), all);
             header.Margin = new Thickness(Tokens.Space1, 0, Tokens.Space1, 0);
             list.Children.Add(Ui.V(Tokens.Space2, header, Ds.RowsCard(rows)));
@@ -228,13 +247,13 @@ internal static class CleanUpView
     {
         TextBlock text = Ui.Secondary(vm.SelectionText);
         Button clear = Ui.Button("Clear selection", vm.ClearSelection);
-        Button review = Ui.Button("Review", vm.Review, accent: true);
+        Button review = Ui.Button("Review 0 items", vm.Review, accent: true);
         vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(CleanUpViewModel.SelectionText) or nameof(CleanUpViewModel.SelectedCount))
             {
                 text.Text = vm.SelectionText;
-                review.Content = vm.SelectedCount == 0 ? "Review" : $"Review {Words.Items(vm.SelectedCount)}";
+                review.Content = $"Review {Words.Items(vm.SelectedCount)}";
                 AutomationProperties.SetName(review, (string)review.Content);
                 review.IsEnabled = vm.SelectedCount > 0;
                 Ui.Show(clear, vm.SelectedCount > 0);

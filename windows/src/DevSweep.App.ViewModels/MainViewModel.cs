@@ -59,6 +59,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     public ReviewViewModel Review { get; }
 
+    /// <summary>Asks a running app to close (the inspector's and Review's "Quit" buttons); tests and screenshots replace it.</summary>
+    public IAppQuitter Quitter { get; set; } = new ProcessQuitter();
+
     public HistoryViewModel History { get; }
 
     public SettingsViewModel SettingsPage { get; }

@@ -11,7 +11,8 @@ namespace DevSweep.App.Design;
 /// <summary>
 /// A list with a detail pane that slides in from the right (the Mac's <c>SidePanelLayout</c>). The pane
 /// keeps showing the last item while it closes, cross-fades when another item is selected, closes on Esc and puts keyboard
-/// focus back where it was when it opened. On a narrow window it overlays the list instead of squeezing it.
+/// focus back where it was when it opened. On a narrow window it becomes the whole page body (detail view, Esc or the close button goes back)
+/// instead of squeezing the list or leaving half of it showing behind the pane.
 /// </summary>
 internal sealed partial class SidePanel : IDisposable
 {
@@ -52,9 +53,11 @@ internal sealed partial class SidePanel : IDisposable
         _root.KeyDown += OnKeyDown;
         _root.SizeChanged += (_, _) =>
         {
-            if (!_open)
+            ChooseMode();
+            if (_open)
             {
-                ChooseMode();
+                _inner.Width = OpenWidth;
+                Apply(_progress);
             }
         };
     }
@@ -82,6 +85,9 @@ internal sealed partial class SidePanel : IDisposable
     /// <summary>True when the pane lies over the list instead of pushing it.</summary>
     public bool IsOverlay => Grid.GetColumnSpan(_host) == 2;
 
+    /// <summary>The width the pane has when fully open: its own width beside the list, the whole body when it overlays.</summary>
+    public double OpenWidth => IsOverlay ? Math.Max(_width, _root.ActualWidth) : _width;
+
     /// <summary>Opens the panel on <paramref name="key"/>, switches to it when open, or closes it when null.</summary>
     public void Select(string? key)
     {
@@ -96,6 +102,7 @@ internal sealed partial class SidePanel : IDisposable
             _opener = FocusManager.GetFocusedElement(_root.XamlRoot) as Control;
             _open = true;
             ChooseMode();
+            _inner.Width = OpenWidth;
             Show(key);
             _host.Visibility = Visibility.Visible;
             _inner.Opacity = 0;
@@ -189,7 +196,7 @@ internal sealed partial class SidePanel : IDisposable
     private void Apply(double progress)
     {
         _progress = progress;
-        double width = _width * progress;
+        double width = OpenWidth * progress;
         _host.Width = width;
         _host.Clip = new RectangleGeometry { Rect = new Rect(0, 0, width, 100000) };
         _inner.Opacity = Math.Clamp(progress * 1.4, 0, 1);
@@ -200,6 +207,6 @@ internal sealed partial class SidePanel : IDisposable
         bool overlay = _root.ActualWidth > 0 && _root.ActualWidth < Tokens.PanelOverlayBelow;
         Grid.SetColumn(_host, overlay ? 0 : 1);
         Grid.SetColumnSpan(_host, overlay ? 2 : 1);
-        _host.HorizontalAlignment = overlay ? HorizontalAlignment.Right : HorizontalAlignment.Stretch;
+        _host.HorizontalAlignment = overlay ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
     }
 }

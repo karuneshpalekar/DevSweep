@@ -118,7 +118,7 @@ internal static class HealthPanels
             _ => (Icons.Info, "TextFillColorSecondaryBrush"),
         };
         FontIcon icon = Ui.Icon(glyph, 14);
-        icon.Foreground = (Brush)Application.Current.Resources[brush];
+        Ui.Tint(icon, brush);
         icon.VerticalAlignment = VerticalAlignment.Top;
         icon.Margin = new Thickness(0, 3, 0, 0);
         TextBlock text = Selectable(Ui.Text(issue.Text));
@@ -239,7 +239,7 @@ internal static class HealthPanels
     {
         TextBlock name = Ui.Caption(label);
         TextBlock text = Selectable(Ui.Caption(value));
-        text.Foreground = (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
+        Ui.Tint(text, "TextFillColorPrimaryBrush");
         var row = new Grid { ColumnSpacing = Tokens.Space2 };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -553,7 +553,9 @@ internal static class HealthPanels
             }));
         }
 
-        panel.Children.Add(Live(subs, vm, () =>
+        panel.Children.Add(Ui.Caption("Moving to the Recycle Bin goes through DevSweep's cleaner and is logged in History, where you can put it back. Ignoring hides it until you undo that in Settings, Ignored items. DevSweep never shows or stores the secret itself."));
+        var footer = new PanelFooter("Finding actions");
+        footer.Set(Live(subs, vm, () =>
         {
             string? blocked = vm.TrashBlockedReason(finding);
             Button trash = Ui.Button("Move to Recycle Bin", () => _ = vm.TrashAsync(finding), $"Move {finding.Title} to the Recycle Bin");
@@ -573,10 +575,9 @@ internal static class HealthPanels
                 box.Children.Add(Ui.Caption(blocked));
             }
 
-            box.Children.Add(Ui.Caption("Moving to the Recycle Bin goes through DevSweep's cleaner and is logged in History, where you can put it back. Ignoring hides it until you undo that in Settings, Ignored items. DevSweep never shows or stores the secret itself."));
             return box;
         }, nameof(HealthViewModel.Notice)));
-        return Frame(panel);
+        return PanelFrame.Build(Frame(panel), footer);
     }
 
     // ---- A port -------------------------------------------------------------------------------------------------------------
@@ -711,7 +712,8 @@ internal static class HealthPanels
         vm.PropertyChanged += OnStop;
         subs.Add(() => vm.PropertyChanged -= OnStop);
         Redraw();
-        panel.Children.Add(stopHost);
-        return Frame(panel);
+        var footer = new PanelFooter("Stop the program");
+        footer.Set(stopHost);
+        return PanelFrame.Build(Frame(panel), footer);
     }
 }

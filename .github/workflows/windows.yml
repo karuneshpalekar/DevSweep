@@ -559,7 +559,7 @@ jobs:
         run: |
           $log = Get-Content artifacts/screenshots/shots.log
           $log | Select-String -Pattern '^\S+ (sidepanel|motion|rows):' | ForEach-Object { $_.Line }
-          foreach ($needle in 'sidepanel: opens on the item and settles at 380 px with motion off', 'sidepanel: Esc closes it, the last item stays until it is gone, focus returned to the info button', 'motion: off path ok', 'motion: on path ok', 'sidepanel: ok') {
+          foreach ($needle in 'sidepanel: opens on the item and settles at \d+ px with motion off', 'sidepanel: Esc closes it, the last item stays until it is gone, focus returned to the info button', 'motion: off path ok', 'motion: on path ok', 'sidepanel: ok') {
             if (-not ($log | Select-String -Pattern $needle -Quiet)) { throw "shots log has no '$needle'" }
           }
           foreach ($shot in 'home-scanning-light', 'home-scanning-dark', 'nav-minimum', 'review-done-light', 'inspector-light', 'history-dark') {

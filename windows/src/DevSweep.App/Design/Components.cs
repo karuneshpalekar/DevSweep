@@ -73,7 +73,7 @@ internal static class Ds
     public static UIElement EmptyState(string glyph, string title, string text, params UIElement?[] actions)
     {
         FontIcon icon = Ui.Icon(glyph, 32);
-        icon.Foreground = (Brush)Application.Current.Resources["TextFillColorTertiaryBrush"];
+        Ui.Tint(icon, "TextFillColorTertiaryBrush");
         TextBlock heading = Ui.Text(title, "DsSubtitle");
         heading.TextAlignment = TextAlignment.Center;
         TextBlock body = Ui.Secondary(text);
@@ -130,7 +130,7 @@ internal static class Ds
     public static UIElement CheckRow(bool ok, string text)
     {
         FontIcon icon = Ui.Icon(ok ? Icons.CheckCircle : Icons.Warning, 14);
-        icon.Foreground = (Brush)Application.Current.Resources[ok ? "SystemFillColorSuccessBrush" : "SystemFillColorCautionBrush"];
+        Ui.Tint(icon, ok ? "SystemFillColorSuccessBrush" : "SystemFillColorCautionBrush");
         icon.VerticalAlignment = VerticalAlignment.Top;
         icon.Margin = new Thickness(0, 3, 0, 0);
         TextBlock label = Ui.Text(text, ok ? "DsBody" : "DsWarningText");
@@ -264,10 +264,10 @@ internal static class Ds
     public static Border Divider() => Ui.Divider();
 
     /// <summary>A scrolling page: the 32 px gutter at the sides, 24 above and below.</summary>
-    public static ScrollViewer PageScroll(UIElement content)
+    public static ScrollViewer PageScroll(UIElement content, double top = Tokens.Space6)
         => new()
         {
-            Content = new Border { Padding = new Thickness(Tokens.PageGutter, Tokens.Space6, Tokens.PageGutter, Tokens.Space6), Child = content },
+            Content = new Border { Padding = new Thickness(Tokens.PageGutter, top, Tokens.PageGutter, Tokens.Space6), Child = content },
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };

@@ -25,19 +25,23 @@ internal static class ProjectPanel
     public static UIElement Build(MainViewModel model, ProjectsViewModel vm, Project first, Subscriptions subs, MainWindow window)
     {
         var host = new Border();
+        var footer = new PanelFooter("Project actions");
         void Render()
         {
             Project project = vm.All.FirstOrDefault(p => p.Id == first.Id) ?? first;
-            host.Child = Content(model, vm, project, subs, window);
+            (host.Child, UIElement? pinned) = Content(model, vm, project, subs, window);
+            footer.Set(pinned);
         }
 
         subs.On(vm, nameof(ProjectsViewModel.Report), Render);
-        return Ui.Scroll(host, Tokens.Space6);
+        return PanelFrame.Build(Ui.Scroll(host, Tokens.Space6), footer);
     }
 
-    private static UIElement Content(MainViewModel model, ProjectsViewModel vm, Project project, Subscriptions subs, MainWindow window)
+    /// <summary>The scrolling details, and the verdict with the primary actions that stay pinned under them.</summary>
+    private static (UIElement Body, UIElement? Footer) Content(MainViewModel model, ProjectsViewModel vm, Project project, Subscriptions subs, MainWindow window)
     {
         var panel = new StackPanel { Spacing = Tokens.Space4 };
+        UIElement? pinned = null;
 
         // Header: name, owner · private · clone strategy, close.
         Button close = Ui.IconButton(Icons.Close, "Close details (Esc)", () => vm.SelectedId = null);
@@ -72,7 +76,7 @@ internal static class ProjectPanel
         }
         else
         {
-            buttons.Add(Ui.Button("Download…", () => vm.OpenSheet(ProjectSheet.Clone, project), $"Download {project.NameWithOwner}", accent: true));
+            pinned = Ui.Button("Download…", () => vm.OpenSheet(ProjectSheet.Clone, project), $"Download {project.NameWithOwner}", accent: true);
         }
 
         if (project.OnGitHub)
@@ -94,10 +98,10 @@ internal static class ProjectPanel
         }
         else
         {
-            Safety(panel, vm, project, subs, window);
+            pinned = Safety(panel, vm, project, subs, window);
         }
 
-        return panel;
+        return (panel, pinned);
     }
 
     private static UIElement NotOnDisk(ProjectsViewModel vm, Project project)
@@ -113,7 +117,7 @@ internal static class ProjectPanel
         return box;
     }
 
-    private static void Safety(StackPanel panel, ProjectsViewModel vm, Project project, Subscriptions subs, MainWindow window)
+    private static UIElement Safety(StackPanel panel, ProjectsViewModel vm, Project project, Subscriptions subs, MainWindow window)
     {
         RemovalSafety s = project.Safety ?? new RemovalSafety { State = SafetyState.NotChecked, NotCheckedReason = "Not checked yet." };
         panel.Children.Add(Ds.SectionTitle("Is it safe to remove from this PC?"));
@@ -140,10 +144,11 @@ internal static class ProjectPanel
             });
         }
 
+        panel.Children.Add(Ui.Caption("Removing moves the folder to the Recycle Bin (or DevSweep's own quarantine when the Recycle Bin can't take it) and records it in History. Only a project that is fully backed up can be removed; anything that isn't on the remote has to be pushed or published first. A removed project stays in this list with a Download button."));
+
         (string verdict, ViewModels.Text.Tone tone) = ProjectsViewModel.Verdict(project);
         Border callout = Ui.Card(Ui.Text(verdict), tone == ViewModels.Text.Tone.Good ? "DsSuccessBox" : "DsWarningBox");
         AutomationProperties.SetName(callout, verdict);
-        panel.Children.Add(callout);
 
         var actions = new List<UIElement?>();
         if (!s.HasRemote && s.State == SafetyState.NotSafe && vm.Setup == GitHubSetup.Ready)
@@ -155,12 +160,10 @@ internal static class ProjectPanel
             actions.Add(Ui.Button($"Push {Words.Count(s.UnpushedCommits, "commit")}", () => vm.Push(project), $"Push {Words.Count(s.UnpushedCommits, "commit")} in a terminal window", accent: true));
         }
 
-        Button remove = Ui.Button("Remove from this PC…", () => _ = RemoveAsync(vm, project, window), $"Remove {project.Name} from this PC");
-        remove.Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
+        Button remove = Ui.Button("Remove from this PC…", () => _ = RemoveAsync(vm, project, window), $"Remove {project.Name} from this PC", danger: true);
         remove.IsEnabled = !vm.Removing.Contains(project.Id);
         actions.Add(remove);
-        panel.Children.Add(FlowButtons.Build([.. actions]));
-        panel.Children.Add(Ui.Caption("Removing moves the folder to the Recycle Bin (or DevSweep's own quarantine when the Recycle Bin can't take it) and records it in History. Only a project that is fully backed up can be removed; anything that isn't on the remote has to be pushed or published first. A removed project stays in this list with a Download button."));
+        return Ui.V(Tokens.Space2, callout, FlowButtons.Build([.. actions]));
     }
 
     /// <summary>Confirm, then remove; a project that isn't fully backed up is explained instead (the warning lists exactly what would be lost).</summary>

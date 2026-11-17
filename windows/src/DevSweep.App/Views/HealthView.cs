@@ -222,17 +222,17 @@ internal static class HealthView
             body.Children.Add(Ds.Banner(BannerKind.Info, "Support dates come from an old copy (endoflife.date couldn't be reached), so they may be out of date.", "Working offline"));
         }
 
-        var filters = new StackPanel { Orientation = Orientation.Horizontal, Spacing = Tokens.Space2 };
+        var filters = new List<UIElement>();
         foreach ((ToolsFilter filter, string title) in (ReadOnlySpan<(ToolsFilter, string)>)[(ToolsFilter.All, "All"), (ToolsFilter.NeedsAttention, "Needs attention"), (ToolsFilter.UpToDate, "Up to date")])
         {
             int count = vm.FilterCount(filter);
-            filters.Children.Add(Ds.Chip(title, count.ToString(System.Globalization.CultureInfo.InvariantCulture), vm.ToolsFilter == filter, $"Show {title}, {count}", () => vm.ToolsFilter = filter));
+            filters.Add(Ds.Chip(title, count.ToString(System.Globalization.CultureInfo.InvariantCulture), vm.ToolsFilter == filter, $"Show {title}, {count}", () => vm.ToolsFilter = filter));
         }
 
         TextBlock summary = Ui.Secondary(vm.ToolsSummary);
         summary.VerticalAlignment = VerticalAlignment.Center;
         AutomationProperties.SetName(summary, vm.ToolsSummary);
-        body.Children.Add(Ds.CommandBar(new ScrollViewer { Content = filters, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled }, null, summary));
+        body.Children.Add(Ds.CommandBar(FlowButtons.Build([.. filters]), null, summary));
         body.Children.Add(Legend());
 
         IReadOnlyList<ToolRow> list = vm.ToolRows;
@@ -272,22 +272,18 @@ internal static class HealthView
 
     private static UIElement Legend()
     {
-        var legend = new StackPanel { Orientation = Orientation.Horizontal, Spacing = Tokens.Space4 };
+        var legendItems = new List<UIElement>();
         foreach ((string text, Tone tone) in (ReadOnlySpan<(string, Tone)>)[("Supported", Tone.Good), ("Ending soon", Tone.Caution), ("End of life", Tone.Critical), ("Not running", Tone.Neutral)])
         {
-            legend.Children.Add(Ui.H(Tokens.Space1, Dot(tone), Ui.Caption(text)));
+            legendItems.Add(Ui.H(Tokens.Space1, Dot(tone), Ui.Caption(text)));
         }
 
-        FontIcon terminal = Ui.Icon(Icons.Terminal, 10);
-        legend.Children.Add(Ui.H(Tokens.Space1, terminal, Ui.Caption("A new terminal runs this one")));
-        return new ScrollViewer { Content = legend, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        FontIcon terminal = Ui.Icon(Icons.RunsHere, 10);
+        legendItems.Add(Ui.H(Tokens.Space1, terminal, Ui.Caption("A new terminal runs this one")));
+        return FlowButtons.Build(Tokens.Space4, [.. legendItems]);
     }
 
-    private static Border Dot(Tone tone)
-    {
-        string brush = tone switch { Tone.Good => "SystemFillColorSuccessBrush", Tone.Caution => "SystemFillColorCautionBrush", Tone.Critical => "SystemFillColorCriticalBrush", _ => "TextFillColorTertiaryBrush" };
-        return new Border { Width = 8, Height = 8, CornerRadius = new CornerRadius(4), VerticalAlignment = VerticalAlignment.Center, Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[brush] };
-    }
+    private static Border Dot(Tone tone) => Ui.Dot(tone is Tone.Good or Tone.Caution or Tone.Critical ? tone : Tone.Neutral);
 
     private static ListRow ToolListRow(HealthViewModel vm, ToolRow row)
     {
@@ -330,7 +326,7 @@ internal static class HealthView
     private static UIElement StatusLine(string glyph, string text, string brush, string style)
     {
         FontIcon icon = Ui.Icon(glyph, 14);
-        icon.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[brush];
+        Ui.Tint(icon, brush);
         TextBlock label = Ui.Text(text, style);
         label.TextWrapping = TextWrapping.NoWrap;
         StackPanel line = Ui.H(Tokens.Space1, icon, label);
@@ -398,8 +394,8 @@ internal static class HealthView
         string toneName = tone.ToString();
         if (install.IsDefault)
         {
-            FontIcon icon = Ui.Icon(Icons.Terminal, 10);
-            icon.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[tone switch { Tone.Good => "SystemFillColorSuccessBrush", Tone.Caution => "SystemFillColorCautionBrush", Tone.Critical => "SystemFillColorCriticalBrush", _ => "TextFillColorSecondaryBrush" }];
+            FontIcon icon = Ui.Icon(Icons.RunsHere, 10);
+            Ui.Tint(icon, tone switch { Tone.Good => "SystemFillColorSuccessBrush", Tone.Caution => "SystemFillColorCautionBrush", Tone.Critical => "SystemFillColorCriticalBrush", _ => "TextFillColorSecondaryBrush" });
             content.Children.Add(icon);
         }
 
@@ -489,7 +485,7 @@ internal static class HealthView
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
             FontIcon icon = Ui.Icon(KindGlyph(finding.Kind), 16);
-            icon.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+            Ui.Tint(icon, "TextFillColorSecondaryBrush");
             icon.VerticalAlignment = VerticalAlignment.Center;
             grid.Children.Add(icon);
             TextBlock path = Ui.Caption(finding.Path);
