@@ -54,7 +54,7 @@ internal static class ProjectListTab
             }
         };
 
-        var search = new AutoSuggestBox { PlaceholderText = "Search projects", Width = 230, QueryIcon = new SymbolIcon(Symbol.Find) };
+        var search = new TextBox { PlaceholderText = "Search projects", Width = 230, Padding = new Thickness(30, 5, 8, 6) };
         AutomationProperties.SetName(search, "Search projects");
         Ui.Tip(search, "Search by name, owner or description (Ctrl+F)");
         search.TextChanged += (_, _) => vm.Search = search.Text;
@@ -65,9 +65,17 @@ internal static class ProjectListTab
             e.Handled = true;
         };
         search.KeyboardAccelerators.Add(focusSearch);
+        FontIcon searchIcon = Ui.Icon(Icons.Search, 13);
+        searchIcon.HorizontalAlignment = HorizontalAlignment.Left;
+        searchIcon.VerticalAlignment = VerticalAlignment.Center;
+        searchIcon.Margin = new Thickness(10, 0, 0, 0);
+        searchIcon.IsHitTestVisible = false;
+        var searchBox = new Grid { Width = 230 };
+        searchBox.Children.Add(search);
+        searchBox.Children.Add(searchIcon);
 
         DropDownButton getProject = GetProjectMenu(vm, window);
-        UIElement commandBar = Ds.CommandBar(Ui.H(Tokens.Space3, segHost, accountBox), search, getProject);
+        UIElement commandBar = Ds.CommandBar(Ui.H(Tokens.Space3, segHost, accountBox), searchBox, getProject);
 
         var reportHost = new Border();
 
@@ -84,7 +92,7 @@ internal static class ProjectListTab
         Grid.SetRow(listCard, 1);
 
         StackPanel above = Ui.V(Tokens.Space2, noticeHost, setupHost, consentHost, deepHost, commandBar, reportHost);
-        var above2 = new Border { Padding = new Thickness(Tokens.PageGutter, Tokens.Space2, Tokens.PageGutter, 0), Child = above };
+        var above2 = new Border { Padding = new Thickness(Tokens.PageGutter, 0, Tokens.PageGutter, 0), Child = above };
         var column = new Grid();
         column.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         column.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -452,7 +460,8 @@ internal static class ProjectListTab
         HyperlinkButton details = Ui.Link(open ? "Hide details" : "What was searched", () => { }, "Show what was searched and skipped");
         HyperlinkButton add = Ui.Link("Add folder…", () => _ = AddFolderAsync(vm, window), "Add a folder to look in");
         HyperlinkButton all = Ui.Link("Find all repos on this PC…", () => _ = vm.StartDeepSearchAsync(), "Find all repos on this PC");
-        StackPanel bar = Ui.H(Tokens.Space3, line, details, add, all);
+        line.TextWrapping = TextWrapping.Wrap;
+        UIElement bar = Ui.V(Tokens.Space1, line, FlowButtons.Build(Tokens.Space3, details, add, all));
         var host = new StackPanel { Spacing = Tokens.Space2 };
         host.Children.Add(bar);
 

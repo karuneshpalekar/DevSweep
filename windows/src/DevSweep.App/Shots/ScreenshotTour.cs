@@ -366,7 +366,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         vm.AccountFilter = null;
 
         // Search, driven through the box itself.
-        Microsoft.UI.Xaml.Controls.AutoSuggestBox box = window.Find<Microsoft.UI.Xaml.Controls.AutoSuggestBox>("Search projects") ?? throw new InvalidOperationException("projects: the search box is not on screen.");
+        Microsoft.UI.Xaml.Controls.TextBox box = window.Find<Microsoft.UI.Xaml.Controls.TextBox>("Search projects") ?? throw new InvalidOperationException("projects: the search box is not on screen.");
         int all = vm.Visible.Count;
         box.Text = "PAY";
         await window.WaitForRenderAsync();
