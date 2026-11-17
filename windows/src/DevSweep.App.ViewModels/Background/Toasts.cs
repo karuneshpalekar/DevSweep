@@ -11,6 +11,7 @@ public enum ToastTarget
     HealthTools,
     HealthSecurity,
     Settings,
+    Projects,
 }
 
 /// <summary>What a toast says and where a click on it goes.</summary>

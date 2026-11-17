@@ -75,6 +75,11 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             throw new InvalidOperationException("The side panel check failed: " + panelFailure.Message, panelFailure);
         }
 
+        if (_flyoutFailure is not null)
+        {
+            throw _flyoutFailure;
+        }
+
         return _saved;
     }
 
@@ -265,6 +270,9 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         if (full)
         {
             await HomeScanningAsync(suffix);
+            await HomeStatesAsync(suffix);
+            await FlyoutAsync(suffix);
+            await GoAsync("home");
         }
 
         await GoAsync("cleanup");
@@ -563,6 +571,13 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             Log.Write($"high contrast: on={on}");
             await GoAsync("home");
             await ShotAsync("home", "highcontrast");
+            model.OpenSettings("accounts");
+            await window.WaitForRenderAsync();
+            await ShotAsync("settings-github", "highcontrast");
+            model.OpenSettings("permissions");
+            await window.WaitForRenderAsync();
+            await ShotAsync("settings-privacy", "highcontrast");
+            await GoAsync("home");
             await GoAsync("cleanup");
             model.CleanUp.Inspect(model.CleanUp.All.First(f => f.Id == "pnpm-store"));
             await ShotAsync("cleanup", "highcontrast");

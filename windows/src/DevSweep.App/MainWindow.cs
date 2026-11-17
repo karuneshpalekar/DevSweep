@@ -47,9 +47,12 @@ internal sealed partial class MainWindow : Window
     private bool _logoFailed;
     private (int Width, int Height) _minimumSize = (WindowSizing.MinimumWidth, WindowSizing.MinimumHeight);
 
+    private readonly bool _screenshots;
+
     public MainWindow(MainViewModel model, bool screenshots)
     {
         _model = model;
+        _screenshots = screenshots;
         Title = "DevSweep";
         ExtendsContentIntoTitleBar = true;
         if (!screenshots)
@@ -498,6 +501,22 @@ internal sealed partial class MainWindow : Window
         _themeButton.Click += (_, _) => _model.SettingsPage.CycleAppearance();
         Grid.SetColumn(_themeButton, 2);
         bar.Children.Add(_themeButton);
+        if (_screenshots)
+        {
+            // A capture of the window's content has no system caption buttons; draw stand-ins so the shot shows where the gear and the theme button really sit.
+            StackPanel caption = Ui.H(0, Ui.Icon("\uE921", 10), Ui.Icon("\uE922", 10), Ui.Icon("\uE8BB", 10));
+            foreach (UIElement part in caption.Children)
+            {
+                ((FrameworkElement)part).Width = 46;
+            }
+
+            caption.VerticalAlignment = VerticalAlignment.Center;
+            caption.HorizontalAlignment = HorizontalAlignment.Right;
+            caption.IsHitTestVisible = false;
+            Grid.SetColumn(caption, 3);
+            bar.Children.Add(caption);
+        }
+
         return bar;
     }
 
@@ -518,20 +537,29 @@ internal sealed partial class MainWindow : Window
         _nav.IsPaneToggleButtonVisible = true;
         _nav.OpenPaneLength = 256;
         _nav.Content = _page;
-        // The update card may never push the places out of view: it scrolls inside its own capped box.
-        _nav.PaneFooter = new ScrollViewer
+        // The free-space card sits above the places; it and the footer hide when the pane is compact.
+        _paneHeader = SidebarView.Header(_model.Sidebar, _windowSubs);
+        _nav.PaneHeader = _paneHeader;
+        // The update card, the attention cards and the status line may never push the places out of view: they scroll inside a box
+        // whose height is what is left once the header and the places (and History and Settings) have their room.
+        _paneFooter = new ScrollViewer
         {
-            Content = UpdateCard.Build(_model.Background.Updates, _windowSubs),
+            Content = SidebarView.Footer(_model, _windowSubs, UpdateCard.Build(_model.Background.Updates, _windowSubs)),
             MaxHeight = 190,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
         };
+        _nav.PaneFooter = _paneFooter;
+        _nav.SizeChanged += (_, e) => _paneFooter.MaxHeight = Math.Max(96, e.NewSize.Height - PaneReserved);
+        _nav.PaneClosing += (_, _) => SetPaneParts(false);
+        _nav.PaneOpening += (_, _) => SetPaneParts(true);
         AutomationProperties.SetName(_nav, "DevSweep places");
         foreach (Place place in _model.Places)
         {
             var item = new NavigationViewItem
             {
-                Content = place.Title,
+                Content = SidebarView.ItemContent(place.Title, place.Id, _model.Sidebar, _windowSubs),
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 Tag = place.Id,
                 Icon = new FontIcon { Glyph = Icons.ForPlace(place.Id, place.Glyph) },
             };
@@ -573,6 +601,34 @@ internal sealed partial class MainWindow : Window
             SyncSelection();
         };
     }
+
+    /// <summary>Room the header, the hamburger, the four places and History and Settings need; the pane footer gets what is left.</summary>
+    private const double PaneReserved = 400;
+
+    private UIElement? _paneHeader;
+    private ScrollViewer? _paneFooter;
+
+    private void SetPaneParts(bool open)
+    {
+        if (_paneHeader is not null)
+        {
+            _paneHeader.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        if (_paneFooter is not null)
+        {
+            _paneFooter.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    /// <summary>Opens or collapses the pane (the hamburger does the same); screenshots use it for the compact sidebar and for a wide Home.</summary>
+    public void SetPaneOpen(bool open)
+    {
+        _nav.IsPaneOpen = open;
+        SetPaneParts(open);
+    }
+
+    public bool PaneOpen => _nav.IsPaneOpen;
 
     private void NameSettingsItem()
     {

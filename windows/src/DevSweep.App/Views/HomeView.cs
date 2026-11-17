@@ -27,6 +27,12 @@ internal static class HomeView
         var changes = new StackPanel();
         TextBlock changesTitle = Ds.SectionTitle(string.Empty);
         var attention = new StackPanel();
+        var banners = new StackPanel { Spacing = Tokens.Space2 };
+        TextBlock attentionCaption = Ui.Caption(string.Empty);
+        Button rescan = Ui.IconButton(Icons.Refresh, "Rescan", () => _ = scanModel.ScanAsync());
+        rescan.KeyboardAccelerators.Add(new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = Windows.System.VirtualKey.R, Modifiers = Windows.System.VirtualKeyModifiers.Control });
+        Ui.Tip(rescan, "Scan again (Ctrl+R). Scans only look; nothing changes.");
+        Button stop = Ui.Button("Stop scan", scanModel.Cancel);
 
         // The headline: free space, then what can be cleaned, then the one button that does something about it.
         var numbers = new Grid { ColumnSpacing = Tokens.Space6 };
@@ -53,10 +59,11 @@ internal static class HomeView
 
         UIElement lower = Ds.TwoColumns(
             Ui.V(Tokens.Space2, changesTitle, changes),
-            Ui.V(Tokens.Space2, Ds.SectionTitle("Needs attention"), attention));
+            Ui.V(Tokens.Space2, Ds.SectionTitle("Needs attention"), attention, attentionCaption));
 
         StackPanel page = Ui.V(Tokens.Space6,
-            Ds.PageHeader("Home", subtitle, ScanButtons.Build(scanModel, subs)),
+            Ds.PageHeader("Home", subtitle, rescan, stop),
+            banners,
             Ds.Card(Ui.V(Tokens.Space4, numbers, progress, volumes), Tokens.Space6),
             lower);
 
@@ -82,6 +89,27 @@ internal static class HomeView
         }
 
         subs.On(home, nameof(HomeViewModel.Subtitle), () => subtitle.Text = home.Subtitle);
+        subs.On(scanModel, nameof(ScanViewModel.IsScanning), () =>
+        {
+            Ui.Show(rescan, !scanModel.IsScanning);
+            Ui.Show(stop, scanModel.IsScanning);
+        });
+        subs.On(home, null, () =>
+        {
+            banners.Children.Clear();
+            if (home.BlockedFoldersText is { } blocked)
+            {
+                banners.Children.Add(Ds.Banner(BannerKind.Warning, blocked, "Windows blocked some folders", "Open Settings", () => model.OpenSettings("permissions")));
+            }
+
+            if (home.RuleErrorsText is { } rules)
+            {
+                banners.Children.Add(Ds.Banner(BannerKind.Critical, rules, "Some rule packs couldn't be read", "Open Settings", () => model.OpenSettings("troubleshooting")));
+            }
+
+            attentionCaption.Text = home.AttentionCaption ?? string.Empty;
+            Ui.Show(attentionCaption, home.AttentionCaption is not null);
+        });
         subs.On(home, nameof(HomeViewModel.CleanableText), Headline);
         subs.On(home, nameof(HomeViewModel.ReviewLabel), () =>
         {

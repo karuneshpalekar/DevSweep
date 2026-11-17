@@ -163,6 +163,9 @@ public sealed partial class MainViewModel : ObservableObject
                 Go("health");
                 ShowHealthTab(HealthTab.Security);
                 break;
+            case ToastTarget.Projects:
+                Go("projects");
+                break;
             case ToastTarget.Settings:
                 Go("settings");
                 break;
