@@ -188,7 +188,9 @@ internal static class Ds
     /// <summary>A filter chip row (a toggle per option); only one is on. Used for Clean up's kinds.</summary>
     public static ToggleButton Chip(string label, string? detail, bool selected, string automationName, Action click)
     {
-        UIElement content = detail is { Length: > 0 } ? Ui.H(Tokens.Space2, Ui.Text(label), Ui.Caption(detail)) : Ui.Text(label);
+        // Plain text blocks (no style foreground) so the text takes the button's own colour, white on the accent fill when the chip is on.
+        var name = new TextBlock { Text = label, FontSize = 14 };
+        UIElement content = detail is { Length: > 0 } ? Ui.H(Tokens.Space2, name, new TextBlock { Text = detail, FontSize = 12, Opacity = 0.85, VerticalAlignment = VerticalAlignment.Center }) : name;
         var chip = new ToggleButton
         {
             Content = content,

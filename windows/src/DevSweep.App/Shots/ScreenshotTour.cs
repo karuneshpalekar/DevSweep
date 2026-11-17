@@ -278,7 +278,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         {
             model.CleanUp.Inspect(model.CleanUp.All.First(f => f.Id == "windows-update-cleanup"));
             await ShotAsync("inspector-admin", suffix);
-            RequireOnScreen("Open in PowerShell (asks for admin)", "the pinned footer of the admin inspector");
+            RequireOnScreen("Open the command in a PowerShell window that waits for Enter", "the pinned footer of the admin inspector");
             model.CleanUp.Inspect(model.CleanUp.All.First(f => f.Id == "chrome-cache"));
             await ShotAsync("inspector-blocked", suffix);
             Require(window.Find<Button>("Quit Chrome") is not null, "cleanup: a blocked item's inspector has no Quit Chrome button");
