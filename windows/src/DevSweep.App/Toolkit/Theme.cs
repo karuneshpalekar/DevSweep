@@ -243,6 +243,13 @@ internal static class Theme
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Padding" Value="12" />
           </Style>
+          <Style x:Key="DsSuccessBox" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource SystemFillColorSuccessBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource SystemFillColorSuccessBrush}" />
+            <Setter Property="BorderThickness" Value="{ThemeResource DsBadgeBorderThickness}" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12,8" />
+          </Style>
           <Style x:Key="DsWarningBox" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource SystemFillColorCautionBackgroundBrush}" />
             <Setter Property="BorderBrush" Value="{ThemeResource SystemFillColorCautionBrush}" />

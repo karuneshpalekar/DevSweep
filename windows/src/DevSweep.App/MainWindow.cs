@@ -88,6 +88,7 @@ internal sealed partial class MainWindow : Window
         _windowSubs.On(model, nameof(MainViewModel.Current), ShowPage);
         _windowSubs.On(model, nameof(MainViewModel.ShowWelcome), UpdateSheet);
         _windowSubs.On(model.Review, nameof(ReviewViewModel.Stage), UpdateSheet);
+        _windowSubs.On(model.Projects, nameof(ProjectsViewModel.Sheet), UpdateSheet);
         _windowSubs.On(model.SettingsPage, nameof(SettingsViewModel.Appearance), ApplyTheme);
         _root.ActualThemeChanged += (_, _) => ApplyCaptionColors();
         _root.Loaded += (_, _) => UpdateCaptionInset();
@@ -341,6 +342,24 @@ internal sealed partial class MainWindow : Window
         WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
         Windows.Storage.StorageFolder? folder = await picker.PickSingleFolderAsync();
         return folder?.Path;
+    }
+
+    /// <summary>True while a Projects sheet is working (a download, a publish): Esc does not close it then.</summary>
+    public bool SheetBusy { get; set; }
+
+    /// <summary>Tells the person something in a dialog with one Close button.</summary>
+    public async Task InformAsync(string title, UIElement content)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = title,
+            Content = content,
+            CloseButtonText = "Close",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = _root.XamlRoot,
+            RequestedTheme = _root.ActualTheme,
+        };
+        await dialog.ShowAsync();
     }
 
     /// <summary>Asks a yes/no question in a dialog.</summary>
@@ -743,7 +762,8 @@ internal sealed partial class MainWindow : Window
 
     private void UpdateSheet()
     {
-        string? kind = _model.ShowWelcome ? "welcome" : _model.Review.IsOpen ? "review" : null;
+        string? kind = _model.ShowWelcome ? "welcome" : _model.Review.IsOpen ? "review"
+            : _model.Projects.Sheet != ProjectSheet.None ? "projects:" + _model.Projects.Sheet : null;
         if (kind == _sheetKind)
         {
             return;
@@ -756,6 +776,7 @@ internal sealed partial class MainWindow : Window
         {
             "welcome" => WelcomeSheet.Build(_model, _sheetSubs),
             "review" => ReviewSheet.Build(_model, _sheetSubs, this),
+            not null when kind.StartsWith("projects:", StringComparison.Ordinal) => ProjectSheets.Build(_model, _sheetSubs, this),
             _ => null,
         };
         bool open = kind is not null;
@@ -786,7 +807,16 @@ internal sealed partial class MainWindow : Window
             return;
         }
 
-        if (_sheetKind == "review" && _model.Review.Stage != ReviewStage.Cleaning)
+        if (_sheetKind is not null && _sheetKind.StartsWith("projects:", StringComparison.Ordinal))
+        {
+            if (!SheetBusy)
+            {
+                _model.Projects.CloseSheet();
+            }
+
+            e.Handled = true;
+        }
+        else if (_sheetKind == "review" && _model.Review.Stage != ReviewStage.Cleaning)
         {
             _model.Review.Close();
             e.Handled = true;

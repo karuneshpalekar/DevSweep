@@ -11,6 +11,7 @@ public enum ActivityKind
     Identity,
     SignIn,
     Fetch,
+    Search,
 }
 
 /// <summary>One line in the Activity trail: a download, removal, publish, push, added repo, identity change or sign-in.</summary>
@@ -67,6 +68,21 @@ public sealed record ProjectsState
 
     public List<KnownRepo> Known { get; init; } = [];
 
+    /// <summary>The answer to "Look for projects everywhere on this PC?": null until asked.</summary>
+    public bool? DeepSearchConsent { get; init; }
+
+    /// <summary>Include removable drives in the deep search.</summary>
+    public bool SearchRemovableDrives { get; init; }
+
+    /// <summary>The editor "Open in editor" uses (an <c>EditorInfo.Id</c>); null means the first one found.</summary>
+    public string? DefaultEditor { get; init; }
+
+    /// <summary>What the last deep search covered.</summary>
+    public DeepSearchSummary? LastDeepSearch { get; init; }
+
+    /// <summary>Repositories the deep search found (re-checked directly on later refreshes).</summary>
+    public List<string> DeepRepos { get; init; } = [];
+
     /// <summary>Newest first; the last <see cref="ProjectStore.MaxActivity"/> kept.</summary>
     public List<ActivityEntry> Activity { get; init; } = [];
 
@@ -83,7 +99,37 @@ public sealed record ProjectsState
             StringComparer.OrdinalIgnoreCase),
         Strategies = new Dictionary<string, CloneStrategy>(Strategies ?? [], StringComparer.OrdinalIgnoreCase),
         LastOpened = new Dictionary<string, DateTimeOffset>(LastOpened ?? [], StringComparer.OrdinalIgnoreCase),
+        DeepRepos = (DeepRepos ?? []).Where(r => !string.IsNullOrWhiteSpace(r)).ToList(),
+        LastDeepSearch = LastDeepSearch is null ? null : LastDeepSearch with { Roots = LastDeepSearch.Roots ?? [], CloudOnlySample = LastDeepSearch.CloudOnlySample ?? [] },
         Known = (Known ?? []).Where(k => k?.NameWithOwner is { Length: > 0 }).ToList(),
         Activity = (Activity ?? []).Where(a => a?.Subject is not null).Select(a => a with { Detail = a.Detail ?? string.Empty }).ToList(),
     };
 }
+
+/// <summary>What a deep search covered, kept for the "Searched ..." line on the Projects page.</summary>
+public sealed record DeepSearchSummary
+{
+    public DateTimeOffset Date { get; init; }
+
+    public List<string> Roots { get; init; } = [];
+
+    public long Folders { get; init; }
+
+    public int Repos { get; init; }
+
+    public double Seconds { get; init; }
+
+    /// <summary>False when it was cancelled or ran out of time (the results are partial).</summary>
+    public bool Complete { get; init; }
+
+    public int Unreadable { get; init; }
+
+    public int CloudOnly { get; init; }
+
+    public List<string> CloudOnlySample { get; init; } = [];
+
+    public int LinksNotFollowed { get; init; }
+
+    public int BareRepos { get; init; }
+}
+

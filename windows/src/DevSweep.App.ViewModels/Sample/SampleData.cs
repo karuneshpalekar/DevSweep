@@ -400,34 +400,97 @@ public static class SampleData
         Duplicates = [new DuplicateInstall("node", "Node.js", "22", ["nvm-windows", "Chocolatey"])],
     };
 
-    public static ProjectsSnapshot Projects { get; } = new()
+    /// <summary>The Projects sample: every state the page shows (a safe repo, unpushed commits, no remote, GitHub only, OneDrive, LFS, WSL, another host).</summary>
+    public static ProjectsSnapshot Projects { get; } = ProjectsWith(GitHubStatus.SignedIn);
+
+    /// <summary>The same machine with GitHub not set up (the GitHub CLI missing, or no account signed in): every local clone is still listed.</summary>
+    public static ProjectsSnapshot ProjectsWith(GitHubStatus status)
     {
-        Date = Now,
-        Accounts = new GitHubAccounts(GitHubStatus.SignedIn, [new GitHubAccount("alex", true), new GitHubAccount("alex-acme", false)]),
-        Identities = new Dictionary<string, GitIdentity> { ["alex"] = new("Alex Doe", "alex@example.com"), ["alex-acme"] = new("Alex Doe", "alex.doe@acme.example") },
-        Projects =
+        bool signedIn = status == GitHubStatus.SignedIn;
+        List<Project> projects =
         [
-            Repo("alex/web-shop", "alex", @"D:\src\web-shop", 1_420 * MB, Now.AddHours(-3), Safe(Now.AddHours(-5)) with { State = SafetyState.NotSafe, UnpushedCommits = 2, UnpushedByRef = [new RefUnpushed("main", 2, "origin/main")] }),
-            Repo("alex/inventory-api", "alex", @"D:\src\inventory-api", 380 * MB, Now.AddDays(-2), Safe(Now.AddDays(-2))),
-            Repo("acme/payments", "alex-acme", @"D:\work\payments", 2_210 * MB, Now.AddDays(-41), Safe(Now.AddDays(-40))),
-            Repo("acme/design-system", "alex-acme", @"D:\work\design-system", 940 * MB, Now.AddDays(-95), Safe(Now.AddDays(-96)) with { State = SafetyState.NotSafe, ChangedFiles = 3, ChangedSample = ["src/Button.tsx"], Stashes = 1 }),
-            Repo("alex/old-web", "alex", @"D:\src\old-web", 1_160 * MB, Now.AddDays(-122), Safe(Now.AddDays(-122))),
+            Repo("alex/web-shop", "alex", @"D:\src\web-shop", 1_420 * MB, Now.AddHours(-3), Safe(Now.AddHours(-5)) with { State = SafetyState.NotSafe, UnpushedCommits = 3, ChangedFiles = 2, ChangedSample = ["src/cart.ts", "package.json"], UnpushedByRef = [new RefUnpushed("main", 3, "origin/main")] }, "Storefront for the shop: cart, checkout, orders.", true, CloneStrategy.Blobless),
+            Repo("alex/inventory-api", "alex", @"D:\src\inventory-api", 380 * MB, Now.AddDays(-2), Safe(Now.AddDays(-2)), "REST API for stock levels.", true, CloneStrategy.Blobless),
+            Repo("acme/payments", "alex-acme", @"D:\work\payments", 2_210 * MB, Now.AddDays(-41), Safe(Now.AddDays(-40)), "Payment service.", true, CloneStrategy.Full),
+            Repo("acme/design-system", "alex-acme", @"D:\work\design-system", 940 * MB, Now.AddDays(-95), Safe(Now.AddDays(-96)) with { State = SafetyState.NotSafe, ChangedFiles = 3, ChangedSample = ["src/Button.tsx", "src/Card.tsx", "tokens.json"], Stashes = 1, UntrackedFiles = 2, UntrackedSample = ["notes.md", "scratch.fig"] }, "Components and tokens.", true, CloneStrategy.Blobless),
+            Repo("alex/old-web", "alex", @"D:\src\old-web", 1_160 * MB, Now.AddDays(-122), Safe(Now.AddDays(-122)), "Old marketing site.", false, CloneStrategy.Shallow),
             Repo("alex/ml-notebooks", "alex", @"C:\Users\alex\OneDrive\Code\ml-notebooks", 610 * MB, Now.AddDays(-60),
-                new RemovalSafety { State = SafetyState.NotChecked, Path = @"C:\Users\alex\OneDrive\Code\ml-notebooks", NotCheckedReason = "Some files are online-only in OneDrive; running git would download them." }) with { InCloudFolder = true },
-            Repo("alex/lfs-assets", "alex", @"D:\src\lfs-assets", 3_400 * MB, Now.AddDays(-70), Safe(Now.AddDays(-70)) with { State = SafetyState.Unknown, UsesLfs = true, Problems = ["Uses Git LFS: whether every LFS file is on the server can only be answered by the server."] }),
-            new Project { Id = "alex/dotfiles", Name = "dotfiles", NameWithOwner = "alex/dotfiles", Owner = "alex", Account = "alex", OnGitHub = true, RemoteKB = 2_048, LastActivity = Now.AddDays(-12) },
-        ],
-    };
+                new RemovalSafety { State = SafetyState.NotChecked, Path = @"C:\Users\alex\OneDrive\Code\ml-notebooks", NotCheckedReason = "In OneDrive, not checked: 14 files are only in the cloud, and checking would download them. Make the folder \"Always keep on this device\" to check it." }, "Notebooks and experiments.", true, null) with { InCloudFolder = true },
+            Repo("alex/lfs-assets", "alex", @"D:\src\lfs-assets", 3_400 * MB, Now.AddDays(-70), Safe(Now.AddDays(-70)) with { State = SafetyState.Unknown, UsesLfs = true, Problems = ["Uses Git LFS: whether every LFS file is on the server can only be answered by the server."] }, "Textures and models.", true, CloneStrategy.Blobless),
+            Repo("oss/some-lib", null, @"C:\Users\alex\Downloads\some-lib-main", 45 * MB, Now.AddDays(-9), Safe(Now.AddDays(-9)), "A library cloned into Downloads.", false, null),
+            new Project
+            {
+                Id = @"local:C:\Users\alex\Documents\scratch-notes", Name = "scratch-notes", NameWithOwner = "scratch-notes", LocalPath = @"C:\Users\alex\Documents\scratch-notes", LocalSize = 2 * MB,
+                LastActivity = Now.AddDays(-3), Safety = new RemovalSafety { State = SafetyState.NotSafe, Inspected = true, HasRemote = false, UntrackedFiles = 4, UntrackedSample = ["ideas.md", "todo.txt"], CheckedAt = Now, Path = @"C:\Users\alex\Documents\scratch-notes" },
+            },
+            new Project
+            {
+                Id = @"local:D:\clients\landing-page", Name = "landing-page", NameWithOwner = "landing-page", LocalPath = @"D:\clients\landing-page", LocalSize = 150 * MB, OriginUrl = "https://gitlab.com/client-org/landing-page.git",
+                LastActivity = Now.AddDays(-30), Safety = Safe(Now.AddDays(-30)) with { Path = @"D:\clients\landing-page", Remotes = ["origin"] },
+            },
+            new Project
+            {
+                Id = "alex/api-experiments", Name = "api-experiments", NameWithOwner = "alex/api-experiments", Owner = "alex", Account = "alex", OnGitHub = true, IsPrivate = true, Description = "Rust and Go experiments, kept in Ubuntu.",
+                LocalPath = @"\\wsl.localhost\Ubuntu\home\alex\code\api-experiments", LastActivity = Now.AddDays(-5),
+                Safety = new RemovalSafety { State = SafetyState.NotChecked, Path = @"\\wsl.localhost\Ubuntu\home\alex\code\api-experiments", NotCheckedReason = "In WSL (Ubuntu), read-only: DevSweep lists it but doesn't measure, check or remove it from Windows." },
+            },
+            new Project { Id = "alex/dotfiles", Name = "dotfiles", NameWithOwner = "alex/dotfiles", Owner = "alex", Account = "alex", OnGitHub = true, IsPrivate = false, Description = "Shell, editor and Windows Terminal settings.", RemoteKB = 2_048, LastActivity = Now.AddDays(-12) },
+            new Project { Id = "acme/docs", Name = "docs", NameWithOwner = "acme/docs", Owner = "acme", Account = "alex-acme", OnGitHub = true, IsPrivate = true, Description = "Handbook and runbooks.", RemoteKB = 18_432, LastActivity = Now.AddDays(-20) },
+            new Project { Id = "alex/game-jam", Name = "game-jam", NameWithOwner = "alex/game-jam", Owner = "alex", Account = "alex", OnGitHub = true, IsPrivate = false, Description = "48-hour game jam entry.", RemoteKB = 96_000, LastActivity = Now.AddDays(-200) },
+        ];
+        if (!signedIn)
+        {
+            projects = [.. projects.Where(p => p.OnDisk).Select(p => p with { Account = null })];
+        }
+
+        return new ProjectsSnapshot
+        {
+            Date = Now,
+            Accounts = signedIn
+                ? new GitHubAccounts(GitHubStatus.SignedIn, [new GitHubAccount("alex", true), new GitHubAccount("alex-acme", false)])
+                : new GitHubAccounts(status, [], status == GitHubStatus.NotInstalled ? "The GitHub CLI isn't installed." : "No GitHub account is signed in."),
+            Identities = signedIn
+                ? new Dictionary<string, GitIdentity> { ["alex"] = new("Alex Doe", "alex@example.com") }
+                : new Dictionary<string, GitIdentity>(),
+            Projects = projects,
+            Search = new DevSweep.Core.Projects.Discovery.FinderResult
+            {
+                Searched = [@"C:\Users\alex\Code", @"C:\Users\alex\Documents\GitHub", @"D:\src", @"D:\work", @"D:\clients", @"C:\Users\alex\Downloads"],
+                CloudOnlyFolders = [@"C:\Users\alex\OneDrive\Archive\old-code"],
+                LinksNotFollowed = 2,
+            },
+            DeepSearch = new DevSweep.Core.Projects.Storage.DeepSearchSummary
+            {
+                Date = Now.AddDays(-1),
+                Roots = [@"C:\", @"D:\", @"\\wsl.localhost\Ubuntu"],
+                Folders = 482_113,
+                Repos = projects.Count(p => p.OnDisk),
+                Seconds = 134,
+                Complete = true,
+                Unreadable = 12,
+                CloudOnly = 1,
+                CloudOnlySample = [@"C:\Users\alex\OneDrive\Archive\old-code"],
+                LinksNotFollowed = 31,
+                BareRepos = 1,
+            },
+            Wsl = [new DevSweep.Core.Projects.Discovery.WslDistro("Ubuntu", true), new DevSweep.Core.Projects.Discovery.WslDistro("Debian", false)],
+        };
+    }
 
     public static IReadOnlyList<ActivityEntry> Activity { get; } =
     [
+        new ActivityEntry { Date = Now.AddMinutes(-20), Kind = ActivityKind.Search, Subject = "This PC", Detail = "Looked through 482,113 folders on 2 drives and found 11 repositories" },
         new ActivityEntry { Date = Now.AddHours(-3), Kind = ActivityKind.Push, Subject = "alex/web-shop", Detail = "Started pushing 3 commits as alex" },
+        new ActivityEntry { Date = Now.AddHours(-4), Kind = ActivityKind.Fetch, Subject = @"D:\src\web-shop", Detail = "Fetched to compare with the remote as alex" },
         new ActivityEntry { Date = Now.AddDays(-1), Kind = ActivityKind.Download, Subject = "acme/payments", Detail = "Downloaded (blobless) as alex-acme into D:\\work\\payments" },
-        new ActivityEntry { Date = Now.AddDays(-4), Kind = ActivityKind.Remove, Subject = "alex/tutorial-app", Detail = "Removed from this PC (fully pushed); in the Recycle Bin" },
-        new ActivityEntry { Date = Now.AddDays(-9), Kind = ActivityKind.SignIn, Subject = "alex-acme", Detail = "Signed in" },
+        new ActivityEntry { Date = Now.AddDays(-1).AddHours(-2), Kind = ActivityKind.Publish, Subject = "alex/scratch-site", Detail = "Published as alex (private)" },
+        new ActivityEntry { Date = Now.AddDays(-4), Kind = ActivityKind.Remove, Subject = "alex/tutorial-app", Detail = "Freed 410 MB from D:\\src\\tutorial-app. In the Recycle Bin; restore from History or download it again." },
+        new ActivityEntry { Date = Now.AddDays(-4).AddHours(-1), Kind = ActivityKind.AddRepo, Subject = "oss/some-lib", Detail = "Added by URL (readable by alex)" },
+        new ActivityEntry { Date = Now.AddDays(-9), Kind = ActivityKind.SignIn, Subject = "alex-acme", Detail = "Started signing in" },
+        new ActivityEntry { Date = Now.AddDays(-9).AddMinutes(-3), Kind = ActivityKind.Identity, Subject = "alex", Detail = "Commits are now made as Alex Doe <alex@example.com>" },
     ];
 
-    private static Project Repo(string slug, string account, string path, long bytes, DateTimeOffset lastUsed, RemovalSafety safety) => new()
+    private static Project Repo(string slug, string? account, string path, long bytes, DateTimeOffset lastUsed, RemovalSafety safety, string description = "", bool isPrivate = true, CloneStrategy? strategy = null) => new()
     {
         Id = slug,
         Name = slug.Split('/')[1],
@@ -435,6 +498,9 @@ public static class SampleData
         Owner = slug.Split('/')[0],
         Account = account,
         OnGitHub = true,
+        Description = description,
+        IsPrivate = isPrivate,
+        Strategy = strategy,
         LocalPath = path,
         LocalSize = bytes,
         LastActivity = lastUsed,

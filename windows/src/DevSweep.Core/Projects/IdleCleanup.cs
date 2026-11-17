@@ -50,7 +50,7 @@ public static class IdleCleanup
         int d = Clamp(days);
         DateTimeOffset cutoff = now.AddDays(-d);
         List<IdleProject> idle = projects
-            .Where(p => p.OnDisk && (p.LastUsed ?? DateTimeOffset.MinValue) < cutoff)
+            .Where(p => p.OnDisk && !p.IsWsl && (p.LastUsed ?? DateTimeOffset.MinValue) < cutoff)
             .OrderByDescending(p => p.LocalSize)
             .Select(p => new IdleProject(p, p.LocalSize, false, Reasons(p)))
             .ToList();

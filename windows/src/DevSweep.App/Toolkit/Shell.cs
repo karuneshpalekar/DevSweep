@@ -34,6 +34,22 @@ internal static class Shell
         }
     }
 
+    /// <summary>Opens a folder in File Explorer.</summary>
+    public static void OpenFolder(string path)
+    {
+        try
+        {
+            string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            var start = new ProcessStartInfo(Path.Join(windows, "explorer.exe")) { UseShellExecute = false };
+            start.ArgumentList.Add(path);
+            using Process? process = Process.Start(start);
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // Explorer could not be started; nothing else to do.
+        }
+    }
+
     /// <summary>Opens a web address (http or https only) in the default browser.</summary>
     public static void OpenUrl(string url)
     {

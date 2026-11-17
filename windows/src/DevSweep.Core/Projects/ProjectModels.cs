@@ -162,6 +162,18 @@ public sealed record Project
 
     public bool OnDisk => LocalPath is not null;
 
+    /// <summary>The clone's <c>origin</c> with any credentials removed; null when it has none.</summary>
+    public string? OriginUrl { get; init; }
+
+    /// <summary>The server of a clone whose <c>origin</c> is not GitHub (GitLab, Azure DevOps, a self-hosted server...); null otherwise.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? OtherHost
+        => OnDisk && !OnGitHub && OriginUrl is { Length: > 0 } url && RemoteUrls.Parse(url).Host is { } host ? host : null;
+
+    /// <summary>The folder is inside a WSL distribution: listed read-only, never measured, checked or removed from here.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsWsl => Discovery.WslDiscovery.IsWslPath(LocalPath);
+
     /// <summary>How recently it was used: opened here, else its last activity.</summary>
     public DateTimeOffset? LastUsed => (LastOpened, LastActivity) switch
     {
@@ -185,6 +197,11 @@ public sealed record Project
             if (!OnDisk)
             {
                 return ("Only on GitHub", StatusLevel.Info);
+            }
+
+            if (IsWsl)
+            {
+                return ("In WSL, read-only", StatusLevel.Info);
             }
 
             if (Safety is not { } s)

@@ -48,6 +48,16 @@ internal static class Icons
     public const string Filter = "";
     public const string Shield = "";
     public const string Update = "";
+    public const string Add = "\uE710";
+    public const string Code = "\uE943";
+    public const string OpenInNew = "\uE8A7";
+    public const string Upload = "\uE898";
+    public const string Person = "\uE77B";
+    public const string PersonAdd = "\uE8FA";
+    public const string Clock = "\uE823";
+    public const string Edit = "\uE70F";
+    public const string Tag = "\uE8EC";
+    public const string Wsl = "\uE756";
 
     // Health
     public const string Terminal = "\uE756";

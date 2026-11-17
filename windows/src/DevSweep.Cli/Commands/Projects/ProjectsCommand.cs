@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Globalization;
 using System.Text.Json;
 using DevSweep.Core.Projects;
+using DevSweep.Core.Projects.Discovery;
 using DevSweep.Core.Projects.Actions;
 using DevSweep.Core.Projects.Git;
 using DevSweep.Core.Projects.GitHub;
@@ -36,6 +37,7 @@ internal static class ProjectsCommand
         command.Subcommands.Add(Cleanup());
         command.Subcommands.Add(Accounts());
         command.Subcommands.Add(Activity());
+        command.Subcommands.Add(Find());
         command.Subcommands.Add(Remove());
         command.Subcommands.Add(Download());
         command.Subcommands.Add(Add());
@@ -184,6 +186,53 @@ internal static class ProjectsCommand
                 Console.Out.WriteLine("note: " + m);
             }
 
+            return 0;
+        });
+        return command;
+    }
+
+    private static Command Find()
+    {
+        var json = new Option<bool>("--json") { Description = "Print the result as JSON." };
+        var roots = new Option<string[]>("--root") { Description = "Search these folders only (nothing is remembered). Repeatable. Without it: every fixed drive, and what is found is remembered." };
+        var removable = new Option<bool>("--removable") { Description = "Include removable drives." };
+        var command = new Command("find", "Find every git repository on this PC (every fixed drive, folder names only), skipping node_modules, .git insides, system folders and links.");
+        command.Options.Add(json);
+        command.Options.Add(roots);
+        command.Options.Add(removable);
+        command.SetAction(async (parse, ct) =>
+        {
+            if (ProjectsCli.Open() is not { } service)
+            {
+                return ProjectsCli.TurnedOff;
+            }
+
+            var progress = new Progress<DeepSearchProgress>(p => Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {p.Folders:N0} folders, {p.Repos} repositories  {p.Current}")));
+            string[]? only = parse.GetValue(roots);
+            DeepSearchResult result;
+            if (only is { Length: > 0 })
+            {
+                result = await DeepSearch.RunAsync(new DeepSearchOptions { Roots = only, Progress = progress }, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                result = (await service.DeepSearchAsync(progress, parse.GetValue(removable), ct).ConfigureAwait(false)).Local;
+            }
+
+            if (parse.GetValue(json))
+            {
+                Console.Out.WriteLine(JsonSerializer.Serialize(result, ProjectsCliJsonContext.Default.DeepSearchResult));
+                return 0;
+            }
+
+            foreach (FoundRepo repo in result.Repos)
+            {
+                Console.Out.WriteLine(repo.Path);
+            }
+
+            Console.Out.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"Searched {string.Join(", ", result.Roots)}: {result.FoldersVisited:N0} folders in {result.Elapsed.TotalSeconds:0.0} s ({result.FoldersPerSecond:N0} folders/s), {result.Repos.Count} repositories, "
+                + $"{result.Pruned:N0} dependency and system folders skipped, {result.Unreadable:N0} folders unreadable, {result.LinksNotFollowed:N0} links and {result.CloudOnly:N0} cloud-only folders not entered, {result.BareRepos} bare repositories left out; {(result.Complete ? "finished" : "stopped: " + result.Stopped)}."));
             return 0;
         });
         return command;

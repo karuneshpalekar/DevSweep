@@ -110,7 +110,7 @@ public sealed class CloneInspector(IGit git, IItemMeasurer? measurer = null, IRe
     private static IItemMeasurer DefaultMeasurer => OperatingSystem.IsWindows() ? WalkerMeasurer.Instance : ManagedMeasurer.Instance;
 
     /// <summary><c>[remote "origin"] url</c> from <c>.git\config</c>, read only when that file is on this disk (not a placeholder).</summary>
-    private static string? ReadOriginWithoutGit(string repo)
+    internal static string? ReadOriginWithoutGit(string repo)
     {
         string config = System.IO.Path.Join(repo, ".git", "config");
         if (FileProbe.Stat(config) is not { IsCloudPlaceholder: false, IsDirectory: false })
