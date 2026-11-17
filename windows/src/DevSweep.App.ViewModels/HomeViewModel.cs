@@ -30,7 +30,8 @@ public sealed record VolumeRow(VolumeSpace Volume, long Cleanable)
 public sealed record ChangeRow(string Tag, Tone Tone, string Title, string Value);
 
 /// <summary>Something that needs attention.</summary>
-public sealed record AttentionRow(string Tag, Tone Tone, string Text, string Place);
+/// <param name="Item">For Health rows: the item it is about ("tool:node", "security:&lt;id&gt;", "port:&lt;id&gt;"), so a click opens its panel.</param>
+public sealed record AttentionRow(string Tag, Tone Tone, string Text, string Place, string? Item = null);
 
 /// <summary>Home: free space per volume, what can be cleaned, what changed, and what needs attention.</summary>
 public sealed partial class HomeViewModel : ObservableObject
@@ -139,18 +140,18 @@ public sealed partial class HomeViewModel : ObservableObject
         {
             foreach (SecurityFinding item in _health.NeedsAction.OrderBy(f => f.Level).Take(2))
             {
-                Attention.Add(new AttentionRow("Security", item.Level == SecurityLevel.Critical ? Tone.Critical : Tone.Caution, $"{item.Title}: {item.Status}. {item.WhatToDo}", "health"));
+                Attention.Add(new AttentionRow("Security", item.Level == SecurityLevel.Critical ? Tone.Critical : Tone.Caution, $"{item.Title}: {item.Status}. {item.WhatToDo}", "health", "security:" + item.Id));
             }
 
             foreach (RuntimeReport tool in (health.Versions?.Runtimes ?? []).Where(t => t.NeedsAttention).Take(2))
             {
                 RuntimeIssue issue = tool.Issues.OrderBy(i => i.Level).First();
-                Attention.Add(new AttentionRow("Health", issue.Level == IssueLevel.Critical ? Tone.Critical : Tone.Caution, $"{tool.Name}: {issue.Text}", "health"));
+                Attention.Add(new AttentionRow("Health", issue.Level == IssueLevel.Critical ? Tone.Critical : Tone.Caution, $"{tool.Name}: {issue.Text}", "health", "tool:" + tool.Id));
             }
 
             foreach (ListeningPort port in _health.DevelopmentPorts.Where(p => p.ReachableFromNetwork).Take(1))
             {
-                Attention.Add(new AttentionRow("Ports", Tone.Caution, $"{port.Label} on port {port.Port} listens on every network interface, so other devices may reach it.", "health"));
+                Attention.Add(new AttentionRow("Ports", Tone.Caution, $"{port.Label} on port {port.Port} listens on every network interface, so other devices may reach it.", "health", "port:" + port.Id));
             }
         }
 

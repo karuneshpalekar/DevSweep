@@ -26,7 +26,14 @@ public static partial class PackageParsers
             return new ParsedPackages([], exitCode == WingetNothingFound);
         }
 
-        List<int> starts = [.. HeadingColumns().Matches(lines[rule - 1]).Select(m => m.Index)];
+        // Name Id Version Available Source: one word each in most languages (and "Available Source" is often one space apart), so words first;
+        // a heading with multi-word names falls back to columns two or more spaces apart.
+        List<int> starts = [.. Words().Matches(lines[rule - 1]).Select(m => m.Index)];
+        if (starts.Count is not (4 or 5))
+        {
+            starts = [.. HeadingColumns().Matches(lines[rule - 1]).Select(m => m.Index)];
+        }
+
         if (starts.Count < 4)
         {
             return new ParsedPackages([], false);
@@ -129,6 +136,9 @@ public static partial class PackageParsers
 
     [GeneratedRegex(@"^-{5,}\s*$")]
     private static partial Regex Dashes();
+
+    [GeneratedRegex(@"\S+")]
+    private static partial Regex Words();
 
     [GeneratedRegex(@"\S+(?:\s\S+)*(?=\s{2,}|\s*$)")]
     private static partial Regex HeadingColumns();
