@@ -58,18 +58,21 @@ Updated by P0 (design system): rows marked *built (P0)* are in; they move to *ve
 
 ## Projects (P1)
 
+Status after P1: *built (P1)*; rows move to *verified-by-screenshot* once the `windows-p1-projects` shots were looked at (see `p1-projects.md`).
+
 | Mac feature | Windows screen | Status | Milestone |
 |---|---|---|---|
-| Show filter All / On this PC / On GitHub with counts | none | not started | P1 |
-| Account filter | none | not started | P1 |
-| Search (name, owner, description) | none | not started | P1 |
-| Get a project menu (Add by URL, Publish a folder, Refresh) | Refresh only | not started | P1 |
-| Rows: lock, path or description, status tag, size, used 3d ago, Download | partial | not started | P1 |
-| Detail side panel with "Is it safe to remove?" checklist and verdict | none | not started | P1 |
-| Open in editor, Show in Explorer, Open on GitHub, Push, Publish, Remove | partial | not started | P1 |
-| Clone, Publish, Add by URL, Add account sheets | none | not started | P1 |
-| GitHub set-up card | none | not started | P1 |
-| Deep search of every drive, what was searched, Add folder | none | not started | P1 |
+| Show filter All / On this PC / On GitHub with counts | Segmented control in the command bar | built (P1) | P1 |
+| Account filter (2+ accounts) | Combo box in the command bar | built (P1) | P1 |
+| Search (name, owner, description), Ctrl+F | Command bar search box | built (P1) | P1 |
+| Get a project menu (Add by URL, Publish, Find all repos, Add folder, Refresh) | Drop-down in the command bar | built (P1) | P1 |
+| Rows: lock, path or description, status tag, size, used 3d ago, Download; virtualised | `VirtualList` of `ListRow`s | built (P1) | P1 |
+| Detail side panel with "Is it safe to remove?" checklist and verdict | `SidePanel` | built (P1) | P1 |
+| Open in editor (VS Code, Insiders, Visual Studio, Rider, Cursor, Windsurf), Show in Explorer, Open on GitHub, Push, Publish, Remove | Panel buttons; editor choice in Settings | built (P1) | P1 |
+| Clone, Publish, Add by URL, Add account sheets | `SheetFrame` sheets | built (P1) | P1 |
+| GitHub set-up card (gh missing, not signed in) | Card above the list | built (P1) | P1 |
+| Deep search of every drive, what was searched, Add folder, WSL | Consent card, progress card, search report, Settings | built (P1) | P1 |
+| Cleanup tab, Accounts tab (identity editor), Activity tab (kinds, days) | Tabs | built (P1) | P1 |
 
 ## Health (P2)
 
