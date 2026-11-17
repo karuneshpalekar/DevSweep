@@ -344,7 +344,7 @@ internal static class SettingsParts
                 SettingsView.Setting("Last scan", null, last),
                 SettingsView.Setting("Scan report", "Lists each check, how long it took and what it found, how many sizes are partial, which folders Windows blocked, and your Windows build. It has no file or project names. Paste it into an email or a GitHub issue.", hint, copyReport),
                 SettingsView.Setting("Diagnostics", "DevSweep's version, the Windows build, which modules are on and the feature switch. No file names.", copyDiagnostics),
-                SettingsView.Setting("Log folder", "DevSweep's log file is in your temporary folder.", Ui.Button("Open log folder", () => Shell.OpenFolder(logFolder), "Open the log folder")),
+                SettingsView.Setting("Log folder", "DevSweep's log file is in your temporary folder.", Ui.Button("Open log folder", () => Shell.OpenFolder(logFolder), "Open log folder")),
             ]);
     }
 
