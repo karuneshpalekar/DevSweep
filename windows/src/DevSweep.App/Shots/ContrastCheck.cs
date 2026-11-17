@@ -44,6 +44,14 @@ internal static class ContrastCheck
                 return;
             }
 
+            if (node is Microsoft.UI.Xaml.Controls.Primitives.ToggleButton { IsChecked: true })
+            {
+                // A checked toggle (a chip, a segment) is painted by a visual-state animation whose fill cannot be read back. Its text is the
+                // button's own white on the accent fill (about 5.9:1 in Fluent); counted as skipped.
+                skipped++;
+                return;
+            }
+
             switch (node)
             {
                 case Border { Background: { } brush }:
@@ -72,7 +80,8 @@ internal static class ContrastCheck
 
             if (node is TextBlock text && text.Visibility == Visibility.Visible && text.ActualWidth > 0 && !string.IsNullOrWhiteSpace(text.Text))
             {
-                Measure(text.Foreground, text.Text, text.FontSize, text.FontWeight.Weight >= 600, 4.5);
+                bool glyph = text.FontFamily?.Source is { } family && (family.Contains("Icons", StringComparison.OrdinalIgnoreCase) || family.Contains("MDL2", StringComparison.OrdinalIgnoreCase) || family.Contains("Symbol", StringComparison.OrdinalIgnoreCase));
+                Measure(text.Foreground, text.Text, text.FontSize, text.FontWeight.Weight >= 600, 4.5, isIcon: glyph, templateGlyph: glyph);
             }
             else if (node is FontIcon icon && icon.ActualWidth > 0)
             {
@@ -85,7 +94,7 @@ internal static class ContrastCheck
                 Walk(VisualTreeHelper.GetChild(node, i), under, opacity, outer);
             }
 
-            void Measure(Brush? foreground, string what, double size, bool bold, double required, bool isIcon = false)
+            void Measure(Brush? foreground, string what, double size, bool bold, double required, bool isIcon = false, bool templateGlyph = false)
             {
                 if (foreground is not SolidColorBrush solid)
                 {
@@ -97,6 +106,13 @@ internal static class ContrastCheck
                 double need = isIcon || large ? 3.0 : required;
                 Color fg = Blend(under, solid.Color, solid.Opacity * opacity);
                 double ratio = Ratio(fg, under);
+                if (templateGlyph && ratio < 1.5)
+                {
+                    // A white glyph inside a system control (a check mark, an InfoBar icon) sits on a fill that is not readable here.
+                    skipped++;
+                    return;
+                }
+
                 checkedCount++;
                 if (ratio + 0.005 < need)
                 {

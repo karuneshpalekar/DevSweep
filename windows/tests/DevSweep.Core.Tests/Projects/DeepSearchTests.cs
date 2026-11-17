@@ -188,9 +188,13 @@ public sealed class DeepSearchTests : IDisposable
         }
 
         Repo("found-me");
-        var reports = new List<DeepSearchProgress>();
-        DeepSearch.Run(new DeepSearchOptions { Roots = [_root], Progress = new Progress<DeepSearchProgress>(reports.Add) }, TestContext.Current.CancellationToken);
-        Thread.Sleep(200);
+        // Progress<T> posts each report to the thread pool, so reports arrive on several threads and a little after Run returns.
+        var reports = new System.Collections.Concurrent.ConcurrentQueue<DeepSearchProgress>();
+        DeepSearch.Run(new DeepSearchOptions { Roots = [_root], Progress = new Progress<DeepSearchProgress>(reports.Enqueue) }, TestContext.Current.CancellationToken);
+        for (int i = 0; i < 100 && reports.IsEmpty; i++)
+        {
+            Thread.Sleep(50);
+        }
 
         Assert.NotEmpty(reports);
         Assert.Contains(reports, r => r.Folders > 0);
