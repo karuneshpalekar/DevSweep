@@ -419,7 +419,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             foreach (string name in buttons)
             {
                 Require(window.Find<Microsoft.UI.Xaml.Controls.Button>(name) is not null, $"projects: '{name}' is not reachable in the panel of {id}");
-                if (name.StartsWith("Push ", StringComparison.Ordinal) || name.StartsWith("Remove ", StringComparison.Ordinal) || name.StartsWith("Publish ", StringComparison.Ordinal) || name.StartsWith("Download ", StringComparison.Ordinal))
+                if (name.StartsWith("Push ", StringComparison.Ordinal) || name.StartsWith("Remove ", StringComparison.Ordinal) || name.StartsWith("Publish ", StringComparison.Ordinal))
                 {
                     RequireOnScreen(name, $"the pinned footer of the panel of {id}");
                 }

@@ -27,7 +27,7 @@ internal static class ContrastCheck
         int skipped = 0;
         Color baseColor = root.ActualTheme == ElementTheme.Dark ? Color.FromArgb(255, 32, 32, 32) : Color.FromArgb(255, 243, 243, 243);
 
-        void Walk(DependencyObject node, Color under, double opacity, bool painted = false)
+        void Walk(DependencyObject node, Color under, double opacity, Color? outer = null)
         {
             if (node is UIElement ui)
             {
@@ -52,13 +52,21 @@ internal static class ContrastCheck
                 case Panel { Background: { } brush }:
                     under = Over(under, brush, opacity);
                     break;
-                case ContentPresenter { Background: { } brush } when !painted:
+                case ContentPresenter { Background: { } brush } when outer is { } before:
+                    // The presenter of a button's template paints the fill that is showing now (hover, checked); it replaces the button's own.
+                    under = Over(before, brush, opacity);
+                    outer = null;
+                    break;
+                case ContentPresenter { Background: { } brush }:
                     under = Over(under, brush, opacity);
                     break;
                 case Microsoft.UI.Xaml.Controls.Primitives.ButtonBase { Background: { } brush }:
-                    // A button's fill is painted by its template's presenter; read it from the button itself so an accent fill is never missed.
+                    // Read the button's own fill too, so an accent fill is never missed when its presenter paints nothing.
+                    outer = under;
                     under = Over(under, brush, opacity);
-                    painted = true;
+                    break;
+                case Microsoft.UI.Xaml.Shapes.Shape { Fill: { } brush }:
+                    under = Over(under, brush, opacity);
                     break;
             }
 
@@ -74,7 +82,7 @@ internal static class ContrastCheck
             int count = VisualTreeHelper.GetChildrenCount(node);
             for (int i = 0; i < count; i++)
             {
-                Walk(VisualTreeHelper.GetChild(node, i), under, opacity, painted);
+                Walk(VisualTreeHelper.GetChild(node, i), under, opacity, outer);
             }
 
             void Measure(Brush? foreground, string what, double size, bool bold, double required, bool isIcon = false)
