@@ -1,6 +1,6 @@
 # Windows parity and polish plan
 
-Status: **approved 2026-11-16** (decisions in section 6). **P0 merged** (design system, screenshot loop on branch `windows-screenshots`, Home / Clean up / Review / History restyled). **P0, P1 (Projects) and P2 (Health) merged.** **P3 (Settings, Home, tray) and P4 (Clean up, Review, History final pass) merged.** Next: P5 sign-off.
+Status: **approved 2026-11-16** (decisions in section 6). **P0 merged** (design system, screenshot loop on branch `windows-screenshots`, Home / Clean up / Review / History restyled). **P0, P1 (Projects) and P2 (Health) merged.** **P3 and P4 merged. P5: release candidate 0.2.0 built by CI (all 4 jobs green on b77ccc0 plus the version bump), walk-through in `p5-walkthrough.md`; waiting on the user sign-off.**
 
 ## 1. What was reported
 
