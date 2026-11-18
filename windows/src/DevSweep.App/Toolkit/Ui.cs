@@ -198,7 +198,8 @@ internal static class Ui
         "SystemFillColorCriticalBrush" => "Critical",
         "TextFillColorSecondaryBrush" => "Secondary",
         "TextFillColorTertiaryBrush" => "Tertiary",
-        "AccentFillColorDefaultBrush" or "AccentTextFillColorPrimaryBrush" => "Accent",
+        "AccentFillColorDefaultBrush" => "Accent",
+        "AccentTextFillColorPrimaryBrush" => "AccentText",
         "TextFillColorPrimaryBrush" => "Primary",
         _ => throw new ArgumentOutOfRangeException(nameof(brushKey), brushKey, "No tint style for this brush."),
     };

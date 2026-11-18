@@ -302,6 +302,9 @@ internal static class Theme
             <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
           </Style>
+          <Style x:Key="DsIconAccentText" TargetType="FontIcon">
+            <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+          </Style>
           <Style x:Key="DsChoice" TargetType="Border">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="{ThemeResource ControlStrongStrokeColorDefaultBrush}" />
