@@ -57,8 +57,10 @@ internal static class SidebarView
         var grid = new Grid { ColumnSpacing = Tokens.Space2, HorizontalAlignment = HorizontalAlignment.Stretch };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        TextBlock name = Ui.Text(title, maxLines: 1);
-        TextBlock count = Ui.Caption(string.Empty);
+        // No Foreground set on purpose: inside a selected NavigationViewItem the text must follow the item's own
+        // foreground, or it stays white on the high-contrast selection colour.
+        var name = new TextBlock { Text = title, MaxLines = 1, TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center };
+        var count = new TextBlock { FontSize = 12, Opacity = 0.8, MaxLines = 1 };
         Grid.SetColumn(count, 1);
         count.VerticalAlignment = VerticalAlignment.Center;
         grid.Children.Add(name);
