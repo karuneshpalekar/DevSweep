@@ -209,6 +209,29 @@ internal sealed class TrayFlyoutWindow : Window
         AppWindow.ResizeClient(new SizeInt32(width, height));
         AppWindow.Show();
         Activate();
+        _anchor = new PointInt32(x, y);
+        DispatcherQueue.TryEnqueue(Reflow);
+    }
+
+    private PointInt32 _anchor;
+
+    /// <summary>Measures again now that the content is on screen with its real fonts, and grows or shrinks the window to fit (keeping the bottom edge where it was).</summary>
+    public void Reflow()
+    {
+        _host.UpdateLayout();
+        double scale = Win32Window.GetDpiForWindow(WinRT.Interop.WindowNative.GetWindowHandle(this)) / 96.0;
+        _host.Measure(new Windows.Foundation.Size(TrayFlyoutView.Width, double.PositiveInfinity));
+        int height = (int)Math.Ceiling(_host.DesiredSize.Height * scale) + 4;
+        int width = (int)Math.Ceiling(TrayFlyoutView.Width * scale);
+        if (Math.Abs(AppWindow.ClientSize.Height - height) < 3)
+        {
+            return;
+        }
+
+        int bottom = AppWindow.Position.Y + AppWindow.Size.Height;
+        AppWindow.ResizeClient(new SizeInt32(width, height));
+        int top = Math.Max(0, bottom - AppWindow.Size.Height);
+        AppWindow.Move(new PointInt32(AppWindow.Position.X, top));
     }
 
     /// <summary>When it was last hidden (a click on the tray icon deactivates it first, and must not reopen it at once).</summary>

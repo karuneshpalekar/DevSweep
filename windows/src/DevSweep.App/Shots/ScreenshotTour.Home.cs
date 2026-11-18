@@ -99,6 +99,8 @@ internal sealed partial class ScreenshotTour
             flyout = new TrayFlyoutWindow(model.Background.Tray, () => window.ActualTheme);
             flyout.ShowAt(500, 700);
             await Task.Delay(500);
+            flyout.Reflow();
+            await Task.Delay(300);
             flyout.Root.UpdateLayout();
             Require(Contains(flyout.Root, "Scan now") && Contains(flyout.Root, "Open DevSweep") && Contains(flyout.Root, "Settings"), "tray flyout: Scan now, Open DevSweep or Settings is missing");
             (int width, int height) = await PngCapture.SaveAsync(flyout.Root, Path.Join(folder, $"tray-flyout-{suffix}.png"));
