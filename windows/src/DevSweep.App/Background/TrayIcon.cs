@@ -57,6 +57,9 @@ internal sealed unsafe partial class TrayIcon : IDisposable
         Added = AddIcon();
     }
 
+    /// <summary>Left click: asks the host to show the flyout at the cursor (screen pixels). Without a handler a click opens DevSweep.</summary>
+    public Action<int, int>? FlyoutRequested { get; set; }
+
     /// <summary>Where the icon came from: the logo file, or the drawn fallback (the smoke test requires the file).</summary>
     public string IconSource { get; }
 
@@ -164,7 +167,17 @@ internal sealed unsafe partial class TrayIcon : IDisposable
             switch ((uint)lParam & 0xFFFF)
             {
                 case TrayNative.NinSelect or TrayNative.NinKeySelect or TrayNative.WmLButtonUp:
-                    _model.Execute(new TrayItem("Open DevSweep", TrayCommand.OpenWindow));
+                    if (FlyoutRequested is { } flyout)
+                    {
+                        TrayNative.Point cursor = default;
+                        TrayNative.GetCursorPos(&cursor);
+                        flyout(cursor.X, cursor.Y);
+                    }
+                    else
+                    {
+                        _model.Execute(new TrayItem("Open DevSweep", TrayCommand.OpenWindow));
+                    }
+
                     break;
                 case TrayNative.WmContextMenu or TrayNative.WmRButtonUp:
                     ShowMenu();

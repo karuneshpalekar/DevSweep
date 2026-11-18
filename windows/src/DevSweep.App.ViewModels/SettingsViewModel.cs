@@ -29,19 +29,10 @@ public sealed partial class ModuleToggle(ModuleInfo module, Action<string, bool>
     partial void OnIsOnChanged(bool value) => apply(Module.Id, value);
 }
 
-/// <summary>The pages of Settings.</summary>
-public enum SettingsTab
-{
-    General,
-    Modules,
-    Background,
-    Alerts,
-    Updates,
-}
-
 /// <summary>
-/// Settings: appearance, project folders, ignored items, modules, scan options; open at login and
-/// scheduled scans; alerts; updates and about.
+/// Settings, one scrolling page like the Mac's: appearance, updates, open at login, scheduled scans, alerts, GitHub accounts,
+/// downloads, project folders, ignored items, default editor, scanning, permissions and privacy, troubleshooting, modules, about.
+/// The sections and their search words are <see cref="SettingsSections"/>.
 /// </summary>
 public sealed partial class SettingsViewModel : ObservableObject
 {
@@ -60,15 +51,31 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly AppSettingsStore _settings;
     private readonly IDevSweepBackend _backend;
     private readonly BackgroundServices? _background;
+    private readonly ScanViewModel? _scan;
     private bool _loading;
 
-    public SettingsViewModel(AppSettingsStore settings, IDevSweepBackend backend, BackgroundServices? background = null)
+    public SettingsViewModel(AppSettingsStore settings, IDevSweepBackend backend, BackgroundServices? background = null, ScanViewModel? scan = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(backend);
         _settings = settings;
         _backend = backend;
         _background = background;
+        _scan = scan;
+        if (scan is not null)
+        {
+            scan.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName is nameof(ScanViewModel.Report) or nameof(ScanViewModel.Findings))
+                {
+                    OnPropertyChanged(nameof(HasScanReport));
+                    OnPropertyChanged(nameof(ScanReportSummary));
+                    OnPropertyChanged(nameof(BlockedFolderCount));
+                    OnPropertyChanged(nameof(PermissionsText));
+                }
+            };
+        }
+
         _loading = true;
         LoadBackgroundSettings();
         Appearance = settings.Current.Appearance;
@@ -125,8 +132,67 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool CheckForUpdates { get; set; }
 
+    /// <summary>What is typed in "Search settings"; the page shows only the matching sections.</summary>
     [ObservableProperty]
-    public partial SettingsTab Tab { get; set; }
+    [NotifyPropertyChangedFor(nameof(VisibleSections))]
+    public partial string Search { get; set; } = string.Empty;
+
+    /// <summary>A section id the page should scroll to as soon as it is on screen (Home's "Open Settings" asks for permissions); the page clears it.</summary>
+    [ObservableProperty]
+    public partial string? JumpTo { get; set; }
+
+    public IReadOnlyList<SettingsSection> VisibleSections => SettingsSections.Matching(Search);
+
+    public bool Shows(string sectionId) => VisibleSections.Any(s => s.Id == sectionId);
+
+    /// <summary>The folders DevSweep looks in for projects: the ones added, then the usual ones (see <see cref="FolderRows"/>).</summary>
+    public ObservableCollection<FolderRow> FolderRows { get; } = [];
+
+    /// <summary>How a folder is tested (tests replace it; the default really looks at the disk).</summary>
+    public Func<string, FolderState> FolderProbe { get; set; } = Settings.FolderRows.Probe;
+
+    /// <summary>Looks at every listed folder again (the page does this when it opens; a folder can appear, or be blocked, any time).</summary>
+    public void RefreshFolders()
+    {
+        FolderRows.Clear();
+        foreach (FolderRow row in Settings.FolderRows.Build(_settings.Current.ProjectFolders, _backend.ProfilePath, FolderProbe))
+        {
+            FolderRows.Add(row);
+        }
+    }
+
+    // Troubleshooting and permissions
+
+    /// <summary>True once a scan has finished: the report can be copied.</summary>
+    public bool HasScanReport => _scan?.HasScanned ?? false;
+
+    /// <summary>"Finished in 16 s · 50 checks · 1 folder not readable", or "Run a scan first."</summary>
+    public string ScanReportSummary => _scan?.Report?.Summary ?? "Run a scan first.";
+
+    /// <summary>The text "Copy report" puts on the clipboard: per-check timings and results, partial sizes, blocked folders, the Windows build. No file or project names.</summary>
+    public string ScanReportText()
+        => ReportText.Scan(_scan?.Report, _scan?.Findings.Count ?? 0, _scan?.TotalBytes ?? 0, _backend.Volumes().FirstOrDefault(v => v.IsSystem), AppInfo.Version, ReportText.WindowsBuild(), _backend.ProfilePath);
+
+    /// <summary>The text "Copy diagnostics" puts on the clipboard: version, Windows, modules, switches.</summary>
+    public string DiagnosticsText()
+        => ReportText.Diagnostics(AppInfo.Version, ReportText.WindowsBuild(), _backend.Modules, Environment.GetEnvironmentVariable("DEVSWEEP_FEATURES"), _backend.DataFolder, _backend.ProfilePath);
+
+    /// <summary>Folders the last scan could not read plus listed project folders that Windows blocks.</summary>
+    public int BlockedFolderCount => (_scan?.Report?.AccessDenied.Count ?? 0) + FolderRows.Count(r => r.State == FolderState.Denied);
+
+    /// <summary>The Permissions line: all fine, or how many folders Windows blocked and what to do.</summary>
+    public string PermissionsText => BlockedFolderCount == 0
+        ? "Nothing is blocked. DevSweep can read every folder it looked at, as you."
+        : $"{(BlockedFolderCount == 1 ? "One folder" : BlockedFolderCount + " folders")} couldn't be read, so a few leftovers can be missed. This is usually Controlled folder access (Windows Security, Virus and threat protection, Ransomware protection). Allowing DevSweep there lets it look; DevSweep never changes the setting itself.";
+
+    /// <summary>Windows Security's Ransomware protection page (Controlled folder access).</summary>
+    public static Uri RansomwareProtectionUri => new("windowsdefender://ransomwareprotection");
+
+    /// <summary>Windows Settings, Privacy and security.</summary>
+    public static Uri PrivacySettingsUri => new("ms-settings:privacy");
+
+    /// <summary>Windows Settings, System, Notifications.</summary>
+    public static Uri NotificationSettingsUri => new("ms-settings:notifications");
 
     /// <summary>The "Check now" sentence ("You're up to date", "Version 0.2.0 is available", why a check failed).</summary>
     public string? UpdateStatus => _background?.Updates.Status;
@@ -265,14 +331,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         get
         {
-            ScanSchedule schedule = _settings.Current.Schedule;
-            DateTimeOffset? from = _background?.Alerts.LastScheduledRun is { } last && (schedule.Since is not { } since || last > since) ? last : schedule.Since;
-            if (!schedule.Enabled || from is not { } start)
+            if (ScheduleText.NextRun(_settings.Current.Schedule, _background?.Alerts.LastScheduledRun) is not { } next)
             {
                 return null;
             }
 
-            DateTimeOffset next = schedule.NextRun(start);
             return next <= _backend.Now
                 ? "Due now. It runs as soon as DevSweep is running and nothing else is scanning."
                 : "Next scan: " + next.ToLocalTime().ToString("dddd d MMMM, HH:mm", CultureInfo.InvariantCulture) + ".";
@@ -286,6 +349,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         ToastAvailability.DisabledByUser => "Windows has notifications turned off for DevSweep (Settings, System, Notifications). Alerts still appear in the tray menu and on Home.",
         _ => "Notifications are not available in this session. Alerts still appear in the tray menu and on Home.",
     };
+
+    /// <summary>True when Windows has notifications switched off for DevSweep (Settings shows a button to Windows' notification settings).</summary>
+    public bool NotificationsBlocked => _background?.Toasts.Availability == ToastAvailability.DisabledByUser;
 
     /// <summary>The start-up entry's state in words, for the Background page.</summary>
     public string LoginText => LoginState switch
@@ -306,7 +372,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public void AddFolder(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        string full = Path.GetFullPath(path);
+        string full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
         _settings.Update(s => s with { ProjectFolders = [.. s.ProjectFolders.Where(f => !string.Equals(f, full, StringComparison.OrdinalIgnoreCase)), full] });
     }
 
@@ -435,5 +501,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(UsingDefaultFolders));
+        RefreshFolders();
+        OnPropertyChanged(nameof(BlockedFolderCount));
+        OnPropertyChanged(nameof(PermissionsText));
     }
 }

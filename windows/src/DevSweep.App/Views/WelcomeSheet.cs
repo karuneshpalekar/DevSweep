@@ -35,6 +35,7 @@ internal static class WelcomeSheet
             "\"Windows protected your PC\" (SmartScreen) the first time, because DevSweep isn't signed: choose More info, then Run anyway",
             "No administrator rights are needed to scan or clean",
             "A UAC prompt appears only when you run an admin command DevSweep shows you",
+            "If Controlled folder access blocks a folder, a few leftovers can be missed; Settings, Permissions and privacy shows how to allow it",
         ]);
 
         Button start = Ui.Button("Start scanning", () => _ = model.FinishWelcomeAsync(), accent: true);

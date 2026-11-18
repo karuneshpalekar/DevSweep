@@ -567,6 +567,19 @@ jobs:
           }
       # ---- end P0 checks ----
 
+      # ---- P3: Settings, Home, sidebar and tray flyout in the tour ----
+      - name: App - Settings, Home states, sidebar and tray flyout in the tour (P3)
+        run: |
+          $log = Get-Content artifacts/screenshots/shots.log
+          $log | Select-String -Pattern '^\S+ (settings|home|sidebar|tray flyout):' | ForEach-Object { $_.Line }
+          foreach ($needle in 'settings: every section and control is reachable', 'home: states checked', 'tray flyout: ok') {
+            if (-not ($log | Select-String -Pattern $needle -SimpleMatch -Quiet)) { throw "shots log has no '$needle'" }
+          }
+          foreach ($shot in 'settings-general-light', 'settings-github-light', 'settings-folders-dark', 'settings-privacy-light', 'settings-search-light', 'home-not-scanned-light', 'home-first-scan-light', 'home-rule-errors-light', 'home-blocked-dark', 'home-wide-light', 'sidebar-wide-light', 'sidebar-compact-light', 'tray-flyout-light', 'tray-flyout-dark') {
+            if (-not (Test-Path "artifacts/screenshots/$shot.png")) { throw "no $shot.png in the tour" }
+          }
+      # ---- end P3 checks ----
+
       # ---- P0: the screenshots go to the windows-screenshots branch, so they can be looked at with plain git ----
       - name: App - publish screenshots to the windows-screenshots branch
         if: always() && github.event_name == 'push' && (github.ref_name == 'windows' || startsWith(github.ref_name, 'windows-m') || startsWith(github.ref_name, 'windows-p'))

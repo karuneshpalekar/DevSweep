@@ -28,6 +28,7 @@ internal sealed partial class App : Application, IXamlMetadataProvider
     private MainWindow? _window;
     private MainViewModel? _model;
     private TrayIcon? _tray;
+    private TrayFlyoutWindow? _flyout;
     private AppToasts? _toasts;
     private DispatcherQueueTimer? _tooltipTimer;
     private bool _started;
@@ -110,6 +111,7 @@ internal sealed partial class App : Application, IXamlMetadataProvider
         Log.Write("start: window created, adding the tray icon");
         _tray = new TrayIcon(background.Tray);
         Log.Write($"start: tray icon added={_tray.Added}");
+        _tray.FlyoutRequested = ShowFlyout;
         background.Alerts.ActiveChanged += (_, _) => _tray?.UpdateTooltip();
         _model.Scan.Finished += (_, _) => _tray?.UpdateTooltip();
         _tooltipTimer = _dispatcher.CreateTimer();
@@ -133,6 +135,36 @@ internal sealed partial class App : Application, IXamlMetadataProvider
         }
 
         background.Start();
+    }
+
+    /// <summary>Left click on the tray icon: the flyout next to it (created on first use, off the tray's own message callback); the window if it cannot be made.</summary>
+    private void ShowFlyout(int x, int y)
+    {
+        _dispatcher.TryEnqueue(() =>
+        {
+            if (_model is null || _window is null || _quitting)
+            {
+                return;
+            }
+
+            try
+            {
+                _flyout ??= new TrayFlyoutWindow(_model.Background.Tray, () => _window.ActualTheme);
+                if (_flyout.IsOpen)
+                {
+                    _flyout.Dismiss();
+                }
+                else if (Environment.TickCount64 - _flyout.DismissedAt > 400)
+                {
+                    _flyout.ShowAt(x, y);
+                }
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException or ArgumentException)
+            {
+                Log.Write("Tray flyout: " + ex.Message);
+                ShowMainWindow(null);
+            }
+        });
     }
 
     /// <summary>Shows the window (from the tray, a toast or a second start); the first show of a hidden start also begins the first scan.</summary>
@@ -175,6 +207,8 @@ internal sealed partial class App : Application, IXamlMetadataProvider
         _tooltipTimer?.Stop();
         _tray?.Dispose();
         _tray = null;
+        _flyout?.Close();
+        _flyout = null;
         _model?.Background.Dispose();
         _toasts?.Dispose();
         _toasts = null;

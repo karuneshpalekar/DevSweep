@@ -622,3 +622,4 @@ by `rules validate` with 4 line-numbered problems.
 - [P2: Health parity (tools list and panel, package-manager report, security and ports actions)](docs/p2-health.md)
 - [P1: Projects parity (filters, search, panel, sheets, deep search, WSL, editors)](docs/p1-projects.md)
 - [P4: polish and parity of Clean up, Review, History, Projects, Health (pinned panel footers, Quit buttons, contrast check)](docs/p4-polish.md)
+- [P3: Settings, Home, sidebar, tray flyout parity](docs/p3-settings-home.md)
