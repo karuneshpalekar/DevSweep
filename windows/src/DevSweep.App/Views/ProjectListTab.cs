@@ -168,7 +168,7 @@ internal static class ProjectListTab
             panel.Select(vm.SelectedId is { } id && vm.All.Any(p => p.Id == id) ? id : null);
         }
 
-        void RenderReport() => reportHost.Child = SearchReportView(vm, window, reportState, RenderReport);
+        void RenderReport() => Ui.Fill(reportHost, SearchReportView(vm, window, reportState, RenderReport));
 
         subs.On(vm, nameof(ProjectsViewModel.Visible), RenderList);
         subs.On(vm, nameof(ProjectsViewModel.Report), () =>
@@ -180,14 +180,14 @@ internal static class ProjectListTab
         subs.On(vm, nameof(ProjectsViewModel.Filter), RenderFilters);
         subs.On(vm, nameof(ProjectsViewModel.AccountFilter), RenderFilters);
         subs.On(vm, nameof(ProjectsViewModel.SelectedId), RenderSelection);
-        subs.On(vm, nameof(ProjectsViewModel.Notice), () => noticeHost.Child = vm.Notice is { } n
+        subs.On(vm, nameof(ProjectsViewModel.Notice), () => Ui.Fill(noticeHost, vm.Notice is { } n
             ? Ds.Banner(n.Kind switch { NoticeKind.Error => BannerKind.Critical, NoticeKind.Warning => BannerKind.Warning, _ => BannerKind.Info }, n.Text, null, "Dismiss", vm.Dismiss)
-            : null);
-        subs.On(vm, nameof(ProjectsViewModel.Setup), () => setupHost.Child = GitHubSetupCard(vm));
-        subs.On(vm, nameof(ProjectsViewModel.NeedsDeepSearchConsent), () => consentHost.Child = vm.NeedsDeepSearchConsent ? ConsentCard(vm) : null);
-        subs.On(vm, nameof(ProjectsViewModel.DeepState), () => deepHost.Child = DeepSearchCard(vm));
-        subs.On(vm, nameof(ProjectsViewModel.DeepProgress), () => deepHost.Child = DeepSearchCard(vm));
-        subs.On(vm, nameof(ProjectsViewModel.DeepResult), () => deepHost.Child = DeepSearchCard(vm));
+            : null));
+        subs.On(vm, nameof(ProjectsViewModel.Setup), () => Ui.Fill(setupHost, GitHubSetupCard(vm)));
+        subs.On(vm, nameof(ProjectsViewModel.NeedsDeepSearchConsent), () => Ui.Fill(consentHost, vm.NeedsDeepSearchConsent ? ConsentCard(vm) : null));
+        subs.On(vm, nameof(ProjectsViewModel.DeepState), () => Ui.Fill(deepHost, DeepSearchCard(vm)));
+        subs.On(vm, nameof(ProjectsViewModel.DeepProgress), () => Ui.Fill(deepHost, DeepSearchCard(vm)));
+        subs.On(vm, nameof(ProjectsViewModel.DeepResult), () => Ui.Fill(deepHost, DeepSearchCard(vm)));
         subs.On(vm, nameof(ProjectsViewModel.Removing), () => list.Invalidate());
         subs.On(vm, nameof(ProjectsViewModel.BusyId), () => list.Invalidate());
         return panel.Root;
@@ -254,7 +254,7 @@ internal static class ProjectListTab
         {
             FontIcon lockIcon = Ui.Icon(Icons.Lock, 11);
             lockIcon.VerticalAlignment = VerticalAlignment.Center;
-            lockIcon.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+            Ui.Tint(lockIcon, "TextFillColorSecondaryBrush");
             Ui.Tip(lockIcon, "Private repository");
             AutomationProperties.SetName(lockIcon, "Private");
             nameLine.Children.Add(lockIcon);

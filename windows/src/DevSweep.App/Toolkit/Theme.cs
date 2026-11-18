@@ -243,6 +243,82 @@ internal static class Theme
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Padding" Value="12" />
           </Style>
+          <Style x:Key="DsIconSuccess" TargetType="FontIcon">
+            <Setter Property="Foreground" Value="{ThemeResource SystemFillColorSuccessBrush}" />
+          </Style>
+          <Style x:Key="DsIconCaution" TargetType="FontIcon">
+            <Setter Property="Foreground" Value="{ThemeResource SystemFillColorCautionBrush}" />
+          </Style>
+          <Style x:Key="DsIconCritical" TargetType="FontIcon">
+            <Setter Property="Foreground" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+          </Style>
+          <Style x:Key="DsIconSecondary" TargetType="FontIcon">
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+          </Style>
+          <Style x:Key="DsIconTertiary" TargetType="FontIcon">
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorTertiaryBrush}" />
+          </Style>
+          <Style x:Key="DsIconAccent" TargetType="FontIcon">
+            <Setter Property="Foreground" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+          </Style>
+          <Style x:Key="DsIconPrimary" TargetType="FontIcon">
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+          </Style>
+          <Style x:Key="DsDotGood" TargetType="Border">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Height" Value="8" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Background" Value="{ThemeResource SystemFillColorSuccessBrush}" />
+          </Style>
+          <Style x:Key="DsDotCaution" TargetType="Border">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Height" Value="8" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Background" Value="{ThemeResource SystemFillColorCautionBrush}" />
+          </Style>
+          <Style x:Key="DsDotCritical" TargetType="Border">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Height" Value="8" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Background" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+          </Style>
+          <Style x:Key="DsDotNeutral" TargetType="Border">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Height" Value="8" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Background" Value="{ThemeResource TextFillColorTertiaryBrush}" />
+          </Style>
+          <Style x:Key="DsCaptionCaution" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{ThemeResource SystemFillColorCautionBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+          </Style>
+          <Style x:Key="DsCaptionPrimary" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+          </Style>
+          <Style x:Key="DsIconAccentText" TargetType="FontIcon">
+            <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+          </Style>
+          <Style x:Key="DsChoice" TargetType="Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrongStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,8" />
+          </Style>
+          <Style x:Key="DsChoiceSelected" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource DsSelectedBorderBrush}" />
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="9,7" />
+          </Style>
           <Style x:Key="DsSuccessBox" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource SystemFillColorSuccessBackgroundBrush}" />
             <Setter Property="BorderBrush" Value="{ThemeResource SystemFillColorSuccessBrush}" />
@@ -343,6 +419,10 @@ internal static class Theme
 
     public static Style Style(string key)
         => Styles.TryGetValue(key, out Style? style) ? style : throw new InvalidOperationException($"Style {key} is missing.");
+
+    /// <summary>A button whose text is the critical colour (Remove), resolved by ThemeResource so it follows light, dark and high contrast.</summary>
+    public static Button DangerButton()
+        => (Button)XamlReader.Load($"<Button {Namespaces} Foreground=\"{{ThemeResource SystemFillColorCriticalBrush}}\" />");
 
     /// <summary>A button with the Fluent accent style (resolved by ThemeResource when it enters the tree).</summary>
     public static Button AccentButton()

@@ -10,7 +10,9 @@ namespace DevSweep.App.Views;
 
 /// <summary>
 /// The ⓘ panel: what it is, why it's flagged, what was checked, if you clean it, what you
-/// won't lose, before you do, a better option, how to undo, what to do, and where it is.
+/// won't lose, before you do (with Quit buttons for apps that must close), a better option,
+/// how to undo, what to do (action cards), and where it is. The primary buttons are pinned
+/// in a footer so they never scroll out of view.
 /// </summary>
 internal static class InspectorView
 {
@@ -47,10 +49,22 @@ internal static class InspectorView
 
         Section(panel, "If you clean it", item.IfDeleted);
         Section(panel, "You won't lose", item.WontLose);
-        Section(panel, "Before you do", item.Before);
-        if (item.BlockingApps.Count > 0)
+        if (item.Before is { Length: > 0 } || item.BlockingApps.Count > 0)
         {
-            panel.Children.Add(Ds.Banner(BannerKind.Warning, $"{string.Join(", ", item.BlockingApps)} is open. Close it first; Review checks again."));
+            StackPanel before = Ui.V(Tokens.Space2, Ui.Heading("Before you do"));
+            if (item.Before is { Length: > 0 } text)
+            {
+                before.Children.Add(Ui.Text(text));
+            }
+
+            if (item.BlockingApps.Count > 0)
+            {
+                bool one = item.BlockingApps.Count == 1;
+                before.Children.Add(Ds.Banner(BannerKind.Warning, $"{string.Join(", ", item.BlockingApps.Select(QuitButtons.Pretty))} {(one ? "is" : "are")} open. {(one ? "It has" : "They have")} to close first; Review checks again."));
+                before.Children.Add(QuitButtons.Build(model, window, item.BlockingApps));
+            }
+
+            panel.Children.Add(before);
         }
 
         if (item.Better is { Length: > 0 } better)
@@ -60,62 +74,98 @@ internal static class InspectorView
         }
 
         Section(panel, "How to undo", item.Undo ?? (item.ChosenAction.Kind == CleanActionKind.Trash ? "Restore it from History while it's in the Recycle Bin or DevSweep's quarantine." : null));
-        panel.Children.Add(Actions(model, item, subs));
+        var footer = new PanelFooter("Item actions");
+        panel.Children.Add(Actions(model, item, subs, footer));
         panel.Children.Add(Locations(item));
-        return Ui.Scroll(panel, Tokens.Space6);
+        return PanelFrame.Build(Ui.Scroll(panel, Tokens.Space6), footer);
     }
 
-    private static UIElement Actions(MainViewModel model, FindingViewModel item, Subscriptions subs)
+    /// <summary>"What to do" (the action cards, or the commands of a manual item) in the body; the primary buttons go in the pinned footer.</summary>
+    private static StackPanel Actions(MainViewModel model, FindingViewModel item, Subscriptions subs, PanelFooter footer)
     {
         var box = new StackPanel { Spacing = 8 };
         box.Children.Add(Ui.Heading("What to do"));
         var host = new StackPanel { Spacing = 8 };
         box.Children.Add(host);
+
+        void Pin()
+        {
+            HyperlinkButton ignore = Ui.Link("Always ignore this", () => model.CleanUp.Ignore(item));
+            if (item.ManualCommand is { } command)
+            {
+                bool admin = item.Finding.Risk == Risk.NeedsAdmin;
+                footer.Set(FlowButtons.Build(
+                    Ui.Button("Copy", () => Shell.Copy(command), "Copy the command"),
+                    Ui.Button(admin ? "Open in PowerShell (asks for admin)" : "Open in PowerShell", () => model.Backend.OpenInTerminal(item.Title, new[] { command }, admin),
+                        "Open the command in a PowerShell window that waits for Enter"),
+                    ignore));
+                return;
+            }
+
+            if (!item.CanSelect)
+            {
+                footer.Set(FlowButtons.Build(ignore));
+                return;
+            }
+
+            bool selected = item.IsSelected;
+            Button select = Ui.Button(selected ? "Deselect" : "Select for cleaning", () => item.IsSelected = !item.IsSelected,
+                selected ? $"Deselect {item.Title}" : $"Select {item.Title} for cleaning", accent: !selected);
+            footer.Set(FlowButtons.Build(select, ignore));
+        }
+
         void Render()
         {
             host.Children.Clear();
             if (item.ManualCommand is { } command)
             {
+                bool admin = item.Finding.Risk == Risk.NeedsAdmin;
                 host.Children.Add(Ui.Secondary(FindingViewModel.Detail(item.ChosenAction)));
                 host.Children.Add(Ui.Card(Ui.Text(command, "DsMono"), "DsCodeBox"));
-                bool admin = item.Finding.Risk == Risk.NeedsAdmin;
-                host.Children.Add(Ui.H(8,
-                    Ui.Button("Copy", () => Shell.Copy(command), "Copy the command"),
-                    Ui.Button(admin ? "Open in PowerShell (asks for admin)" : "Open in PowerShell", () => model.Backend.OpenInTerminal(item.Title, new[] { command }, admin),
-                        "Open the command in a PowerShell window that waits for Enter")));
-                host.Children.Add(Ui.Caption(admin
-                    ? "The window lists the command and waits for Enter. It offers to reopen as administrator; Windows asks first (UAC). DevSweep never elevates itself."
-                    : "The window lists the command and waits for Enter. Nothing runs before that."));
+                host.Children.Add(Ui.H(Tokens.Space1, Ui.Icon(Icons.Lock, 12), Ui.Caption(admin
+                    ? "Needs an administrator. The window lists the command and waits for Enter, then offers to reopen as administrator; Windows asks first (UAC). DevSweep never elevates itself."
+                    : "The window lists the command and waits for Enter. Nothing runs before that.")));
             }
 
             if (item.Actions.Count > 1 || item.ManualCommand is null)
             {
                 foreach (CleanAction action in item.Actions.Where(a => a.Kind != CleanActionKind.Manual || item.Actions.Count > 1))
                 {
-                    var radio = new RadioButton
-                    {
-                        GroupName = "action-" + item.Id,
-                        IsChecked = item.ChosenAction == action,
-                        Content = Ui.V(2, Ui.Text(action.DisplayLabel, "DsStrong"), Ui.Caption(FindingViewModel.Detail(action))),
-                    };
-                    AutomationProperties.SetName(radio, action.DisplayLabel);
-                    radio.Checked += (_, _) =>
-                    {
-                        item.ChosenAction = action;
-                        if (action.Kind != CleanActionKind.Manual)
-                        {
-                            item.IsSelected = true;
-                        }
-                    };
-                    host.Children.Add(radio);
+                    host.Children.Add(ActionCard(item, action));
                 }
             }
 
-            host.Children.Add(Ui.Link("Always ignore this", () => model.CleanUp.Ignore(item)));
+            Pin();
         }
 
         subs.On(item, nameof(FindingViewModel.ChosenAction), Render);
+        subs.On(item, nameof(FindingViewModel.IsSelected), Pin);
         return box;
+    }
+
+    /// <summary>One way to clean the item, as a selectable card with its label and what it does (the Mac's radio cards).</summary>
+    private static Border ActionCard(FindingViewModel item, CleanAction action)
+    {
+        bool chosen = item.ChosenAction == action;
+        var radio = new RadioButton
+        {
+            GroupName = "action-" + item.Id,
+            IsChecked = chosen,
+            MinWidth = 0,
+            Content = Ui.V(2, Ui.Text(action.DisplayLabel, "DsStrong"), Ui.Caption(FindingViewModel.Detail(action))),
+        };
+        AutomationProperties.SetName(radio, action.DisplayLabel);
+        radio.Checked += (_, _) =>
+        {
+            item.ChosenAction = action;
+            if (action.Kind != CleanActionKind.Manual)
+            {
+                item.IsSelected = true;
+            }
+        };
+        var card = new Border { Style = Ui.Style(chosen ? "DsChoiceSelected" : "DsChoice"), Child = radio };
+        card.Tapped += (_, _) => radio.IsChecked = true;
+        return card;
     }
 
     private static UIElement Locations(FindingViewModel item)
@@ -124,7 +174,7 @@ internal static class InspectorView
         for (int i = 0; i < item.Locations.Count; i++)
         {
             string path = item.Finding.Paths[i];
-            list.Children.Add(Ui.Row(Selectable(Ui.Caption(item.Locations[i])), Ui.IconButton("", "Show in File Explorer", () => Shell.Reveal(path))));
+            list.Children.Add(Ui.Row(Selectable(Ui.Caption(item.Locations[i])), Ui.IconButton(Icons.OpenFolder, "Show in File Explorer", () => Shell.Reveal(path))));
         }
 
         var expander = new Expander

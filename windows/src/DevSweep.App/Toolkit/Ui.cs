@@ -156,9 +156,9 @@ internal static class Ui
         return badge;
     }
 
-    public static Button Button(string text, Action click, string? automationName = null, bool accent = false)
+    public static Button Button(string text, Action click, string? automationName = null, bool accent = false, bool danger = false)
     {
-        Button button = accent ? Theme.AccentButton() : new Button();
+        Button button = accent ? Theme.AccentButton() : danger ? Theme.DangerButton() : new Button();
         button.Content = text;
 
         AutomationProperties.SetName(button, automationName ?? text);
@@ -191,6 +191,41 @@ internal static class Ui
 
     public static FontIcon Icon(string glyph, double size = 16) => new() { Glyph = glyph, FontSize = size };
 
+    private static string Role(string brushKey) => brushKey switch
+    {
+        "SystemFillColorSuccessBrush" => "Success",
+        "SystemFillColorCautionBrush" => "Caution",
+        "SystemFillColorCriticalBrush" => "Critical",
+        "TextFillColorSecondaryBrush" => "Secondary",
+        "TextFillColorTertiaryBrush" => "Tertiary",
+        "AccentFillColorDefaultBrush" => "Accent",
+        "AccentTextFillColorPrimaryBrush" => "AccentText",
+        "TextFillColorPrimaryBrush" => "Primary",
+        _ => throw new ArgumentOutOfRangeException(nameof(brushKey), brushKey, "No tint style for this brush."),
+    };
+
+    /// <summary>
+    /// Colours an icon with a theme brush by its resource name. Goes through a style that uses ThemeResource, so it follows light, dark and
+    /// high contrast (a brush read from Application.Resources in code is fixed to the app's theme at that moment).
+    /// </summary>
+    public static FontIcon Tint(FontIcon icon, string brushKey)
+    {
+        ArgumentNullException.ThrowIfNull(icon);
+        icon.Style = Style("DsIcon" + Role(brushKey));
+        return icon;
+    }
+
+    /// <summary>A caption in a theme colour (caution or primary), by the same rule as <see cref="Tint(FontIcon, string)"/>.</summary>
+    public static TextBlock Tint(TextBlock text, string brushKey)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        text.Style = Style("DsCaption" + Role(brushKey));
+        return text;
+    }
+
+    /// <summary>The small status dot (supported, ending soon, end of life, not running).</summary>
+    public static Border Dot(Tone tone) => new() { Style = Style("DsDot" + tone) };
+
     public static void Tip(DependencyObject element, string text) => ToolTipService.SetToolTip(element, text);
 
     public static ScrollViewer Scroll(UIElement content, double padding = 28)
@@ -220,6 +255,14 @@ internal static class Ui
     /// <summary>Title, subtitle and actions at the top of a page.</summary>
     public static Grid PageHeader(string title, TextBlock subtitle, params UIElement?[] actions)
         => Row(V(2, Text(title, "DsTitle"), subtitle), actions);
+
+    /// <summary>Puts <paramref name="child"/> in a slot and collapses the slot when it is null, so an empty slot adds no spacing in a stack.</summary>
+    public static void Fill(Border slot, UIElement? child)
+    {
+        ArgumentNullException.ThrowIfNull(slot);
+        slot.Child = child;
+        slot.Visibility = child is null ? Visibility.Collapsed : Visibility.Visible;
+    }
 
     public static void Show(UIElement element, bool visible) => element.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
 }

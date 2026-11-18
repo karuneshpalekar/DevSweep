@@ -72,4 +72,7 @@ internal static class Icons
     public const string Up = "\uE74A";
     public const string Certificate = "\uEB95";
     public const string Contact = "\uE77B";
+
+    /// <summary>The marker on the install a new terminal runs (a small play triangle; the command-prompt glyph read as a box at this size).</summary>
+    public const string RunsHere = "\uE768";
 }

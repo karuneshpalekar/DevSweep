@@ -41,6 +41,10 @@ public sealed record ReviewRow(ReviewItem Item)
 
     public IReadOnlyList<string> Notes => Item.Notes;
 
+    /// <summary>The apps that must close first (the rule's process names that the planner found running), for the "Quit" buttons.</summary>
+    public IReadOnlyList<string> QuitApps => Item.Blockers.Count == 0 ? []
+        : [.. Item.Finding.Blockers.Select(ProcessQuitter.Bare).Where(n => Item.Blockers.Any(b => b.Contains(n, StringComparison.OrdinalIgnoreCase))).Distinct(StringComparer.OrdinalIgnoreCase)];
+
     public string? Command => Item.Outcome is ReviewOutcome.RunCommand or ReviewOutcome.Manual && Item.Commands.Count > 0 ? "Runs " + Item.Commands[0] : null;
 }
 
@@ -102,6 +106,7 @@ public sealed partial class ReviewViewModel(IDevSweepBackend backend) : Observab
 {
     private CancellationTokenSource? _cancel;
     private ReviewPlan? _plan;
+    private IReadOnlyList<PlannedAction> _selection = [];
 
     [ObservableProperty]
     public partial ReviewStage Stage { get; set; }
@@ -138,6 +143,12 @@ public sealed partial class ReviewViewModel(IDevSweepBackend backend) : Observab
     [ObservableProperty]
     public partial string CleanLabel { get; set; } = "Clean";
 
+    /// <summary>While cleaning: the titles of the items being cleaned, in order.</summary>
+    public IReadOnlyList<string> RunTitles { get; private set; } = [];
+
+    /// <summary>While cleaning: how many of <see cref="RunTitles"/> are finished (the next one is the one in progress).</summary>
+    public int CleanedCount { get; private set; }
+
     /// <summary>Raised after cleaning with the ids of findings that are gone.</summary>
     public event EventHandler<IReadOnlyCollection<string>>? Cleaned;
 
@@ -153,6 +164,7 @@ public sealed partial class ReviewViewModel(IDevSweepBackend backend) : Observab
     public async Task OpenAsync(IReadOnlyList<PlannedAction> selection)
     {
         ArgumentNullException.ThrowIfNull(selection);
+        _selection = selection;
         _cancel?.Cancel();
         _cancel?.Dispose();
         _cancel = new CancellationTokenSource();
@@ -186,6 +198,9 @@ public sealed partial class ReviewViewModel(IDevSweepBackend backend) : Observab
             Stage = ReviewStage.Closed;
         }
     }
+
+    /// <summary>Measures and plans the same items again (after an app was closed), so the blockers are checked afresh.</summary>
+    public Task RecheckAsync() => OpenAsync(_selection);
 
     /// <summary>Shows a prepared plan (tests and screenshots call this directly).</summary>
     public void ShowPlan(ReviewPlan plan)
@@ -249,11 +264,16 @@ public sealed partial class ReviewViewModel(IDevSweepBackend backend) : Observab
         }
 
         IReadOnlyList<PlannedAction> runnable = _plan.Runnable;
+        RunTitles = [.. runnable.Select(r => r.Finding.Title)];
+        CleanedCount = 0;
+        Status = $"Cleaning {Words.Items(runnable.Count)}…";
+        Progress = 0;
         Stage = ReviewStage.Cleaning;
         int done = 0;
         var progress = new Progress<string>(title =>
         {
             done++;
+            CleanedCount = done;
             Status = $"Cleaning {done} of {runnable.Count} · {title}";
             Progress = (double)done / Math.Max(1, runnable.Count);
         });

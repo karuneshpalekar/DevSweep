@@ -39,8 +39,7 @@ internal static class ProjectTabs
         };
         AutomationProperties.SetName(idle, "Not opened or changed for");
 
-        var removeAll = new Button();
-        removeAll.Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
+        Button removeAll = Theme.DangerButton();
         removeAll.Click += async (_, _) =>
         {
             if (vm.Idle is not { } result || result.Safe.Count == 0)
@@ -72,7 +71,7 @@ internal static class ProjectTabs
         page.Children.Add(listHost);
         page.Children.Add(Ui.Caption("Sizes are measured exactly. Only fully pushed projects with no uncommitted changes, stashes or other worktrees are safe to remove; they go to the Recycle Bin (or DevSweep's quarantine), are recorded in History, and download again into the same folder."));
 
-        var scroll = Ds.PageScroll(page);
+        var scroll = Ds.PageScroll(page, Tokens.Space2);
         var panel = new SidePanel(scroll, (key, panelSubs) => vm.All.FirstOrDefault(p => p.Id == key) is { } project ? ProjectPanel.Build(model, vm, project, panelSubs, window) : new Grid(), "Project details")
         {
             Closed = () => vm.SelectedId = null,
@@ -120,9 +119,9 @@ internal static class ProjectTabs
         subs.On(vm, nameof(ProjectsViewModel.BusyId), Render);
         subs.On(vm, nameof(ProjectsViewModel.RemoveAllStatus), Render);
         subs.On(vm, nameof(ProjectsViewModel.Removing), Render);
-        subs.On(vm, nameof(ProjectsViewModel.Notice), () => noticeHost.Child = vm.Notice is { } n
+        subs.On(vm, nameof(ProjectsViewModel.Notice), () => Ui.Fill(noticeHost, vm.Notice is { } n
             ? Ds.Banner(n.Kind switch { NoticeKind.Error => BannerKind.Critical, NoticeKind.Warning => BannerKind.Warning, _ => BannerKind.Info }, n.Text, null, "Dismiss", vm.Dismiss)
-            : null);
+            : null));
         subs.On(vm, nameof(ProjectsViewModel.SelectedId), () => panel.Select(vm.SelectedId is { } id && vm.All.Any(p => p.Id == id) ? id : null));
         return panel.Root;
     }
@@ -148,7 +147,7 @@ internal static class ProjectTabs
             foreach (string reason in item.Reasons.Take(2))
             {
                 TextBlock line = Ui.Caption(reason);
-                line.Foreground = (Brush)Application.Current.Resources["SystemFillColorCautionBrush"];
+                Ui.Tint(line, "SystemFillColorCautionBrush");
                 line.TextTrimming = TextTrimming.CharacterEllipsis;
                 line.MaxLines = 1;
                 Ui.Tip(line, string.Join(Environment.NewLine, item.Reasons));
@@ -182,8 +181,7 @@ internal static class ProjectTabs
 
         if (!removing && !busy)
         {
-            Button remove = Ui.Button(item.IsSafe ? "Remove" : "Remove…", () => _ = RemoveAsync(vm, p, window), $"Remove {p.NameWithOwner} from this PC");
-            remove.Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
+            Button remove = Ui.Button(item.IsSafe ? "Remove" : "Remove…", () => _ = RemoveAsync(vm, p, window), $"Remove {p.NameWithOwner} from this PC", danger: true);
             Grid.SetColumn(remove, 2);
             remove.VerticalAlignment = VerticalAlignment.Center;
             grid.Children.Add(remove);
@@ -282,10 +280,10 @@ internal static class ProjectTabs
         }
 
         subs.On(vm, nameof(ProjectsViewModel.Report), Render);
-        subs.On(vm, nameof(ProjectsViewModel.Notice), () => noticeHost.Child = vm.Notice is { } n
+        subs.On(vm, nameof(ProjectsViewModel.Notice), () => Ui.Fill(noticeHost, vm.Notice is { } n
             ? Ds.Banner(n.Kind switch { NoticeKind.Error => BannerKind.Critical, NoticeKind.Warning => BannerKind.Warning, _ => BannerKind.Info }, n.Text, null, "Dismiss", vm.Dismiss)
-            : null);
-        return Ds.PageScroll(page);
+            : null));
+        return Ds.PageScroll(page, Tokens.Space2);
     }
 
     private static UIElement AccountCard(ProjectsViewModel vm, AccountSummary account, IReadOnlyDictionary<string, GitIdentity> identities)
@@ -342,22 +340,23 @@ internal static class ProjectTabs
     public static UIElement Activity(MainViewModel model, ProjectsViewModel vm, Subscriptions subs)
     {
         var page = new StackPanel { Spacing = Tokens.Space4 };
-        var chips = new StackPanel { Orientation = Orientation.Horizontal, Spacing = Tokens.Space2 };
+        var chips = new Border();
         var list = new StackPanel { Spacing = Tokens.Space4 };
-        page.Children.Add(new ScrollViewer { Content = chips, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled });
+        page.Children.Add(chips);
         page.Children.Add(list);
 
         void Render()
         {
             IReadOnlyList<ActivityEntry> all = vm.Report?.Activity ?? [];
-            chips.Children.Clear();
-            chips.Children.Add(Ds.Chip("All", all.Count > 0 ? all.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) : null, vm.ActivityFilter is null, "Show all activity", () => vm.ActivityFilter = null));
+            var chipItems = new List<UIElement>();
+            chipItems.Add(Ds.Chip("All", all.Count > 0 ? all.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) : null, vm.ActivityFilter is null, "Show all activity", () => vm.ActivityFilter = null));
             foreach (ActivityKind kind in all.Select(a => a.Kind).Distinct().Order())
             {
                 ActivityKind k = kind;
-                chips.Children.Add(Ds.Chip(KindTitle(kind), all.Count(a => a.Kind == kind).ToString(System.Globalization.CultureInfo.InvariantCulture), vm.ActivityFilter == kind, $"Show {KindTitle(kind)}", () => vm.ActivityFilter = k));
+                chipItems.Add(Ds.Chip(KindTitle(kind), all.Count(a => a.Kind == kind).ToString(System.Globalization.CultureInfo.InvariantCulture), vm.ActivityFilter == kind, $"Show {KindTitle(kind)}", () => vm.ActivityFilter = k));
             }
 
+            chips.Child = FlowButtons.Build([.. chipItems]);
             list.Children.Clear();
             List<ActivityEntry> shown = [.. all.Where(a => vm.ActivityFilter is null || a.Kind == vm.ActivityFilter).OrderByDescending(a => a.Date)];
             if (shown.Count == 0)
@@ -380,7 +379,7 @@ internal static class ProjectTabs
 
         subs.On(vm, nameof(ProjectsViewModel.Report), Render);
         subs.On(vm, nameof(ProjectsViewModel.ActivityFilter), Render);
-        return Ds.PageScroll(page);
+        return Ds.PageScroll(page, Tokens.Space2);
     }
 
     private static UIElement ActivityRow(ActivityEntry entry)
@@ -388,7 +387,7 @@ internal static class ProjectTabs
         TextBlock time = Ui.Caption(Words.Time(entry.Date));
         time.Width = 48;
         FontIcon icon = Ui.Icon(KindIcon(entry.Kind), 16);
-        icon.Foreground = (Brush)Application.Current.Resources[KindBrush(entry.Kind)];
+        Ui.Tint(icon, KindBrush(entry.Kind));
         icon.VerticalAlignment = VerticalAlignment.Top;
         icon.Margin = new Thickness(0, 2, 0, 0);
         TextBlock what = Ui.Text(Verb(entry.Kind) + " " + entry.Subject, "DsStrong");

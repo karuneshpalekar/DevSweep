@@ -73,7 +73,7 @@ internal static class Ds
     public static UIElement EmptyState(string glyph, string title, string text, params UIElement?[] actions)
     {
         FontIcon icon = Ui.Icon(glyph, 32);
-        icon.Foreground = (Brush)Application.Current.Resources["TextFillColorTertiaryBrush"];
+        Ui.Tint(icon, "TextFillColorTertiaryBrush");
         TextBlock heading = Ui.Text(title, "DsSubtitle");
         heading.TextAlignment = TextAlignment.Center;
         TextBlock body = Ui.Secondary(text);
@@ -130,7 +130,7 @@ internal static class Ds
     public static UIElement CheckRow(bool ok, string text)
     {
         FontIcon icon = Ui.Icon(ok ? Icons.CheckCircle : Icons.Warning, 14);
-        icon.Foreground = (Brush)Application.Current.Resources[ok ? "SystemFillColorSuccessBrush" : "SystemFillColorCautionBrush"];
+        Ui.Tint(icon, ok ? "SystemFillColorSuccessBrush" : "SystemFillColorCautionBrush");
         icon.VerticalAlignment = VerticalAlignment.Top;
         icon.Margin = new Thickness(0, 3, 0, 0);
         TextBlock label = Ui.Text(text, ok ? "DsBody" : "DsWarningText");
@@ -188,7 +188,9 @@ internal static class Ds
     /// <summary>A filter chip row (a toggle per option); only one is on. Used for Clean up's kinds.</summary>
     public static ToggleButton Chip(string label, string? detail, bool selected, string automationName, Action click)
     {
-        UIElement content = detail is { Length: > 0 } ? Ui.H(Tokens.Space2, Ui.Text(label), Ui.Caption(detail)) : Ui.Text(label);
+        // Plain text blocks (no style foreground) so the text takes the button's own colour, white on the accent fill when the chip is on.
+        var name = new TextBlock { Text = label, FontSize = 14 };
+        UIElement content = detail is { Length: > 0 } ? Ui.H(Tokens.Space2, name, new TextBlock { Text = detail, FontSize = 12, Opacity = 0.85, VerticalAlignment = VerticalAlignment.Center }) : name;
         var chip = new ToggleButton
         {
             Content = content,
@@ -264,10 +266,10 @@ internal static class Ds
     public static Border Divider() => Ui.Divider();
 
     /// <summary>A scrolling page: the 32 px gutter at the sides, 24 above and below.</summary>
-    public static ScrollViewer PageScroll(UIElement content)
+    public static ScrollViewer PageScroll(UIElement content, double top = Tokens.Space6)
         => new()
         {
-            Content = new Border { Padding = new Thickness(Tokens.PageGutter, Tokens.Space6, Tokens.PageGutter, Tokens.Space6), Child = content },
+            Content = new Border { Padding = new Thickness(Tokens.PageGutter, top, Tokens.PageGutter, Tokens.Space6), Child = content },
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };

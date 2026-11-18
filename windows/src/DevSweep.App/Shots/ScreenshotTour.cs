@@ -70,6 +70,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             await HighContrastAsync();
         }
 
+        FinishChecks();
         if (panelFailure is not null)
         {
             throw new InvalidOperationException("The side panel check failed: " + panelFailure.Message, panelFailure);
@@ -145,7 +146,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             Log.Write($"sidepanel: focus on the info button: {focusedOpener}, focused element: {Describe(FocusManager.GetFocusedElement(window.Root.XamlRoot))}");
             model.CleanUp.Inspect(first);
             await window.WaitForRenderAsync();
-            Require(panel.IsOpen && panel.Selected == first.Id && Math.Abs(panel.PaneWidth - Tokens.PanelWidth) < 0.5, $"sidepanel: did not open at {Tokens.PanelWidth} px (open={panel.IsOpen}, width={panel.PaneWidth})");
+            Require(panel.IsOpen && panel.Selected == first.Id && Math.Abs(panel.PaneWidth - panel.OpenWidth) < 0.5 && panel.OpenWidth >= Tokens.PanelWidth, $"sidepanel: did not open at {panel.OpenWidth} px (open={panel.IsOpen}, width={panel.PaneWidth})");
             Log.Write($"sidepanel: opens on the item and settles at {panel.PaneWidth:0} px with motion off (overlay={panel.IsOverlay})");
 
             Require(panel.HandleKey(Windows.System.VirtualKey.Escape), "sidepanel: Esc was not handled while open");
@@ -159,9 +160,9 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             Motion.Force = true;
             opener.Focus(FocusState.Programmatic);
             model.CleanUp.Inspect(first);
-            Require(Motion.RunningCount > 0 && panel.PaneWidth < Tokens.PanelWidth, $"motion: opening with motion on did not start an animation (running={Motion.RunningCount}, width={panel.PaneWidth})");
+            Require(Motion.RunningCount > 0 && panel.PaneWidth < panel.OpenWidth, $"motion: opening with motion on did not start an animation (running={Motion.RunningCount}, width={panel.PaneWidth})");
             await WaitForMotionAsync();
-            Require(Math.Abs(panel.PaneWidth - Tokens.PanelWidth) < 0.5 && panel.IsOpen, $"motion: the panel did not settle open (width={panel.PaneWidth})");
+            Require(Math.Abs(panel.PaneWidth - panel.OpenWidth) < 0.5 && panel.IsOpen, $"motion: the panel did not settle open (width={panel.PaneWidth})");
 
             model.CleanUp.Inspect(second);
             Require(Motion.RunningCount > 0, "motion: switching items did not cross-fade");
@@ -272,10 +273,16 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         await ShotAsync("cleanup", suffix);
         model.CleanUp.Inspect(model.CleanUp.All.First(f => f.Id == "pnpm-store"));
         await ShotAsync("inspector", suffix);
+        RequireOnScreen("Select pnpm store for cleaning", "the pinned footer of the inspector");
         if (full)
         {
             model.CleanUp.Inspect(model.CleanUp.All.First(f => f.Id == "windows-update-cleanup"));
             await ShotAsync("inspector-admin", suffix);
+            RequireOnScreen("Open the command in a PowerShell window that waits for Enter", "the pinned footer of the admin inspector");
+            model.CleanUp.Inspect(model.CleanUp.All.First(f => f.Id == "chrome-cache"));
+            await ShotAsync("inspector-blocked", suffix);
+            Require(window.Find<Button>("Quit Chrome") is not null, "cleanup: a blocked item's inspector has no Quit Chrome button");
+            RequireOnScreen("Select Chrome cache · Default profile for cleaning", "the pinned footer of the blocked item's inspector");
         }
 
         model.CleanUp.Inspected = null;
@@ -287,6 +294,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         await ShotAsync("selection", suffix);
         await model.Review.OpenAsync(model.CleanUp.Selected.Select(f => new PlannedAction(f.Finding, f.ChosenAction)).ToList());
         await ShotAsync("review", suffix);
+        Require(model.Review.Groups.SelectMany(g => g.Rows).Any(r => r.QuitApps.Contains("chrome", StringComparer.OrdinalIgnoreCase)), "review: the blocked item has no Quit button data");
         if (full)
         {
             await model.Review.CleanAsync();
@@ -311,6 +319,11 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         if (model.Places.Any(p => p.Id == "health"))
         {
             await HealthWalkAsync(suffix, full);
+        }
+
+        if (full)
+        {
+            await WideAsync(suffix);
         }
 
         await GoAsync("history");
@@ -406,6 +419,10 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             foreach (string name in buttons)
             {
                 Require(window.Find<Microsoft.UI.Xaml.Controls.Button>(name) is not null, $"projects: '{name}' is not reachable in the panel of {id}");
+                if (name.StartsWith("Push ", StringComparison.Ordinal) || name.StartsWith("Remove ", StringComparison.Ordinal) || name.StartsWith("Publish ", StringComparison.Ordinal))
+                {
+                    RequireOnScreen(name, $"the pinned footer of the panel of {id}");
+                }
             }
 
             if (id == "alex/api-experiments")
@@ -554,6 +571,40 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         scan.Checks.Clear();
     }
 
+    /// <summary>Projects in high contrast: the list, a panel, a sheet, the GitHub card, search with no result and the other three tabs.</summary>
+    private async Task ProjectsHighContrastAsync()
+    {
+        ProjectsViewModel vm = model.Projects;
+        vm.Tab = ProjectsTab.Projects;
+        vm.Filter = ProjectFilter.All;
+        vm.Search = string.Empty;
+        vm.SelectedId = null;
+        vm.CloseSheet();
+        vm.Dismiss();
+        vm.Report = new ProjectsReport(SampleData.Projects, SampleData.Activity);
+        await ShotAsync("projects-projects", "highcontrast");
+        vm.SelectedId = "alex/web-shop";
+        await ShotAsync("projects-detail-unpushed", "highcontrast");
+        vm.SelectedId = null;
+        vm.Search = "zzz-nothing";
+        await ShotAsync("projects-search-none", "highcontrast");
+        vm.Search = string.Empty;
+        vm.OpenSheet(ProjectSheet.Publish, vm.All.First(p => p.Id == @"local:C:\Users\alex\Documents\scratch-notes"));
+        await Task.Delay(300);
+        await ShotAsync("projects-sheet-publish", "highcontrast");
+        vm.CloseSheet();
+        vm.Report = new ProjectsReport(SampleData.ProjectsWith(GitHubStatus.NotInstalled), []);
+        await ShotAsync("projects-gh-missing", "highcontrast");
+        vm.Report = new ProjectsReport(SampleData.Projects, SampleData.Activity);
+        foreach ((ProjectsTab tab, string shot) in new[] { (ProjectsTab.Cleanup, "projects-cleanup"), (ProjectsTab.Accounts, "projects-accounts"), (ProjectsTab.Activity, "projects-activity") })
+        {
+            vm.Tab = tab;
+            await ShotAsync(shot, "highcontrast");
+        }
+
+        vm.Tab = ProjectsTab.Projects;
+    }
+
     private async Task HighContrastAsync()
     {
         if (!HighContrast.Set(true))
@@ -577,6 +628,17 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
             await model.Review.OpenAsync(model.CleanUp.All.Where(f => f.CanSelect).Take(5).Select(f => new PlannedAction(f.Finding, f.ChosenAction)).ToList());
             await ShotAsync("review", "highcontrast");
             model.Review.Close();
+            model.CleanUp.Inspect(model.CleanUp.All.First(f => f.Id == "chrome-cache"));
+            await ShotAsync("inspector-blocked", "highcontrast");
+            model.CleanUp.Inspected = null;
+            await GoAsync("history");
+            await ShotAsync("history", "highcontrast");
+            if (model.Places.Any(p => p.Id == "projects"))
+            {
+                await GoAsync("projects");
+                await ProjectsHighContrastAsync();
+            }
+
             await HealthHighContrastAsync();
         }
         finally
@@ -592,6 +654,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         (int width, int height, double titleBar, double content) = await window.CaptureWithBrightnessAsync(path);
         _saved++;
         _brightness[$"{name}-{suffix}"] = (titleBar, content);
+        CheckScreen($"{name}-{suffix}");
         Log.Write($"saved {Path.GetFileName(path)} {width}x{height} brightness title bar {titleBar:0} content {content:0}");
     }
 }

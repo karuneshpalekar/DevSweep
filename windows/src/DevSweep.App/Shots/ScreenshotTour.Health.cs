@@ -60,6 +60,7 @@ internal sealed partial class ScreenshotTour
         health.Tab = HealthTab.Security;
         await ShotAsync("health-security", suffix);
         await SecurityPanelAsync(health, "AWS access keys", "health-security-aws", suffix, ["Show AWS access keys in File Explorer", "Ignore AWS access keys", "Move AWS access keys to the Recycle Bin"]);
+        RequireOnScreen("Move AWS access keys to the Recycle Bin", "the pinned footer of the security panel");
         await SecurityPanelAsync(health, ".env.production with 4 keys is committed in old-web", "health-security-env", suffix, ["Copy the commands for Fix it in git", "Show .env.production with 4 keys is committed in old-web in File Explorer"]);
         ScrollPanel(1.0);
         await ShotAsync("health-security-env-actions", suffix);
@@ -77,6 +78,7 @@ internal sealed partial class ScreenshotTour
         await ShotAsync("health-ports", suffix);
         health.SelectedPort = health.DevelopmentPorts.First(p => p.Port == 5173).Id;
         await ShotAsync("health-ports-selected", suffix);
+        RequireOnScreen("Stop Vite dev server in web-shop", "the pinned footer of the port panel");
         Require(window.Find<Button>("Open http://localhost:5173 in your browser") is not null, "health: Open in browser is not reachable for a dev web port");
         Require(window.Find<Button>("Copy http://localhost:5173") is not null, "health: Copy URL is not reachable");
         Button stop = window.Find<Button>("Stop Vite dev server in web-shop") ?? throw new InvalidOperationException("health: Stop is not reachable on a development port");
@@ -120,7 +122,26 @@ internal sealed partial class ScreenshotTour
         health.Tab = HealthTab.Ports;
         health.SelectedPort = health.DevelopmentPorts[0].Id;
         await ShotAsync("health-ports", "highcontrast");
+        health.SelectedPort = health.OtherPorts.First(p => p.Port == 5040).Id;
+        await ShotAsync("health-ports-refused", "highcontrast");
         health.SelectedPort = null;
+        health.Tab = HealthTab.Tools;
+        foreach ((string id, string shot) in new[] { ("node", "health-tools-node-eol"), ("packages", "health-tools-packages"), ("projects", "health-tools-projects") })
+        {
+            health.SelectedTool = id;
+            await window.WaitForRenderAsync();
+            ScrollPanel(0);
+            await ShotAsync(shot, "highcontrast");
+        }
+
+        health.SelectedTool = null;
+        health.Tab = HealthTab.Security;
+        health.SelectedSecurity = health.Report!.Security!.Findings.First(f => f.Title.StartsWith(".env.production", StringComparison.Ordinal)).Id;
+        await window.WaitForRenderAsync();
+        ScrollPanel(0);
+        await ShotAsync("health-security-env", "highcontrast");
+        health.SelectedSecurity = null;
+        await HealthStatesAsync(health, "highcontrast");
         health.Tab = HealthTab.Tools;
     }
 
@@ -197,7 +218,7 @@ internal sealed partial class ScreenshotTour
         ScrollViewer? last = null;
         void Walk(DependencyObject node)
         {
-            if (node is ScrollViewer viewer)
+            if (node is ScrollViewer viewer && !Equals(viewer.Tag, Design.PanelFooter.FooterTag))
             {
                 last = viewer;
             }
