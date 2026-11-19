@@ -233,7 +233,7 @@ public sealed class SampleBackend : IDevSweepBackend, IHealthSource, IProjectsSo
 
     string IProjectsSource.OpenInEditor(Project project) => "Visual Studio Code";
 
-    Task<RemoveResult> IProjectsSource.RemoveAsync(Project project, CancellationToken cancellationToken, bool acknowledgeLoss)
+    Task<RemoveResult> IProjectsSource.RemoveAsync(Project project, bool acknowledgeLoss, CancellationToken cancellationToken)
         => Task.FromResult(new RemoveResult(project.Safety?.IsSafeToRemove == true || acknowledgeLoss, project.Safety?.IsSafeToRemove == true || acknowledgeLoss ? "Removed." : project.Name + " was not removed: " + project.Safety?.Headline + ".", project.Safety));
 
     DownloadPlan IProjectsSource.PlanDownload(Project project, CloneStrategy strategy, string? destination, string? account)

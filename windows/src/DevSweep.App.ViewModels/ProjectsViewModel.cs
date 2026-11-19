@@ -612,7 +612,7 @@ public sealed partial class ProjectsViewModel(IProjectsSource? source, Action<st
         Removing = new HashSet<string>(Removing) { project.Id };
         try
         {
-            RemoveResult result = await source.RemoveAsync(project, CancellationToken.None, acknowledgeLoss);
+            RemoveResult result = await source.RemoveAsync(project, acknowledgeLoss, CancellationToken.None);
             Notice = new Notice(result.Succeeded ? NoticeKind.Success : NoticeKind.Warning,
                 result.Succeeded ? $"Removed {project.Name} from this PC. It's in History, and it stays in this list with Download." : result.Message);
             if (result.Succeeded && SelectedId == project.Id)
@@ -655,7 +655,7 @@ public sealed partial class ProjectsViewModel(IProjectsSource? source, Action<st
                 RemoveAllStatus = $"Removing {done + failed + 1} of {safe.Count}: {project.Name}…";
                 try
                 {
-                    RemoveResult result = await source.RemoveAsync(project, CancellationToken.None);
+                    RemoveResult result = await source.RemoveAsync(project, false, CancellationToken.None);
                     if (result.Succeeded)
                     {
                         done++;

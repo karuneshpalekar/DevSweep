@@ -110,7 +110,7 @@ public interface IProjectsSource
     /// <summary>Opens the folder in the chosen editor (else File Explorer); returns what was used.</summary>
     string OpenInEditor(Project project);
 
-    Task<RemoveResult> RemoveAsync(Project project, CancellationToken cancellationToken, bool acknowledgeLoss = false);
+    Task<RemoveResult> RemoveAsync(Project project, bool acknowledgeLoss, CancellationToken cancellationToken);
 
     DownloadPlan PlanDownload(Project project, CloneStrategy strategy, string? destination, string? account);
 

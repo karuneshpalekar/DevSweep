@@ -84,7 +84,7 @@ public sealed class ProjectFlowTests(ITestOutputHelper output) : IDisposable
 
         var history = new HistoryStore(Path.Join(_git.Root, "history.json"));
         var cleaner = new Cleaner(SafetyGuard.ForCurrentUser(devRoots: [code]), history, new QuarantineStore(new FixedQuarantineLocations(Path.Join(_git.Root, "quarantine"))), new RecycleBin());
-        RemoveResult removed = await service.RemoveAsync(project, cleaner, Ct);
+        RemoveResult removed = await service.RemoveAsync(project, cleaner, cancellationToken: Ct);
         output.WriteLine("remove: " + removed.Message);
         Assert.True(removed.Succeeded, removed.Message);
         Assert.False(Directory.Exists(work));
@@ -126,7 +126,7 @@ public sealed class ProjectFlowTests(ITestOutputHelper output) : IDisposable
         ProjectsSnapshot snapshot = await service.ScanAsync(new ProjectsScanOptions { Roots = [code], IncludeGitHub = false }, Ct);
         var history = new HistoryStore(Path.Join(_git.Root, "history.json"));
         var cleaner = new Cleaner(SafetyGuard.ForCurrentUser(devRoots: [code]), history, new QuarantineStore(new FixedQuarantineLocations(Path.Join(_git.Root, "quarantine"))), new RecycleBin());
-        RemoveResult result = await service.RemoveAsync(Assert.Single(snapshot.Projects), cleaner, Ct);
+        RemoveResult result = await service.RemoveAsync(Assert.Single(snapshot.Projects), cleaner, cancellationToken: Ct);
         Assert.False(result.Succeeded);
         Assert.Contains("git doesn't track", result.Message, StringComparison.Ordinal);
         Assert.True(File.Exists(Path.Join(work, "notes.txt")));
@@ -145,10 +145,10 @@ public sealed class ProjectFlowTests(ITestOutputHelper output) : IDisposable
         var cleaner = new Cleaner(SafetyGuard.ForCurrentUser(devRoots: [code]), history, new QuarantineStore(new FixedQuarantineLocations(Path.Join(_git.Root, "quarantine2"))), new RecycleBin());
         Project project = Assert.Single(snapshot.Projects);
 
-        Assert.False((await service.RemoveAsync(project, cleaner, Ct)).Succeeded);
+        Assert.False((await service.RemoveAsync(project, cleaner, cancellationToken: Ct)).Succeeded);
         Assert.True(File.Exists(Path.Join(work, "notes.txt")));
 
-        RemoveResult result = await service.RemoveAsync(project, cleaner, Ct, acknowledgeLoss: true);
+        RemoveResult result = await service.RemoveAsync(project, cleaner, acknowledgeLoss: true, cancellationToken: Ct);
         output.WriteLine(result.Message);
         Assert.True(result.Succeeded, result.Message);
         Assert.False(Directory.Exists(work));
