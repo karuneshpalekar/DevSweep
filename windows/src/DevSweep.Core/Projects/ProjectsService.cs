@@ -392,11 +392,11 @@ public sealed class ProjectsService
     }
 
     /// <summary>Removes a fully backed-up project with the M1 cleaner (Recycle Bin or quarantine, History). <paramref name="cleaner"/> defaults to the user's.</summary>
-    public Task<RemoveResult> RemoveAsync(Project project, Cleaner? cleaner = null, CancellationToken cancellationToken = default)
+    public Task<RemoveResult> RemoveAsync(Project project, Cleaner? cleaner = null, CancellationToken cancellationToken = default, bool acknowledgeLoss = false)
     {
         ArgumentNullException.ThrowIfNull(project);
         cleaner ??= DefaultCleaner(project.LocalPath);
-        return new ProjectRemover(Checker, cleaner, Store).RemoveAsync(project, cancellationToken);
+        return new ProjectRemover(Checker, cleaner, Store).RemoveAsync(project, acknowledgeLoss, cancellationToken);
     }
 
     public Task<PublishPreview> PreviewPublishAsync(PublishRequest request, CancellationToken cancellationToken = default)

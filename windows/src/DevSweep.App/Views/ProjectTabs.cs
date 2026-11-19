@@ -215,15 +215,14 @@ internal static class ProjectTabs
             return;
         }
 
-        var content = new StackPanel { Spacing = Tokens.Space2, MaxWidth = 460 };
-        content.Children.Add(Ui.Text(project.Name + " isn't fully saved anywhere else, so DevSweep won't remove it. Removing it now would lose:"));
-        foreach (string line in (s?.Blockers ?? []).DefaultIfEmpty(s?.Headline ?? "Something DevSweep couldn't check"))
+        string bullets = string.Join("\n", (s?.Blockers ?? []).DefaultIfEmpty(s?.Headline ?? "Something DevSweep couldn't check").Select(l => "• " + l));
+        if (await window.ConfirmAsync(
+            $"Remove {project.Name} anyway?",
+            $"{project.Name} isn't fully saved anywhere else. Removing it would lose:\n\n{bullets}\n\nDownloading {project.Name} again won't bring this back. The folder goes to the Recycle Bin (or DevSweep's quarantine), so you can still restore it from History.",
+            "Remove anyway"))
         {
-            content.Children.Add(Ds.CheckRow(false, line));
+            await vm.RemoveAsync(project, acknowledgeLoss: true);
         }
-
-        content.Children.Add(Ui.Secondary("Push or publish your work first, then it can be removed."));
-        await window.InformAsync($"{project.Name} can't be removed yet", content);
     }
 
     // ---- Accounts ------------------------------------------------------------------------------------------------------------------------

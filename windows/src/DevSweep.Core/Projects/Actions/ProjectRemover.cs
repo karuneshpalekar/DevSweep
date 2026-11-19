@@ -16,10 +16,13 @@ public sealed record RemoveResult(bool Succeeded, string Message, RemovalSafety?
 /// Removal is the M1 cleaner's Trash action: Recycle Bin when it will keep the folder, otherwise
 /// DevSweep's quarantine, through the safety guard, recorded in History (restorable). The
 /// repository is remembered with the folder it lived in, so Download puts it back there.
+/// Like the Mac's "Remove anyway", a project that is NOT fully backed up can still go when the caller passes
+/// <c>acknowledgeLoss</c> after showing the person exactly what would be lost; it still goes to the Recycle Bin
+/// or quarantine and is restorable from History. Without it nothing unsafe is ever removed.
 /// </summary>
 public sealed class ProjectRemover(SafetyChecker checker, Cleaner cleaner, ProjectStore store)
 {
-    public async Task<RemoveResult> RemoveAsync(Project project, CancellationToken cancellationToken = default)
+    public async Task<RemoveResult> RemoveAsync(Project project, bool acknowledgeLoss = false, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
         if (project.LocalPath is not { } path)
@@ -28,7 +31,7 @@ public sealed class ProjectRemover(SafetyChecker checker, Cleaner cleaner, Proje
         }
 
         RemovalSafety safety = await checker.CheckAsync(path, new SafetyCheckOptions { CheckLocks = true }, cancellationToken).ConfigureAwait(false);
-        if (safety.State != SafetyState.Safe)
+        if (safety.State != SafetyState.Safe && !(acknowledgeLoss && safety.State is SafetyState.NotSafe or SafetyState.NotChecked))
         {
             IEnumerable<string> why = safety.State == SafetyState.NotSafe ? safety.Blockers
                 : safety.State == SafetyState.NotChecked ? [safety.Headline]
@@ -56,7 +59,8 @@ public sealed class ProjectRemover(SafetyChecker checker, Cleaner cleaner, Proje
         }
 
         string where = outcome.Items.Any(i => i.Destination == ItemDestination.Quarantine) ? "In DevSweep's quarantine" : "In the Recycle Bin";
-        store.Log(ActivityKind.Remove, project.NameWithOwner, $"Freed {SizeText.Format(outcome.Freed)} from {path}. {where}; restore from History or download it again.");
+        string again = safety.State == SafetyState.Safe ? "restore from History or download it again" : "restore it from History (downloading it again would not bring back what was only here)";
+        store.Log(ActivityKind.Remove, project.NameWithOwner, $"Freed {SizeText.Format(outcome.Freed)} from {path}. {where}; {again}.");
         return new RemoveResult(true, outcome.Message, safety, outcome);
     }
 }

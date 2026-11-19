@@ -80,7 +80,7 @@ public sealed class CoreProjectsSource(ProjectsService service, Func<IReadOnlyLi
 
     public string OpenInEditor(Project project) => service.OpenInEditor(project);
 
-    public Task<RemoveResult> RemoveAsync(Project project, CancellationToken cancellationToken) => service.RemoveAsync(project, cancellationToken: cancellationToken);
+    public Task<RemoveResult> RemoveAsync(Project project, CancellationToken cancellationToken, bool acknowledgeLoss = false) => service.RemoveAsync(project, cancellationToken: cancellationToken, acknowledgeLoss: acknowledgeLoss);
 
     public DownloadPlan PlanDownload(Project project, CloneStrategy strategy, string? destination, string? account)
         => service.PlanDownload(project, strategy, destination, account);

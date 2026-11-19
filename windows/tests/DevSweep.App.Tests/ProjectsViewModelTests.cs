@@ -269,6 +269,17 @@ public sealed class ProjectsViewModelTests
     }
 
     [Fact]
+    public async Task Removing_an_unsafe_project_works_only_when_the_loss_is_acknowledged()
+    {
+        ProjectsViewModel vm = await LoadedAsync();
+        Project unsafeProject = vm.All.Single(p => p.Name == "web-shop");
+
+        Assert.False(await vm.RemoveAsync(unsafeProject));
+        Assert.True(await vm.RemoveAsync(unsafeProject, acknowledgeLoss: true));
+        Assert.Equal(NoticeKind.Success, vm.Notice!.Kind);
+    }
+
+    [Fact]
     public async Task Removing_a_safe_project_reports_success_and_clears_the_selection()
     {
         ProjectsViewModel vm = await LoadedAsync();

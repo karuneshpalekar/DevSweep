@@ -166,7 +166,7 @@ internal static class ProjectPanel
         return Ui.V(Tokens.Space2, callout, FlowButtons.Build([.. actions]));
     }
 
-    /// <summary>Confirm, then remove; a project that isn't fully backed up is explained instead (the warning lists exactly what would be lost).</summary>
+    /// <summary>Confirm, then remove; a project that isn't fully backed up lists exactly what would be lost and needs "Remove anyway" (as on the Mac).</summary>
     private static async Task RemoveAsync(ProjectsViewModel vm, Project project, MainWindow window)
     {
         RemovalSafety? s = project.Safety;
@@ -188,14 +188,15 @@ internal static class ProjectPanel
             : s.State == SafetyState.NotSafe ? [.. s.Blockers]
             : s.State == SafetyState.NotChecked ? [s.Headline]
             : [.. s.Blockers, .. s.Problems.Select(p => "Couldn't check: " + p)];
-        var content = new StackPanel { Spacing = Tokens.Space2, MaxWidth = 460 };
-        content.Children.Add(Ui.Text(project.Name + " isn't fully saved anywhere else, so DevSweep won't remove it. Removing it now would lose:"));
-        foreach (string line in lost.DefaultIfEmpty("Something DevSweep couldn't check"))
+        // Like the Mac's "Remove anyway": say exactly what would be lost, then let the person decide.
+        string bullets = string.Join("\n", lost.DefaultIfEmpty("Something DevSweep couldn't check").Select(l => "• " + l));
+        bool anyway = await window.ConfirmAsync(
+            $"Remove {project.Name} anyway?",
+            $"{project.Name} isn't fully saved anywhere else. Removing it would lose:\n\n{bullets}\n\nDownloading {project.Name} again won't bring this back. The folder goes to the Recycle Bin (or DevSweep's quarantine), so you can still restore it from History.",
+            "Remove anyway");
+        if (anyway)
         {
-            content.Children.Add(Ds.CheckRow(false, line));
+            await vm.RemoveAsync(project, acknowledgeLoss: true);
         }
-
-        content.Children.Add(Ui.Secondary("Push or publish your work first (the panel has the button), or check the folder yourself. Then it can be removed."));
-        await window.InformAsync($"{project.Name} can't be removed yet", content);
     }
 }

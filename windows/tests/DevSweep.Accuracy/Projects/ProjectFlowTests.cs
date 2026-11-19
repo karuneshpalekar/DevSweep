@@ -117,7 +117,7 @@ public sealed class ProjectFlowTests(ITestOutputHelper output) : IDisposable
     }
 
     [Fact]
-    public async Task An_unsafe_project_is_never_removed()
+    public async Task An_unsafe_project_is_never_removed_without_acknowledgement()
     {
         string code = _git.Temp.CreateDirectory("Code");
         string work = _git.Repo(Path.Join("Code", "busy"));
@@ -131,6 +131,28 @@ public sealed class ProjectFlowTests(ITestOutputHelper output) : IDisposable
         Assert.Contains("git doesn't track", result.Message, StringComparison.Ordinal);
         Assert.True(File.Exists(Path.Join(work, "notes.txt")));
         Assert.Empty(history.Entries);
+    }
+
+    [Fact]
+    public async Task An_unsafe_project_is_removed_only_after_the_person_acknowledges_the_loss_and_stays_restorable()
+    {
+        string code = _git.Temp.CreateDirectory("Code");
+        string work = _git.Repo(Path.Join("Code", "busy2"));
+        File.WriteAllText(Path.Join(work, "notes.txt"), "mine");
+        ProjectsService service = Service();
+        ProjectsSnapshot snapshot = await service.ScanAsync(new ProjectsScanOptions { Roots = [code], IncludeGitHub = false }, Ct);
+        var history = new HistoryStore(Path.Join(_git.Root, "history2.json"));
+        var cleaner = new Cleaner(SafetyGuard.ForCurrentUser(devRoots: [code]), history, new QuarantineStore(new FixedQuarantineLocations(Path.Join(_git.Root, "quarantine2"))), new RecycleBin());
+        Project project = Assert.Single(snapshot.Projects);
+
+        Assert.False((await service.RemoveAsync(project, cleaner, Ct)).Succeeded);
+        Assert.True(File.Exists(Path.Join(work, "notes.txt")));
+
+        RemoveResult result = await service.RemoveAsync(project, cleaner, Ct, acknowledgeLoss: true);
+        output.WriteLine(result.Message);
+        Assert.True(result.Succeeded, result.Message);
+        Assert.False(Directory.Exists(work));
+        Assert.NotEmpty(history.Entries);
     }
 
     [Fact]

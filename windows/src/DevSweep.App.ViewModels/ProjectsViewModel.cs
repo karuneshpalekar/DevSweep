@@ -601,8 +601,8 @@ public sealed partial class ProjectsViewModel(IProjectsSource? source, Action<st
         }
     }
 
-    /// <summary>Removes one project from this PC (the caller has already asked "Remove from this PC?"). Only a fully backed-up project goes.</summary>
-    public async Task<bool> RemoveAsync(Project project)
+    /// <summary>Removes one project from this PC (the caller has already asked "Remove from this PC?"). A project that is not fully backed up goes only with <paramref name="acknowledgeLoss"/> (the "Remove anyway" confirm, as on the Mac).</summary>
+    public async Task<bool> RemoveAsync(Project project, bool acknowledgeLoss = false)
     {
         if (source is null || project.LocalPath is null || project.IsWsl)
         {
@@ -612,7 +612,7 @@ public sealed partial class ProjectsViewModel(IProjectsSource? source, Action<st
         Removing = new HashSet<string>(Removing) { project.Id };
         try
         {
-            RemoveResult result = await source.RemoveAsync(project, CancellationToken.None);
+            RemoveResult result = await source.RemoveAsync(project, CancellationToken.None, acknowledgeLoss);
             Notice = new Notice(result.Succeeded ? NoticeKind.Success : NoticeKind.Warning,
                 result.Succeeded ? $"Removed {project.Name} from this PC. It's in History, and it stays in this list with Download." : result.Message);
             if (result.Succeeded && SelectedId == project.Id)
