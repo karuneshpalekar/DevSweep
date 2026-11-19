@@ -1,0 +1,312 @@
+03:46:11.755 tray menu: 81 GB free on Windows (C:) (not clickable)
+03:46:11.755 tray menu: 56.9 GB can be cleaned (not clickable)
+03:46:11.755 tray menu: ----
+03:46:11.755 tray menu: Needs attention (2) (not clickable)
+03:46:11.756 tray menu: 2 tools you use are past end of life
+03:46:11.756 tray menu: 5 new files look like secrets
+03:46:11.756 tray menu: ----
+03:46:11.756 tray menu: Recent projects (not clickable)
+03:46:11.756 tray menu: web-shop
+03:46:11.756 tray menu: inventory-api
+03:46:11.756 tray menu: scratch-notes
+03:46:11.756 tray menu: api-experiments
+03:46:11.756 tray menu: some-lib
+03:46:11.756 tray menu: ----
+03:46:11.756 tray menu: Open DevSweep
+03:46:11.756 tray menu: Scan now
+03:46:11.756 tray menu: Settings
+03:46:11.756 tray menu: ----
+03:46:11.757 tray menu: Last scan just now (not clickable)
+03:46:11.757 tray menu: Quit DevSweep
+03:46:14.343 saved nav-minimum.png 984x671 brightness title bar 242 content 243
+03:46:14.343 nav: all 6 places on screen at the minimum window 1000 x 680 with the update card showing (home y=152..192; cleanup y=192..232; projects y=232..272; health y=272..312; history y=587..627; settings y=627..667)
+03:46:15.168 sidepanel: focus on the info button: True, focused element: Button 'Explain pnpm store: what happens if I clean this?'
+03:46:15.340 sidepanel: opens on the item and settles at 771 px with motion off (overlay=True)
+03:46:15.513 sidepanel: Esc closes it, the last item stays until it is gone, focus returned to the info button
+03:46:15.513 motion: off path ok (enabled=False, running=0)
+03:46:16.652 motion: on path ok, the panel slid open, cross-faded to the next item and slid shut
+03:46:16.652 sidepanel: ok
+03:46:16.667 theme: setting=Light, requested=Light, actual=Light, caption buttons=#1B1B1B, button "Light" / Theme: Light, click to change
+03:46:17.227 saved welcome-light.png 1028x779 brightness title bar 181 content 215
+03:46:17.922 tab order: home-light: 22 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Rescan > Open Settings > Review 10 items > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > Health: Node.js: 18.20.4 reached end of life on 30 April 2025; old-web still asks for 18. > Ports: Vite dev server in web-shop on port 5173 listens on every network interface, so other devices may reach it. > Scan: 1 check took too long and was skipped: Docker build cache. > Clean up: Chrome cache · Default profile: close chrome before cleaning it.
+03:46:17.922 saved home-light.png 1028x779 brightness title bar 242 content 240
+03:46:18.433 saved home-scanning-light.png 1028x779 brightness title bar 242 content 240
+03:46:19.289 saved home-blocked-light.png 1028x779 brightness title bar 242 content 240
+03:46:19.945 saved home-wide-light.png 1028x779 brightness title bar 242 content 240
+03:46:20.671 saved sidebar-compact-light.png 1028x779 brightness title bar 242 content 246
+03:46:21.517 saved sidebar-wide-light.png 1028x779 brightness title bar 242 content 240
+03:46:22.188 saved home-rule-errors-light.png 1028x779 brightness title bar 242 content 239
+03:46:22.861 saved home-first-scan-light.png 1028x779 brightness title bar 242 content 240
+03:46:23.545 saved home-not-scanned-light.png 1028x779 brightness title bar 242 content 241
+03:46:24.196 saved home-scanning-first-light.png 1028x779 brightness title bar 242 content 241
+03:46:24.433 home: states checked (blocked folders banner, rule errors banner, first scan, not scanned, scanning, wide layout, compact sidebar, next scan in the subtitle)
+03:46:25.294 saved tray-flyout-light.png 320x516
+03:46:25.294 tray flyout: ok (a borderless window with free space, cleanable, alerts, recent projects and the buttons)
+03:46:26.229 tab order: cleanup-light: 45 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Scan again > Show All, 10 > Show Caches, 12.1 GB > Show Old and unused, 7.3 GB > Show Docker and WSL, 38 GB > Show Leftovers, 412 MB > Show Project dependencies, 1 GB > Show Windows, — > Search Clean up > Select or deselect all Rebuilds itself items > Select Gradle caches > Explain Gradle caches: what happens if I clean this? > Select npm cache > What to do with npm cache > Explain npm cache: what happens if I clean this? > Select pnpm store > Explain pnpm store: what happens if I clean this? > …
+03:46:26.230 saved cleanup-light.png 1028x779 brightness title bar 242 content 243
+03:46:26.704 tab order: inspector-light: 50 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Scan again > Show All, 10 > Show Caches, 12.1 GB > Show Old and unused, 7.3 GB > Show Docker and WSL, 38 GB > Show Leftovers, 412 MB > Show Project dependencies, 1 GB > Show Windows, — > Search Clean up > Select or deselect all Rebuilds itself items > Select Gradle caches > Explain Gradle caches: what happens if I clean this? > Select npm cache > What to do with npm cache > Explain npm cache: what happens if I clean this? > Select pnpm store > Explain pnpm store: what happens if I clean this? > …
+03:46:26.704 saved inspector-light.png 1028x779 brightness title bar 242 content 233
+03:46:26.706 pinned: 'Select pnpm store for cleaning' is on screen at 735-767 of 779 (the pinned footer of the inspector)
+03:46:27.179 tab order: inspector-admin-light: 50 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Scan again > Show All, 10 > Show Caches, 12.1 GB > Show Old and unused, 7.3 GB > Show Docker and WSL, 38 GB > Show Leftovers, 412 MB > Show Project dependencies, 1 GB > Show Windows, — > Search Clean up > Select or deselect all Rebuilds itself items > Select Gradle caches > Explain Gradle caches: what happens if I clean this? > Select npm cache > What to do with npm cache > Explain npm cache: what happens if I clean this? > Select pnpm store > Explain pnpm store: what happens if I clean this? > …
+03:46:27.179 saved inspector-admin-light.png 1028x779 brightness title bar 242 content 235
+03:46:27.181 pinned: 'Open the command in a PowerShell window that waits for Enter' is on screen at 735-767 of 779 (the pinned footer of the admin inspector)
+03:46:27.650 saved inspector-blocked-light.png 1028x779 brightness title bar 242 content 234
+03:46:27.654 pinned: 'Select Chrome cache · Default profile for cleaning' is on screen at 735-767 of 779 (the pinned footer of the blocked item's inspector)
+03:46:28.144 tab order: selection-light: 47 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Scan again > Show All, 10 > Show Caches, 12.1 GB > Show Old and unused, 7.3 GB > Show Docker and WSL, 38 GB > Show Leftovers, 412 MB > Show Project dependencies, 1 GB > Show Windows, — > Search Clean up > Select or deselect all Rebuilds itself items > Select Gradle caches > Explain Gradle caches: what happens if I clean this? > Select npm cache > What to do with npm cache > Explain npm cache: what happens if I clean this? > Select pnpm store > Explain pnpm store: what happens if I clean this? > …
+03:46:28.144 saved selection-light.png 1028x779 brightness title bar 242 content 242
+03:46:28.670 tab order: review-light: 6 stops, 0 unnamed: Settings > Theme: Light, click to change > Quit Chrome > Exactly what will be done > Cancel > Clean 6 items
+03:46:28.670 saved review-light.png 1028x779 brightness title bar 174 content 216
+03:46:29.233 saved review-done-light.png 1028x779 brightness title bar 169 content 213
+03:46:30.028 saved scanning-light.png 1028x779 brightness title bar 242 content 243
+03:46:30.983 saved projects-consent-light.png 1028x779 brightness title bar 242 content 241
+03:46:31.453 tab order: projects-projects-light: 40 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Refresh projects > Projects > Cleanup > Accounts > Activity > All · 14 > On this PC · 11 > On GitHub · 3 > Account > Search projects > Get a project > Show what was searched and skipped > Add a folder to look in > Find all repos on this PC > Details for alex/web-shop > Details for alex/inventory-api > Details for scratch-notes > …
+03:46:31.453 saved projects-projects-light.png 1028x779 brightness title bar 242 content 244
+03:46:31.943 saved projects-onpc-light.png 1028x779 brightness title bar 242 content 244
+03:46:32.375 saved projects-github-light.png 1028x779 brightness title bar 242 content 245
+03:46:32.824 saved projects-account-light.png 1028x779 brightness title bar 242 content 245
+03:46:33.478 saved projects-search-light.png 1028x779 brightness title bar 242 content 246
+03:46:34.461 saved projects-search-none-light.png 1028x779 brightness title bar 242 content 245
+03:46:34.638 projects: search filters the list (14 projects, PAY gives 1, nothing gives 0) through the search box
+03:46:34.822 pinned: 'Remove inventory-api from this PC' is on screen at 735-767 of 779 (the pinned footer of the panel of alex/inventory-api)
+03:46:35.270 saved projects-detail-safe-light.png 1028x779 brightness title bar 242 content 237
+03:46:35.449 pinned: 'Push 3 commits in a terminal window' is on screen at 735-767 of 779 (the pinned footer of the panel of alex/web-shop)
+03:46:35.453 pinned: 'Remove web-shop from this PC' is on screen at 735-767 of 779 (the pinned footer of the panel of alex/web-shop)
+03:46:35.915 tab order: projects-detail-unpushed-light: 47 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Refresh projects > Projects > Cleanup > Accounts > Activity > All · 14 > On this PC · 11 > On GitHub · 3 > Account > Search projects > Get a project > Show what was searched and skipped > Add a folder to look in > Find all repos on this PC > Details for alex/web-shop > Details for alex/inventory-api > Details for scratch-notes > …
+03:46:35.915 saved projects-detail-unpushed-light.png 1028x779 brightness title bar 242 content 236
+03:46:36.096 pinned: 'Publish scratch-notes to GitHub' is on screen at 735-767 of 779 (the pinned footer of the panel of local:C:\Users\alex\Documents\scratch-notes)
+03:46:36.099 pinned: 'Remove scratch-notes from this PC' is on screen at 735-767 of 779 (the pinned footer of the panel of local:C:\Users\alex\Documents\scratch-notes)
+03:46:36.548 tab order: projects-detail-noremote-light: 45 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Refresh projects > Projects > Cleanup > Accounts > Activity > All · 14 > On this PC · 11 > On GitHub · 3 > Account > Search projects > Get a project > Show what was searched and skipped > Add a folder to look in > Find all repos on this PC > Details for alex/web-shop > Details for alex/inventory-api > Details for scratch-notes > …
+03:46:36.548 saved projects-detail-noremote-light.png 1028x779 brightness title bar 242 content 236
+03:46:37.171 saved projects-detail-github-light.png 1028x779 brightness title bar 242 content 237
+03:46:37.347 pinned: 'Remove ml-notebooks from this PC' is on screen at 735-767 of 779 (the pinned footer of the panel of alex/ml-notebooks)
+03:46:37.795 saved projects-detail-onedrive-light.png 1028x779 brightness title bar 242 content 236
+03:46:38.459 saved projects-detail-lfs-light.png 1028x779 brightness title bar 242 content 237
+03:46:39.099 saved projects-detail-wsl-light.png 1028x779 brightness title bar 242 content 237
+03:46:39.741 saved projects-detail-otherhost-light.png 1028x779 brightness title bar 242 content 237
+03:46:40.813 saved projects-sheet-clone-light.png 1028x779 brightness title bar 169 content 198
+03:46:40.818 projects: every action of the panel is on screen for each kind of repo; Fetch now and Download work through UI Automation
+03:46:41.628 tab order: projects-sheet-publish-light: 10 stops, 0 unnamed: Settings > Theme: Light, click to change > Choose the folder to publish > Repository name > Account to publish with > Description > Private > Public > Publish anyway, even though these files look like secrets > Cancel
+03:46:41.628 saved projects-sheet-publish-light.png 1028x779 brightness title bar 171 content 208
+03:46:42.282 saved projects-sheet-url-light.png 1028x779 brightness title bar 169 content 183
+03:46:42.736 saved projects-sheet-url-filled-light.png 1028x779 brightness title bar 169 content 183
+03:46:43.218 saved projects-sheet-account-light.png 1028x779 brightness title bar 169 content 192
+03:46:43.898 saved projects-gh-missing-light.png 1028x779 brightness title bar 242 content 243
+03:46:44.561 saved projects-gh-signedout-light.png 1028x779 brightness title bar 242 content 243
+03:46:45.232 saved projects-deep-running-light.png 1028x779 brightness title bar 242 content 244
+03:46:45.687 saved projects-deep-result-light.png 1028x779 brightness title bar 242 content 243
+03:46:45.895 projects: 5014 projects listed with 12 rows built (203 ms to show them); searching them took 0.9 ms (100 hits)
+03:46:46.369 saved projects-many-light.png 1028x779 brightness title bar 242 content 244
+03:46:47.267 saved projects-cleanup-light.png 1028x779 brightness title bar 242 content 243
+03:46:47.744 saved projects-cleanup-detail-light.png 1028x779 brightness title bar 242 content 237
+03:46:48.239 tab order: projects-accounts-light: 25 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Refresh projects > Projects > Cleanup > Accounts > Activity > Name for commits as alex > Email for commits as alex > Name for commits as alex-acme > Email for commits as alex-acme > Add a GitHub account > Refresh the accounts > Downloads and folders in Settings
+03:46:48.239 saved projects-accounts-light.png 1028x779 brightness title bar 242 content 244
+03:46:48.726 tab order: projects-activity-light: 28 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Refresh projects > Projects > Cleanup > Accounts > Activity > Show all activity > Show Downloads > Show Removals > Show Publishes > Show Pushes > Show Added > Show Identities > Show Sign-ins > Show Fetches > Show Searches
+03:46:48.726 saved projects-activity-light.png 1028x779 brightness title bar 242 content 243
+03:46:49.474 tab order: health-tools-light: 29 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Check again > Tools and versions, 5 to look at > Security, 5 to look at > Ports, 5 to look at > Show All, 9 > Show Needs attention, 5 > Show Up to date, 4 > Show details for Node.js > Show details for Python > Show details for .NET SDK > Show details for PostgreSQL > Show details for Java > Show details for Go > Show details for Package managers > Show details for Windows 11 > Show details for Your projects
+03:46:49.474 saved health-tools-light.png 1028x779 brightness title bar 242 content 243
+03:46:50.134 tab order: health-tools-node-eol-light: 38 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Check again > Tools and versions, 5 to look at > Security, 5 to look at > Ports, 5 to look at > Show All, 9 > Show Needs attention, 5 > Show Up to date, 4 > Show details for Node.js > Show details for Python > Show details for .NET SDK > Show details for PostgreSQL > Show details for Java > Show details for Go > Show details for Package managers > Show details for Windows 11 > Show details for Your projects > Close details (Esc) > …
+03:46:50.134 saved health-tools-node-eol-light.png 1028x779 brightness title bar 242 content 237
+03:46:50.815 saved health-tools-python-light.png 1028x779 brightness title bar 242 content 235
+03:46:51.287 saved health-tools-python-notes-light.png 1028x779 brightness title bar 242 content 241
+03:46:51.974 saved health-tools-postgres-light.png 1028x779 brightness title bar 242 content 237
+03:46:52.630 saved health-tools-ok-light.png 1028x779 brightness title bar 242 content 238
+03:46:53.348 saved health-tools-packages-light.png 1028x779 brightness title bar 242 content 237
+03:46:53.841 saved health-tools-packages-scoop-light.png 1028x779 brightness title bar 242 content 238
+03:46:54.328 saved health-tools-packages-more-light.png 1028x779 brightness title bar 242 content 236
+03:46:54.978 saved health-tools-projects-light.png 1028x779 brightness title bar 242 content 239
+03:46:55.467 saved health-tools-filtered-light.png 1028x779 brightness title bar 242 content 243
+03:46:55.940 saved health-security-light.png 1028x779 brightness title bar 242 content 244
+03:46:56.571 saved health-security-aws-light.png 1028x779 brightness title bar 242 content 236
+03:46:56.576 pinned: 'Move AWS access keys to the Recycle Bin' is on screen at 735-767 of 779 (the pinned footer of the security panel)
+03:46:57.219 tab order: health-security-env-light: 29 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Check again > Tools and versions, 5 to look at > Security, 5 to look at > Ports, 5 to look at > Show details for AWS access keys > Show details for .env file > Show details for GitHub recovery codes > Show details for .env.production with 4 keys is committed in old-web > Show details for Password manager export > Show details for SSH private key > Show details for .env with 2 keys in inventory-api > Close details (Esc) > Copy the commands for Fix it in git > Open Fix it in git in PowerShell > Show .env.production with 4 keys is committed in old-web in File Explorer > Ignore .env.production with 4 keys is committed in old-web
+03:46:57.219 saved health-security-env-light.png 1028x779 brightness title bar 242 content 235
+03:46:57.679 saved health-security-env-actions-light.png 1028x779 brightness title bar 242 content 235
+03:46:58.308 saved health-security-cloud-light.png 1028x779 brightness title bar 242 content 236
+03:46:58.768 saved health-security-cloud-actions-light.png 1028x779 brightness title bar 242 content 236
+03:46:58.770 health: a OneDrive finding is blocked from the Recycle Bin with a plain reason
+03:46:59.415 saved health-security-fine-light.png 1028x779 brightness title bar 242 content 236
+03:46:59.876 saved health-ports-light.png 1028x779 brightness title bar 242 content 244
+03:47:00.353 tab order: health-ports-selected-light: 30 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Check again > Tools and versions, 5 to look at > Security, 5 to look at > Ports, 5 to look at > Show details for port 5173 > Show details for port 3000 > Show details for port 5432 > Show details for port 8080 > Show details for port 6379 > Show details for port 5040 > Show details for port 49664 > Show details for port 5357 > Close details (Esc) > Open http://localhost:5173 in your browser > Copy http://localhost:5173 > Copy port 5173 > Stop Vite dev server in web-shop
+03:47:00.353 saved health-ports-selected-light.png 1028x779 brightness title bar 242 content 235
+03:47:00.354 pinned: 'Stop Vite dev server in web-shop' is on screen at 711-743 of 779 (the pinned footer of the port panel)
+03:47:00.995 saved health-ports-stop-confirm-light.png 1028x779 brightness title bar 242 content 235
+03:47:01.629 saved health-ports-still-running-light.png 1028x779 brightness title bar 242 content 235
+03:47:02.090 saved health-ports-refused-light.png 1028x779 brightness title bar 242 content 237
+03:47:02.530 saved health-loading-light.png 1028x779 brightness title bar 242 content 243
+03:47:02.986 saved health-notchecked-light.png 1028x779 brightness title bar 242 content 245
+03:47:03.427 saved health-failed-light.png 1028x779 brightness title bar 242 content 244
+03:47:03.918 saved health-off-light.png 1028x779 brightness title bar 242 content 245
+03:47:04.399 saved health-tools-empty-light.png 1028x779 brightness title bar 242 content 244
+03:47:04.835 saved health-security-empty-light.png 1028x779 brightness title bar 242 content 245
+03:47:05.276 saved health-ports-empty-light.png 1028x779 brightness title bar 242 content 245
+03:47:05.298 health: 13 panel actions found through UI Automation names
+03:47:05.488 wide: the window could only reach 1044 x 788 (wanted 1400 x 900), so the wide layout was not shot; it is checked by reading the layout code (see p4-polish.md)
+03:47:06.304 tab order: history-light: 17 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Refresh > Empty quarantine… > Restore PyCharm 2023.3 settings and caches > Restore Old installers in Downloads
+03:47:06.305 saved history-light.png 1028x779 brightness title bar 242 content 244
+03:47:07.469 saved settings-search-light.png 1028x779 brightness title bar 242 content 245
+03:47:08.176 settings: every section and control is reachable, search narrows the sections, the identity editor validates the email
+03:47:08.834 tab order: settings-general-light: 68 stops, 0 unnamed: Settings > Theme: Light, click to change > Close Navigation > Home > Clean up > Projects > Health > Open the release page for the new version > Not now: do not offer this version again > Security: AWS access keys: Plain text. Store the key in a password manager or the AWS CLI's credentials file, then delete this file. > Security: .env.production with 4 keys is committed in old-web: Committed to git. Stop tracking it and add it to .gitignore. If it was ever pushed, change the keys it holds. > History > Settings > Go to General > Go to Background > Go to Alerts > Go to GitHub > Go to Folders > Go to Privacy > Go to Modules > Go to About > Search settings > Use Windows setting > Light > Dark > Check for updates automatically > Check now > Open the release page for the new version > Open DevSweep at login and keep it in the tray > Scan on a schedule > …
+03:47:08.834 saved settings-general-light.png 1028x779 brightness title bar 242 content 243
+03:47:09.478 saved settings-background-light.png 1028x779 brightness title bar 242 content 245
+03:47:10.126 saved settings-alerts-light.png 1028x779 brightness title bar 242 content 244
+03:47:10.759 saved settings-github-light.png 1028x779 brightness title bar 242 content 243
+03:47:11.405 saved settings-folders-light.png 1028x779 brightness title bar 242 content 244
+03:47:12.071 saved settings-privacy-light.png 1028x779 brightness title bar 242 content 243
+03:47:12.703 saved settings-modules-light.png 1028x779 brightness title bar 242 content 245
+03:47:13.337 saved settings-about-light.png 1028x779 brightness title bar 242 content 245
+03:47:13.574 theme: setting=Dark, requested=Dark, actual=Dark, caption buttons=#FFFFFF, button "Dark" / Theme: Dark, click to change
+03:47:14.135 saved welcome-dark.png 1028x779 brightness title bar 27 content 40
+03:47:14.854 saved home-dark.png 1028x779 brightness title bar 35 content 52
+03:47:15.351 saved home-scanning-dark.png 1028x779 brightness title bar 35 content 52
+03:47:16.212 saved home-blocked-dark.png 1028x779 brightness title bar 35 content 52
+03:47:16.892 saved home-wide-dark.png 1028x779 brightness title bar 35 content 54
+03:47:17.624 saved sidebar-compact-dark.png 1028x779 brightness title bar 35 content 50
+03:47:18.512 saved sidebar-wide-dark.png 1028x779 brightness title bar 35 content 52
+03:47:19.182 saved home-rule-errors-dark.png 1028x779 brightness title bar 35 content 51
+03:47:19.851 saved home-first-scan-dark.png 1028x779 brightness title bar 35 content 53
+03:47:20.544 saved home-not-scanned-dark.png 1028x779 brightness title bar 35 content 51
+03:47:21.197 saved home-scanning-first-dark.png 1028x779 brightness title bar 35 content 52
+03:47:21.426 home: states checked (blocked folders banner, rule errors banner, first scan, not scanned, scanning, wide layout, compact sidebar, next scan in the subtitle)
+03:47:22.302 saved tray-flyout-dark.png 320x516
+03:47:22.302 tray flyout: ok (a borderless window with free space, cleanable, alerts, recent projects and the buttons)
+03:47:23.209 saved cleanup-dark.png 1028x779 brightness title bar 35 content 51
+03:47:23.702 saved inspector-dark.png 1028x779 brightness title bar 35 content 39
+03:47:23.705 pinned: 'Select pnpm store for cleaning' is on screen at 735-767 of 779 (the pinned footer of the inspector)
+03:47:24.201 saved inspector-admin-dark.png 1028x779 brightness title bar 35 content 38
+03:47:24.203 pinned: 'Open the command in a PowerShell window that waits for Enter' is on screen at 735-767 of 779 (the pinned footer of the admin inspector)
+03:47:24.674 saved inspector-blocked-dark.png 1028x779 brightness title bar 35 content 40
+03:47:24.677 pinned: 'Select Chrome cache · Default profile for cleaning' is on screen at 735-767 of 779 (the pinned footer of the blocked item's inspector)
+03:47:25.149 saved selection-dark.png 1028x779 brightness title bar 35 content 51
+03:47:25.696 saved review-dark.png 1028x779 brightness title bar 26 content 41
+03:47:26.287 saved review-done-dark.png 1028x779 brightness title bar 24 content 40
+03:47:27.154 saved scanning-dark.png 1028x779 brightness title bar 35 content 49
+03:47:28.106 saved projects-consent-dark.png 1028x779 brightness title bar 35 content 49
+03:47:28.566 saved projects-projects-dark.png 1028x779 brightness title bar 35 content 49
+03:47:29.044 saved projects-onpc-dark.png 1028x779 brightness title bar 35 content 49
+03:47:29.489 saved projects-github-dark.png 1028x779 brightness title bar 35 content 48
+03:47:29.922 saved projects-account-dark.png 1028x779 brightness title bar 35 content 48
+03:47:30.568 saved projects-search-dark.png 1028x779 brightness title bar 35 content 48
+03:47:31.543 saved projects-search-none-dark.png 1028x779 brightness title bar 35 content 48
+03:47:31.736 projects: search filters the list (14 projects, PAY gives 1, nothing gives 0) through the search box
+03:47:31.920 pinned: 'Remove inventory-api from this PC' is on screen at 735-767 of 779 (the pinned footer of the panel of alex/inventory-api)
+03:47:32.384 saved projects-detail-safe-dark.png 1028x779 brightness title bar 35 content 38
+03:47:32.563 pinned: 'Push 3 commits in a terminal window' is on screen at 735-767 of 779 (the pinned footer of the panel of alex/web-shop)
+03:47:32.566 pinned: 'Remove web-shop from this PC' is on screen at 735-767 of 779 (the pinned footer of the panel of alex/web-shop)
+03:47:33.033 saved projects-detail-unpushed-dark.png 1028x779 brightness title bar 35 content 40
+03:47:33.210 pinned: 'Publish scratch-notes to GitHub' is on screen at 735-767 of 779 (the pinned footer of the panel of local:C:\Users\alex\Documents\scratch-notes)
+03:47:33.213 pinned: 'Remove scratch-notes from this PC' is on screen at 735-767 of 779 (the pinned footer of the panel of local:C:\Users\alex\Documents\scratch-notes)
+03:47:33.650 saved projects-detail-noremote-dark.png 1028x779 brightness title bar 35 content 40
+03:47:34.281 saved projects-detail-github-dark.png 1028x779 brightness title bar 35 content 37
+03:47:34.461 pinned: 'Remove ml-notebooks from this PC' is on screen at 735-767 of 779 (the pinned footer of the panel of alex/ml-notebooks)
+03:47:34.898 saved projects-detail-onedrive-dark.png 1028x779 brightness title bar 35 content 40
+03:47:35.531 saved projects-detail-lfs-dark.png 1028x779 brightness title bar 35 content 39
+03:47:36.147 saved projects-detail-wsl-dark.png 1028x779 brightness title bar 35 content 38
+03:47:36.765 saved projects-detail-otherhost-dark.png 1028x779 brightness title bar 35 content 39
+03:47:37.831 saved projects-sheet-clone-dark.png 1028x779 brightness title bar 24 content 32
+03:47:37.835 projects: every action of the panel is on screen for each kind of repo; Fetch now and Download work through UI Automation
+03:47:38.599 saved projects-sheet-publish-dark.png 1028x779 brightness title bar 25 content 39
+03:47:39.244 saved projects-sheet-url-dark.png 1028x779 brightness title bar 24 content 34
+03:47:39.701 saved projects-sheet-url-filled-dark.png 1028x779 brightness title bar 24 content 35
+03:47:40.160 saved projects-sheet-account-dark.png 1028x779 brightness title bar 24 content 36
+03:47:40.831 saved projects-gh-missing-dark.png 1028x779 brightness title bar 35 content 49
+03:47:41.469 saved projects-gh-signedout-dark.png 1028x779 brightness title bar 35 content 49
+03:47:42.128 saved projects-deep-running-dark.png 1028x779 brightness title bar 35 content 50
+03:47:42.579 saved projects-deep-result-dark.png 1028x779 brightness title bar 35 content 49
+03:47:42.772 projects: 5014 projects listed with 12 rows built (190 ms to show them); searching them took 0.8 ms (100 hits)
+03:47:43.231 saved projects-many-dark.png 1028x779 brightness title bar 35 content 49
+03:47:44.125 saved projects-cleanup-dark.png 1028x779 brightness title bar 35 content 50
+03:47:44.558 saved projects-cleanup-detail-dark.png 1028x779 brightness title bar 35 content 38
+03:47:45.019 saved projects-accounts-dark.png 1028x779 brightness title bar 35 content 49
+03:47:45.478 saved projects-activity-dark.png 1028x779 brightness title bar 35 content 49
+03:47:46.221 saved health-tools-dark.png 1028x779 brightness title bar 35 content 50
+03:47:46.887 saved health-tools-node-eol-dark.png 1028x779 brightness title bar 35 content 43
+03:47:47.585 saved health-tools-python-dark.png 1028x779 brightness title bar 35 content 45
+03:47:48.055 saved health-tools-python-notes-dark.png 1028x779 brightness title bar 35 content 45
+03:47:48.723 saved health-tools-postgres-dark.png 1028x779 brightness title bar 35 content 43
+03:47:49.367 saved health-tools-ok-dark.png 1028x779 brightness title bar 35 content 36
+03:47:50.063 saved health-tools-packages-dark.png 1028x779 brightness title bar 35 content 40
+03:47:50.534 saved health-tools-packages-scoop-dark.png 1028x779 brightness title bar 35 content 42
+03:47:51.012 saved health-tools-packages-more-dark.png 1028x779 brightness title bar 35 content 44
+03:47:51.661 saved health-tools-projects-dark.png 1028x779 brightness title bar 35 content 43
+03:47:52.135 saved health-tools-filtered-dark.png 1028x779 brightness title bar 35 content 48
+03:47:52.609 saved health-security-dark.png 1028x779 brightness title bar 35 content 48
+03:47:53.239 saved health-security-aws-dark.png 1028x779 brightness title bar 35 content 36
+03:47:53.244 pinned: 'Move AWS access keys to the Recycle Bin' is on screen at 735-767 of 779 (the pinned footer of the security panel)
+03:47:53.885 saved health-security-env-dark.png 1028x779 brightness title bar 35 content 42
+03:47:54.343 saved health-security-env-actions-dark.png 1028x779 brightness title bar 35 content 42
+03:47:54.976 saved health-security-cloud-dark.png 1028x779 brightness title bar 35 content 36
+03:47:55.435 saved health-security-cloud-actions-dark.png 1028x779 brightness title bar 35 content 36
+03:47:55.437 health: a OneDrive finding is blocked from the Recycle Bin with a plain reason
+03:47:56.068 saved health-security-fine-dark.png 1028x779 brightness title bar 35 content 35
+03:47:56.543 saved health-ports-dark.png 1028x779 brightness title bar 35 content 49
+03:47:57.001 saved health-ports-selected-dark.png 1028x779 brightness title bar 35 content 40
+03:47:57.003 pinned: 'Stop Vite dev server in web-shop' is on screen at 711-743 of 779 (the pinned footer of the port panel)
+03:47:57.665 saved health-ports-stop-confirm-dark.png 1028x779 brightness title bar 35 content 40
+03:47:58.297 saved health-ports-still-running-dark.png 1028x779 brightness title bar 35 content 43
+03:47:58.758 saved health-ports-refused-dark.png 1028x779 brightness title bar 35 content 35
+03:47:59.201 saved health-loading-dark.png 1028x779 brightness title bar 35 content 46
+03:47:59.657 saved health-notchecked-dark.png 1028x779 brightness title bar 35 content 45
+03:48:00.113 saved health-failed-dark.png 1028x779 brightness title bar 35 content 42
+03:48:00.572 saved health-off-dark.png 1028x779 brightness title bar 35 content 45
+03:48:01.050 saved health-tools-empty-dark.png 1028x779 brightness title bar 35 content 43
+03:48:01.521 saved health-security-empty-dark.png 1028x779 brightness title bar 35 content 44
+03:48:01.977 saved health-ports-empty-dark.png 1028x779 brightness title bar 35 content 43
+03:48:02.002 health: 26 panel actions found through UI Automation names
+03:48:02.188 wide: the window could only reach 1044 x 788 (wanted 1400 x 900), so the wide layout was not shot; it is checked by reading the layout code (see p4-polish.md)
+03:48:03.032 saved history-dark.png 1028x779 brightness title bar 35 content 49
+03:48:04.190 saved settings-search-dark.png 1028x779 brightness title bar 35 content 46
+03:48:04.879 settings: every section and control is reachable, search narrows the sections, the identity editor validates the email
+03:48:05.533 saved settings-general-dark.png 1028x779 brightness title bar 35 content 50
+03:48:06.182 saved settings-background-dark.png 1028x779 brightness title bar 35 content 50
+03:48:06.845 saved settings-alerts-dark.png 1028x779 brightness title bar 35 content 52
+03:48:07.516 saved settings-github-dark.png 1028x779 brightness title bar 35 content 51
+03:48:08.185 saved settings-folders-dark.png 1028x779 brightness title bar 35 content 50
+03:48:08.842 saved settings-privacy-dark.png 1028x779 brightness title bar 35 content 54
+03:48:09.520 saved settings-modules-dark.png 1028x779 brightness title bar 35 content 49
+03:48:10.162 saved settings-about-dark.png 1028x779 brightness title bar 35 content 49
+03:48:10.332 theme check: welcome: brightness light content 215 / title bar 181, dark content 40 / title bar 27
+03:48:10.332 theme check: home: brightness light content 240 / title bar 242, dark content 52 / title bar 35
+03:48:10.332 theme check: home-scanning: brightness light content 240 / title bar 242, dark content 52 / title bar 35
+03:48:10.332 theme check: ok, 88 screens are clearly lighter in Light than in Dark (content and title bar)
+03:48:10.568 theme: setting=System, requested=Default, actual=Light, caption buttons=#1B1B1B, button "System" / Theme: System, click to change
+03:48:11.045 saved theme-button-system.png 1028x779 brightness title bar 241 content 240
+03:48:11.066 theme: setting=Light, requested=Light, actual=Light, caption buttons=#1B1B1B, button "Light" / Theme: Light, click to change
+03:48:11.534 saved theme-button-light.png 1028x779 brightness title bar 242 content 240
+03:48:11.563 theme: setting=Dark, requested=Dark, actual=Dark, caption buttons=#FFFFFF, button "Dark" / Theme: Dark, click to change
+03:48:12.038 saved theme-button-dark.png 1028x779 brightness title bar 35 content 52
+03:48:12.066 theme: setting=System, requested=Default, actual=Light, caption buttons=#1B1B1B, button "System" / Theme: System, click to change
+03:48:14.572 theme: setting=System, requested=Default, actual=Light, caption buttons=#1B1B1B, button "System" / Theme: System, click to change
+03:48:14.572 high contrast: on=True
+03:48:15.220 saved home-highcontrast.png 1028x779 brightness title bar 35 content 44
+03:48:16.053 saved settings-github-highcontrast.png 1028x779 brightness title bar 35 content 45
+03:48:16.713 saved settings-privacy-highcontrast.png 1028x779 brightness title bar 35 content 47
+03:48:17.672 saved cleanup-highcontrast.png 1028x779 brightness title bar 35 content 44
+03:48:18.199 saved review-highcontrast.png 1028x779 brightness title bar 42 content 41
+03:48:18.738 saved inspector-blocked-highcontrast.png 1028x779 brightness title bar 35 content 44
+03:48:19.423 saved history-highcontrast.png 1028x779 brightness title bar 35 content 45
+03:48:20.154 saved projects-projects-highcontrast.png 1028x779 brightness title bar 35 content 43
+03:48:20.632 saved projects-detail-unpushed-highcontrast.png 1028x779 brightness title bar 35 content 43
+03:48:21.087 saved projects-search-none-highcontrast.png 1028x779 brightness title bar 35 content 41
+03:48:21.861 saved projects-sheet-publish-highcontrast.png 1028x779 brightness title bar 32 content 39
+03:48:22.374 saved projects-gh-missing-highcontrast.png 1028x779 brightness title bar 35 content 44
+03:48:22.902 saved projects-cleanup-highcontrast.png 1028x779 brightness title bar 35 content 46
+03:48:23.406 saved projects-accounts-highcontrast.png 1028x779 brightness title bar 35 content 45
+03:48:23.878 saved projects-activity-highcontrast.png 1028x779 brightness title bar 35 content 44
+03:48:24.655 saved health-tools-highcontrast.png 1028x779 brightness title bar 35 content 45
+03:48:25.143 saved health-security-highcontrast.png 1028x779 brightness title bar 35 content 41
+03:48:25.619 saved health-ports-highcontrast.png 1028x779 brightness title bar 35 content 43
+03:48:26.072 saved health-ports-refused-highcontrast.png 1028x779 brightness title bar 35 content 40
+03:48:26.773 saved health-tools-node-eol-highcontrast.png 1028x779 brightness title bar 35 content 45
+03:48:27.472 saved health-tools-packages-highcontrast.png 1028x779 brightness title bar 35 content 44
+03:48:28.135 saved health-tools-projects-highcontrast.png 1028x779 brightness title bar 35 content 45
+03:48:28.797 saved health-security-env-highcontrast.png 1028x779 brightness title bar 35 content 45
+03:48:29.271 saved health-loading-highcontrast.png 1028x779 brightness title bar 35 content 38
+03:48:29.725 saved health-notchecked-highcontrast.png 1028x779 brightness title bar 35 content 40
+03:48:30.165 saved health-failed-highcontrast.png 1028x779 brightness title bar 35 content 39
+03:48:30.624 saved health-off-highcontrast.png 1028x779 brightness title bar 35 content 39
+03:48:31.105 saved health-tools-empty-highcontrast.png 1028x779 brightness title bar 35 content 39
+03:48:31.573 saved health-security-empty-highcontrast.png 1028x779 brightness title bar 35 content 38
+03:48:32.015 saved health-ports-empty-highcontrast.png 1028x779 brightness title bar 35 content 39
+03:48:32.037 contrast: 27177 texts and icons checked on every shot (light, dark, high contrast), 199 skipped (not a solid colour), 0 distinct offenders (0 occurrences)
+03:48:32.038 tab order: 18 screens dumped, 0 unnamed controls
+03:48:32.038 shots: 212 screenshots saved in D:\a\DevSweep\DevSweep\windows\artifacts\screenshots
