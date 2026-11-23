@@ -147,3 +147,41 @@ rules:
       ifDeleted: "Everything in that profile is removed from this Mac. If it was signed in to sync, the synced data stays in that Google account."
       before: "Delete it from inside Chrome, so Chrome also removes it from its profile list."
       better: "Deleting old profiles also removes their cache, so you won't have to clean it again."
+
+  - id: ollama-models
+    title: "{{name}}"
+    category: aiModels
+    risk: holdsData
+    minSizeMB: 100
+    blockers: ["Ollama"]
+    detector:
+      kind: ollamaModels
+      paths: ["~/.ollama/models"]
+    actions:
+      - kind: trash
+    explain:
+      what: "The Ollama model {{model}}, downloaded for running locally."
+      why: "{{size}}, downloaded {{ago}}."
+      ifDeleted: "Ollama no longer lists it. ollama pull {{model}} downloads it again."
+      wontLose: "Other models. Files another model also uses are kept."
+      before: "Quit Ollama, so it isn't using the model."
+      undo: "Restore from History while it's still in the Trash."
+
+  - id: lmstudio-models
+    title: "{{name}}"
+    category: aiModels
+    risk: holdsData
+    minSizeMB: 100
+    blockers: ["LM Studio"]
+    detector:
+      kind: lmStudioModels
+      paths: ["~/.lmstudio/models", "~/.cache/lm-studio/models"]
+    actions:
+      - kind: trash
+    explain:
+      what: "The LM Studio model {{model}}, downloaded for running locally."
+      why: "{{size}}, downloaded {{ago}}."
+      ifDeleted: "LM Studio no longer lists it. You can download it again from LM Studio's model search."
+      wontLose: "Other models, chats or settings."
+      before: "Quit LM Studio, or at least unload the model."
+      undo: "Restore from History while it's still in the Trash."

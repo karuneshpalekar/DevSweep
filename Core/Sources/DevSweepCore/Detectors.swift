@@ -19,12 +19,19 @@ enum Detectors {
         case .timeMachineSnapshots: return timeMachineSnapshots(rule, ctx)
         case .chromeProfiles: return chromeProfiles(rule, ctx)
         case .browserProfileCaches: return browserProfileCaches(rule, ctx)
+        case .ollamaModels: return ollamaModels(rule, ctx)
+        case .lmStudioModels: return lmStudioModels(rule, ctx)
         }
     }
 
     // MARK: - paths
 
     static func paths(_ rule: Rule, _ ctx: ScanContext) -> [Candidate] {
+        if let apps = rule.detector.requireApps, !apps.isEmpty {
+            let dirs = [URL(fileURLWithPath: "/Applications"), ctx.home.appendingPathComponent("Applications")]
+            let installed = apps.contains { app in dirs.contains { FileManager.default.fileExists(atPath: $0.appendingPathComponent(app).path) } }
+            guard installed else { return [] }
+        }
         var seen = Set<String>()
         let urls = (rule.detector.paths ?? [])
             .flatMap { FS.glob($0, home: ctx.home) }

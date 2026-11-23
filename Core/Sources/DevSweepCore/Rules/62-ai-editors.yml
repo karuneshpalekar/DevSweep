@@ -1,0 +1,154 @@
+# AI code editors built on VS Code, and the Claude desktop app. They keep
+# the same Chromium and VS Code caches, which rebuild on their own.
+rules:
+  - id: cursor-caches
+    title: Cursor caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["Cursor"]
+    detector:
+      kind: paths
+      requireApps: ["Cursor.app"]
+      paths: ["~/Library/Application Support/Cursor/Cache", "~/Library/Application Support/Cursor/Code Cache", "~/Library/Application Support/Cursor/CachedData", "~/Library/Application Support/Cursor/CachedExtensionVSIXs", "~/Library/Application Support/Cursor/GPUCache"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Cursor's web cache, compiled code and downloaded extension installers."
+      why: "{{size}} of caches."
+      ifDeleted: "Cursor starts a little slower once and rebuilds them."
+      wontLose: "Settings, extensions, chats, workspaces or unsaved files."
+      before: "Quit Cursor."
+
+  - id: windsurf-caches
+    title: Windsurf caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["Windsurf"]
+    detector:
+      kind: paths
+      requireApps: ["Windsurf.app"]
+      paths: ["~/Library/Application Support/Windsurf/Cache", "~/Library/Application Support/Windsurf/Code Cache", "~/Library/Application Support/Windsurf/CachedData", "~/Library/Application Support/Windsurf/CachedExtensionVSIXs", "~/Library/Application Support/Windsurf/GPUCache"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Windsurf's web cache, compiled code and downloaded extension installers."
+      why: "{{size}} of caches."
+      ifDeleted: "Windsurf starts a little slower once and rebuilds them."
+      wontLose: "Settings, extensions, chats, workspaces or unsaved files."
+      before: "Quit Windsurf."
+
+  - id: antigravity-caches
+    title: Antigravity caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["Antigravity"]
+    detector:
+      kind: paths
+      requireApps: ["Antigravity.app"]
+      paths: ["~/Library/Application Support/Antigravity/Cache", "~/Library/Application Support/Antigravity/Code Cache", "~/Library/Application Support/Antigravity/CachedData", "~/Library/Application Support/Antigravity/CachedExtensionVSIXs", "~/Library/Application Support/Antigravity/GPUCache"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Antigravity's web cache, compiled code and downloaded extension installers."
+      why: "{{size}} of caches."
+      ifDeleted: "Antigravity starts a little slower once and rebuilds them."
+      wontLose: "Settings, extensions, chats, workspaces or unsaved files."
+      before: "Quit Antigravity."
+
+  - id: kiro-caches
+    title: Kiro caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["Kiro"]
+    detector:
+      kind: paths
+      requireApps: ["Kiro.app"]
+      paths: ["~/Library/Application Support/Kiro/Cache", "~/Library/Application Support/Kiro/Code Cache", "~/Library/Application Support/Kiro/CachedData", "~/Library/Application Support/Kiro/CachedExtensionVSIXs", "~/Library/Application Support/Kiro/GPUCache"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Kiro's web cache, compiled code and downloaded extension installers."
+      why: "{{size}} of caches."
+      ifDeleted: "Kiro starts a little slower once and rebuilds them."
+      wontLose: "Settings, extensions, chats, workspaces or unsaved files."
+      before: "Quit Kiro."
+
+  - id: trae-caches
+    title: Trae caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["Trae"]
+    detector:
+      kind: paths
+      requireApps: ["Trae.app"]
+      paths: ["~/Library/Application Support/Trae/Cache", "~/Library/Application Support/Trae/Code Cache", "~/Library/Application Support/Trae/CachedData", "~/Library/Application Support/Trae/CachedExtensionVSIXs", "~/Library/Application Support/Trae/GPUCache"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Trae's web cache, compiled code and downloaded extension installers."
+      why: "{{size}} of caches."
+      ifDeleted: "Trae starts a little slower once and rebuilds them."
+      wontLose: "Settings, extensions, chats, workspaces or unsaved files."
+      before: "Quit Trae."
+
+  - id: void-caches
+    title: Void caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["Void"]
+    detector:
+      kind: paths
+      requireApps: ["Void.app"]
+      paths: ["~/Library/Application Support/Void/Cache", "~/Library/Application Support/Void/Code Cache", "~/Library/Application Support/Void/CachedData", "~/Library/Application Support/Void/CachedExtensionVSIXs", "~/Library/Application Support/Void/GPUCache"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Void's web cache, compiled code and downloaded extension installers."
+      why: "{{size}} of caches."
+      ifDeleted: "Void starts a little slower once and rebuilds them."
+      wontLose: "Settings, extensions, chats, workspaces or unsaved files."
+      before: "Quit Void."
+
+  - id: vscode-insiders-caches
+    title: VS Code Insiders caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["Visual Studio Code - Insiders"]
+    detector:
+      kind: paths
+      requireApps: ["Visual Studio Code - Insiders.app"]
+      paths: ["~/Library/Application Support/Code - Insiders/Cache", "~/Library/Application Support/Code - Insiders/Code Cache", "~/Library/Application Support/Code - Insiders/CachedData", "~/Library/Application Support/Code - Insiders/CachedExtensionVSIXs", "~/Library/Application Support/Code - Insiders/GPUCache"]
+    actions:
+      - kind: delete
+    explain:
+      what: "Visual Studio Code - Insiders's web cache, compiled code and downloaded extension installers."
+      why: "{{size}} of caches."
+      ifDeleted: "Visual Studio Code - Insiders starts a little slower once and rebuilds them."
+      wontLose: "Settings, extensions, chats, workspaces or unsaved files."
+      before: "Quit Visual Studio Code - Insiders."
+
+  - id: claude-desktop-caches
+    title: Claude app caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["Claude"]
+    detector:
+      kind: paths
+      requireApps: ["Claude.app"]
+      paths: ["~/Library/Application Support/Claude/Cache", "~/Library/Application Support/Claude/Code Cache", "~/Library/Application Support/Claude/GPUCache", "~/Library/Application Support/Claude/DawnGraphiteCache", "~/Library/Application Support/Claude/GraphiteDawnCache", "~/Library/Application Support/Claude/DawnWebGPUCache"]
+    actions:
+      - kind: delete
+    explain:
+      what: "The Claude desktop app's web cache and compiled code, the same kind of cache a browser keeps."
+      why: "{{size}} of caches."
+      ifDeleted: "Claude opens a little slower once and rebuilds them."
+      wontLose: "Conversations, projects, settings or connectors. Those are on your Anthropic account or in other folders. The virtual machine Claude uses to run code (vm_bundles) is not touched."
+      before: "Quit Claude."

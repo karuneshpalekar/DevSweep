@@ -27,7 +27,8 @@ enum CleanupKind: String, CaseIterable, Identifiable {
         case .docker: return .docker
         case .backups: return .backups
         case .packageCaches, .browsers, .aiModels: return .caches
-        case .ideVersions, .android, .toolchains: return .oldVersions
+        case .ideVersions: return f.risk == .rebuilds ? .caches : .oldVersions
+        case .android, .toolchains: return .oldVersions
         case .xcode: return f.risk == .rebuilds ? .caches : .oldVersions
         case .leftovers, .backgroundServices: return .leftovers
         case .projects: return .projectFiles

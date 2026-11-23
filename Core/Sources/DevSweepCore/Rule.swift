@@ -53,6 +53,10 @@ public struct DetectorSpec: Codable, Sendable {
         case chromeProfiles
         /// A Chromium browser's cache, one item per profile (Chrome, Edge, Brave).
         case browserProfileCaches
+        /// Ollama models, one item per model and tag.
+        case ollamaModels
+        /// LM Studio models, one item per model folder.
+        case lmStudioModels
     }
 
     public var kind: Kind
@@ -72,6 +76,9 @@ public struct DetectorSpec: Codable, Sendable {
     public var fileMinMB: Int?
     /// File extensions to include (largeOldFiles); nil means any.
     public var extensions: [String]?
+    /// Only look while one of these apps ("Cursor.app") is in /Applications or
+    /// ~/Applications. Once it's gone, the leftovers check covers its folders.
+    public var requireApps: [String]?
     /// browserProfileCaches: the folder holding one cache folder per profile.
     public var cacheRoot: String?
     /// browserProfileCaches: the browser's profile folder, with its "Local State" file.
