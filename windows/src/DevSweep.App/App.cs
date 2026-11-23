@@ -293,7 +293,7 @@ internal sealed partial class App : Application, IXamlMetadataProvider
 
     /// <summary>
     /// What a person sees first, checked without looking at it: every place has a navigation item that is on screen (also at the
-    /// smallest window), Settings opens from the navigation and from the gear, the theme button cycles System, Light, Dark and the
+    /// smallest window), Settings opens from its navigation item (the title bar has no gear), the theme button cycles System, Light, Dark and the
     /// content, title bar and caption buttons follow, and the window and title bar carry the real logo.
     /// </summary>
     private static async Task VerifyShellAsync(MainWindow window, MainViewModel model, AppSettingsStore settings)
@@ -322,16 +322,14 @@ internal sealed partial class App : Application, IXamlMetadataProvider
         Log.Write($"nav: ok at the minimum window size too ({window.DescribeNavigation(ids)})");
 
         await window.SelectPlaceAsync("home");
-        window.ClickSettingsButton();
+        await window.SelectPlaceAsync("settings");
         await window.WaitForRenderAsync();
         if (model.Current != "settings" || !window.IsSelected("settings"))
         {
-            throw new InvalidOperationException($"The gear in the title bar did not open Settings (current: {model.Current}; navigation selection: {window.DescribeSelection()}).");
+            throw new InvalidOperationException($"The Settings item in the navigation did not open Settings (current: {model.Current}; navigation selection: {window.DescribeSelection()}).");
         }
 
-        await window.SelectPlaceAsync("home");
-        await window.SelectPlaceAsync("settings");
-        Log.Write("nav: Settings opens from its navigation item and from the gear in the title bar");
+        Log.Write("nav: Settings opens from its navigation item (the title bar has no second Settings button)");
 
         // Theme: the button cycles System, Light, Dark, System through the same value Settings shows, and everything follows.
         foreach (AppearanceMode expected in new[] { AppearanceMode.Light, AppearanceMode.Dark, AppearanceMode.System })

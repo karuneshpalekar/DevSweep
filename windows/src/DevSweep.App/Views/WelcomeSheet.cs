@@ -44,7 +44,7 @@ internal static class WelcomeSheet
             columns,
             Ui.Card(Ui.V(4,
                 Ui.Text("Where things are", "DsStrong"),
-                Ui.Text($"{model.PlacesLine} are in the list on the left (Settings is at the bottom of it, and the gear at the top right opens it too). The sun and moon button at the top right switches between light and dark, or follows Windows.", "DsSecondary"))),
+                Ui.Text($"{model.PlacesLine} are in the list on the left (Settings is at the bottom of it). The sun and moon button at the top right switches between light and dark, or follows Windows.", "DsSecondary"))),
             Ui.Card(Ui.Text("Nothing is cleaned automatically. Every item explains what it is, what was checked, and how to undo it; things that can't be undone say so before you confirm.", "DsBody"), "DsBetter"),
             Ui.Row(Ui.Caption("Project folders can be changed in Settings."), start));
         return new Border { Padding = new Thickness(36, 32, 36, 26), Width = 780, Child = content };

@@ -488,7 +488,7 @@ jobs:
         run: |
           $log = Join-Path $env:TEMP 'devsweep-app-smoke.txt'
           Get-Content $log | Select-String -Pattern '^\S+ (nav|theme|icon|window):' | ForEach-Object { $_.Line }
-          foreach ($needle in 'places \(home, cleanup, projects, health, history, settings\)', 'nav: ok, every place \(home, cleanup, projects, health, history, settings\) has an item with a height above 0', 'nav: ok at the minimum window size too', 'nav: Settings opens from its navigation item and from the gear', 'theme: ok, three clicks went Light, Dark, System', 'icon: window small=True big=True; title-bar logo loaded', 'tray: icon from Assets\\DevSweep.ico') {
+          foreach ($needle in 'places \(home, cleanup, projects, health, history, settings\)', 'nav: ok, every place \(home, cleanup, projects, health, history, settings\) has an item with a height above 0', 'nav: ok at the minimum window size too', 'nav: Settings opens from its navigation item', 'theme: ok, three clicks went Light, Dark, System', 'icon: window small=True big=True; title-bar logo loaded', 'tray: icon from Assets\\DevSweep.ico') {
             if (-not (Select-String -Path $log -Pattern $needle -Quiet)) { throw "smoke log has no '$needle'" }
           }
 

@@ -39,7 +39,6 @@ internal sealed partial class MainWindow : Window
     private MotionHandle? _pageMotion;
     private bool _allowClose;
     private Button _themeButton = new();
-    private Button _settingsButton = new();
     private FontIcon _themeIcon = new();
     private TextBlock _themeText = new();
     private readonly ColumnDefinition _captionInset = new() { Width = new GridLength(138) };
@@ -236,8 +235,6 @@ internal sealed partial class MainWindow : Window
         return default;
     }
 
-    /// <summary>Clicks the title bar's gear the way UI Automation does (smoke test).</summary>
-    public void ClickSettingsButton() => new Microsoft.UI.Xaml.Automation.Peers.ButtonAutomationPeer(_settingsButton).Invoke();
 
     /// <summary>True when the navigation shows this place as selected (the built-in Settings item included).</summary>
     public bool IsSelected(string id)
@@ -459,7 +456,6 @@ internal sealed partial class MainWindow : Window
         var bar = new Grid { Padding = new Thickness(Tokens.Space4, 0, 0, 0), ColumnSpacing = Tokens.Space1 };
         bar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         bar.ColumnDefinitions.Add(_captionInset);
 
         UIElement logo;
@@ -479,14 +475,6 @@ internal sealed partial class MainWindow : Window
         title.VerticalAlignment = VerticalAlignment.Center;
         bar.Children.Add(title);
 
-        Button settings = Ui.IconButton(Icons.Settings, "Settings", () => _model.Go("settings"));
-        settings.Width = 36;
-        settings.Height = 32;
-        _settingsButton = settings;
-        settings.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(settings, 1);
-        bar.Children.Add(settings);
-
         _themeIcon = Ui.Icon(Icons.Auto, 14);
         _themeText = Ui.Caption("System");
         _themeButton = new Button
@@ -499,11 +487,11 @@ internal sealed partial class MainWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
         };
         _themeButton.Click += (_, _) => _model.SettingsPage.CycleAppearance();
-        Grid.SetColumn(_themeButton, 2);
+        Grid.SetColumn(_themeButton, 1);
         bar.Children.Add(_themeButton);
         if (_screenshots)
         {
-            // A capture of the window's content has no system caption buttons; draw stand-ins so the shot shows where the gear and the theme button really sit.
+            // A capture of the window's content has no system caption buttons; draw stand-ins so the shot shows where the theme button really sits.
             StackPanel caption = Ui.H(0, Ui.Icon("\uE921", 10), Ui.Icon("\uE922", 10), Ui.Icon("\uE8BB", 10));
             foreach (UIElement part in caption.Children)
             {
@@ -513,7 +501,7 @@ internal sealed partial class MainWindow : Window
             caption.VerticalAlignment = VerticalAlignment.Center;
             caption.HorizontalAlignment = HorizontalAlignment.Right;
             caption.IsHitTestVisible = false;
-            Grid.SetColumn(caption, 3);
+            Grid.SetColumn(caption, 2);
             bar.Children.Add(caption);
         }
 
@@ -531,7 +519,7 @@ internal sealed partial class MainWindow : Window
     private void BuildNavigation()
     {
         _nav.IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed;
-        // The built-in Settings item sits in the standard bottom-left spot (the title bar's gear is a second way in).
+        // The built-in Settings item sits in the standard bottom-left spot (there is no second Settings button in the title bar).
         _nav.IsSettingsVisible = true;
         _nav.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
         _nav.IsPaneToggleButtonVisible = true;
@@ -651,7 +639,7 @@ internal sealed partial class MainWindow : Window
         return _nav.MenuItems.Concat(_nav.FooterMenuItems).OfType<NavigationViewItem>().FirstOrDefault(i => (string)i.Tag == id);
     }
 
-    /// <summary>Makes the navigation highlight the current place when something other than a click changed it (the gear, a toast, the tray).</summary>
+    /// <summary>Makes the navigation highlight the current place when something other than a click changed it (a toast, the tray).</summary>
     private void SyncSelection(int retries = 3)
     {
         string id = _model.Current;
