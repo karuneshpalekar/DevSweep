@@ -131,13 +131,6 @@ struct CleanUpView: View {
                             }
                         }
                     }
-                    if model.cleanupKind == nil, let r = model.lastScanReport {
-                        Section {
-                            ScanSummaryView(report: r).padding(.vertical, 6)
-                        } header: {
-                            Text("About this scan")
-                        }
-                    }
                 }
                 .listStyle(.inset)
             }
