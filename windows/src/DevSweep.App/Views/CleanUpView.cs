@@ -22,15 +22,13 @@ internal static class CleanUpView
         AutomationProperties.SetName(search, "Search Clean up");
         search.TextChanged += (_, _) => vm.Search = search.Text;
         var list = new StackPanel { Spacing = Tokens.Space6 };
-        var reportHost = new Border();
         var groupLinks = new List<(HyperlinkButton Link, RiskGroup Group)>();
 
         StackPanel page = Ui.V(Tokens.Space4,
             Ds.PageHeader("Clean up", subtitle, ScanButtons.Build(model.Scan, subs)),
             Ds.CommandBar(filters, search),
             ScanProgressView.Build(model.Scan, subs, compact: false),
-            list,
-            reportHost);
+            list);
 
         var column = new Grid();
         column.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -61,13 +59,8 @@ internal static class CleanUpView
         subs.OnCollection(vm.Filters, () => RenderFilters(vm, filters));
         subs.On(vm, nameof(CleanUpViewModel.SelectedKind), () => RenderFilters(vm, filters));
         subs.OnCollection(vm.Groups, () => RenderList(model, vm, list, subs, groupLinks));
-        subs.On(model.Scan, nameof(ScanViewModel.Report), () =>
-        {
-            reportHost.Child = model.Scan.Report is { } report
-                ? Ui.V(Tokens.Space2, Ds.SectionTitle("About this scan"), Ds.Card(ScanReportView.Build(report, expanded: false)))
-                : null;
-            RenderList(model, vm, list, subs, groupLinks);
-        });
+        // The scan report is not shown on this page; Settings, Troubleshooting has "Copy scan report".
+        subs.On(model.Scan, nameof(ScanViewModel.Report), () => RenderList(model, vm, list, subs, groupLinks));
         subs.On(model.Scan, nameof(ScanViewModel.IsScanning), () => RenderList(model, vm, list, subs, groupLinks));
         subs.On(vm, nameof(CleanUpViewModel.SelectedCount), () =>
         {
