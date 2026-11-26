@@ -156,6 +156,31 @@ public sealed class ProjectFlowTests(ITestOutputHelper output) : IDisposable
     }
 
     [Fact]
+    public async Task A_project_with_many_files_goes_to_the_quarantine_in_one_rename_not_through_the_shell()
+    {
+        string code = _git.Temp.CreateDirectory("Code");
+        string work = _git.Repo(Path.Join("Code", "big"));
+        for (int i = 0; i < 12; i++)
+        {
+            File.WriteAllText(Path.Join(work, $"f{i}.txt"), "x");
+        }
+
+        ProjectsService service = Service();
+        ProjectsSnapshot snapshot = await service.ScanAsync(new ProjectsScanOptions { Roots = [code], IncludeGitHub = false }, Ct);
+        var history = new HistoryStore(Path.Join(_git.Root, "history3.json"));
+        var cleaner = new Cleaner(
+            SafetyGuard.ForCurrentUser(devRoots: [code]), history, new QuarantineStore(new FixedQuarantineLocations(Path.Join(_git.Root, "quarantine3"))), new RecycleBin(),
+            new CleanerOptions { RecycleFileLimit = 5 });
+
+        RemoveResult result = await service.RemoveAsync(Assert.Single(snapshot.Projects), cleaner, acknowledgeLoss: true, cancellationToken: Ct);
+        output.WriteLine(result.Message);
+        Assert.True(result.Succeeded, result.Message);
+        Assert.False(Directory.Exists(work));
+        Assert.Equal(ItemDestination.Quarantine, Assert.Single(result.Outcome!.Items).Destination);
+        Assert.NotEmpty(history.Entries);
+    }
+
+    [Fact]
     public async Task A_repository_with_onedrive_placeholders_is_not_checked_and_not_hydrated()
     {
         if (!OperatingSystem.IsWindows())

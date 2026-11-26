@@ -182,6 +182,25 @@ public sealed class Cleaner(
 
     private MovedItem? Trash(VerifiedItem item, WalkResult size, List<string> errors)
     {
+        if (size.Files > _options.RecycleFileLimit)
+        {
+            string why = string.Create(CultureInfo.InvariantCulture,
+                $"it holds {size.Files:N0} files, which the Recycle Bin would take many minutes to move; DevSweep moved it into its own quarantine instead (instant, restorable from History)");
+            QuarantineResult fast = quarantine.Move(item, size, why);
+            if (fast.Moved && fast.Entry is not null)
+            {
+                return new MovedItem
+                {
+                    Original = item.Path,
+                    Destination = ItemDestination.Quarantine,
+                    Location = fast.Entry.StoredPath,
+                    QuarantineId = fast.Entry.Id,
+                    Bytes = size.Bytes,
+                    Note = why,
+                };
+            }
+        }
+
         RecycleAssessment assessment = recycleBin.Assess(item.Path);
         if (assessment.Verdict == RecycleVerdict.Recyclable)
         {

@@ -45,4 +45,11 @@ public sealed record CleanerOptions
     /// would remove the file from the cloud too, so the user must confirm that first (PLAN 4.4).
     /// </summary>
     public bool AllowCloudPlaceholders { get; init; }
+
+    /// <summary>
+    /// Items with more files than this go to DevSweep's quarantine (one rename, instant, restorable from
+    /// History) instead of the shell's Recycle Bin, which works file by file and can take many minutes (or
+    /// stall) on a project with a big node_modules. The shell is still used when the quarantine can't take it.
+    /// </summary>
+    public long RecycleFileLimit { get; init; } = 20_000;
 }
