@@ -48,6 +48,7 @@ public sealed class SizeLabelTests
     [Theory]
     [InlineData(Category.PackageCaches, Risk.Rebuilds, CleanupKind.Caches)]
     [InlineData(Category.IdeVersions, Risk.OldVersion, CleanupKind.OldVersions)]
+    [InlineData(Category.IdeVersions, Risk.Rebuilds, CleanupKind.Caches)]
     [InlineData(Category.Dotnet, Risk.Rebuilds, CleanupKind.Caches)]
     [InlineData(Category.Dotnet, Risk.OldVersion, CleanupKind.OldVersions)]
     [InlineData(Category.Wsl, Risk.HoldsData, CleanupKind.DockerAndWsl)]

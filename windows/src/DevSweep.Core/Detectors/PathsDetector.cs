@@ -1,5 +1,6 @@
 using System.Globalization;
 using DevSweep.Core.Cleaning;
+using DevSweep.Core.Inventory;
 using DevSweep.Core.Locations;
 using DevSweep.Core.Rules;
 
@@ -11,7 +12,11 @@ namespace DevSweep.Core.Detectors;
 /// <item><c>paths</c>: rule paths (required);</item>
 /// <item><c>groupEach</c>: one finding per match instead of one for all;</item>
 /// <item><c>olderThanDays</c>: only items where nothing inside changed or was added in that many days;</item>
-/// <item><c>exclude</c>: names (wildcards allowed) never to list.</item>
+/// <item><c>exclude</c>: names (wildcards allowed) never to list;</item>
+/// <item><c>requireApps</c>: only look while one of these apps is installed (display names, as in the
+/// installed-apps list; <c>requireAppExes</c> and <c>requireAppPackageIds</c> add program file names and
+/// winget/Scoop ids). Once the app is gone, the leftovers check covers its folders (Mac <c>requireApps</c>).
+/// When the installed-apps list can't say, the rule still looks.</item>
 /// </list>
 /// </summary>
 public sealed class PathsDetector : Detector<PathsDetector.Options>
@@ -25,7 +30,28 @@ public sealed class PathsDetector : Detector<PathsDetector.Options>
             options.Paths("paths", required: true),
             options.Flag("groupEach"),
             options.Number("olderThanDays", 1, 3650),
-            options.TextList("exclude"));
+            options.TextList("exclude"),
+            RequiredApp(options.TextList("requireApps"), options.TextList("requireAppExes"), options.TextList("requireAppPackageIds")));
+    }
+
+    /// <summary>The app a rule needs installed, or null when the rule doesn't name one.</summary>
+    public static AppHint? RequiredApp(IReadOnlyList<string> names, IReadOnlyList<string> exes, IReadOnlyList<string> packageIds)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+        ArgumentNullException.ThrowIfNull(exes);
+        ArgumentNullException.ThrowIfNull(packageIds);
+        if (names.Count == 0 && exes.Count == 0 && packageIds.Count == 0)
+        {
+            return null;
+        }
+
+        return new AppHint
+        {
+            Name = names.Count > 0 ? names[0] : exes.Count > 0 ? Path.GetFileNameWithoutExtension(exes[0]) : packageIds[0],
+            Names = names,
+            Exes = exes,
+            PackageIds = packageIds,
+        };
     }
 
     protected override IReadOnlyList<Candidate> Detect(DetectorRun run, Options options)
@@ -39,6 +65,27 @@ public sealed class PathsDetector : Detector<PathsDetector.Options>
         DateTime? cutoff = options.OlderThanDays is int days ? run.Context.Now.UtcDateTime.AddDays(-days) : null;
         int recent = 0;
         int unknownAge = 0;
+        if (options.RequireApp is { } app)
+        {
+            if (!run.Context.HasInventory)
+            {
+                run.Note($"{app.Name}: no installed-apps list in this scan, so its folders were looked at anyway");
+            }
+            else
+            {
+                InstallMatch match = run.Context.Inventory.IsInstalled(app);
+                if (match.IsGone)
+                {
+                    run.Note($"{app.Name} isn't installed, so nothing is offered here; the leftovers check covers its folders");
+                    return [];
+                }
+
+                checks.Add(match.IsInstalled
+                    ? Check.Passed($"{app.Name} is installed ({InventorySources.Title(match.Evidence[0].Source)})")
+                    : Check.Warning($"Whether {app.Name} is installed couldn't be confirmed ({match.UnknownBecause})"));
+            }
+        }
+
         foreach (PathTemplate template in options.Paths)
         {
             PathExpansion expansion = run.Expand(template);
@@ -109,5 +156,5 @@ public sealed class PathsDetector : Detector<PathsDetector.Options>
     }
 
     /// <summary>Bound options of a <c>paths</c> rule.</summary>
-    public sealed record Options(IReadOnlyList<PathTemplate> Paths, bool GroupEach, int? OlderThanDays, IReadOnlyList<string> Exclude);
+    public sealed record Options(IReadOnlyList<PathTemplate> Paths, bool GroupEach, int? OlderThanDays, IReadOnlyList<string> Exclude, AppHint? RequireApp = null);
 }

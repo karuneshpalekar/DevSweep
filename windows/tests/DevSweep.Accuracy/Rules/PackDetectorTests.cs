@@ -464,7 +464,7 @@ public sealed class PackDetectorTests(ITestOutputHelper output) : IDisposable
     }
 
     [Fact]
-    public async Task Ollama_models_count_only_the_layers_they_alone_use()
+    public async Task Ollama_models_hold_their_manifest_and_only_the_layers_they_alone_use()
     {
         string models = Path.Join(_machine.Profile, ".ollama", "models");
         string library = Path.Join(models, "manifests", "registry.ollama.ai", "library");
@@ -481,12 +481,15 @@ public sealed class PackDetectorTests(ITestOutputHelper output) : IDisposable
 
         var findings = result.Findings.Where(f => f.RuleId == "ollama-models").OrderBy(f => f.Title, StringComparer.Ordinal).ToList();
         Assert.Equal(["Ollama model llama3-tuned:latest", "Ollama model llama3:latest"], findings.Select(f => f.Title));
-        Assert.Equal((120 * Mb) + 2, findings[1].Size);
-        Assert.Equal((110 * Mb) + 2, findings[0].Size);
-        Assert.Equal(SizeMeasurement.Reported, findings[1].Measurement);
-        Assert.Equal(["ollama", "rm", "llama3:latest"], findings[1].Actions[0].Command);
+        Assert.Equal(
+            new[] { Path.Join(library, "llama3", "latest"), Path.Join(models, "blobs", "sha256-bbb"), Path.Join(models, "blobs", "sha256-cfg1") }.Order(StringComparer.OrdinalIgnoreCase),
+            findings[1].Paths.Order(StringComparer.OrdinalIgnoreCase));
+        Assert.DoesNotContain(findings.SelectMany(f => f.Paths), p => p.EndsWith("sha256-aaa", StringComparison.OrdinalIgnoreCase));
+        Assert.InRange(findings[1].Size, 120 * Mb, (120 * Mb) + (256 * 1024));
+        Assert.InRange(findings[0].Size, 110 * Mb, (110 * Mb) + (256 * 1024));
+        Assert.Equal([CleanActionKind.Trash], findings[1].Actions.Select(a => a.Kind));
+        Assert.Equal(Risk.HoldsData, findings[1].Risk);
         Assert.Contains($"{SizeText.Format(150 * Mb)} more is shared", findings[1].Explanation!.Why, StringComparison.Ordinal);
-        Assert.Empty(findings[1].Paths);
     }
 
     [Fact]

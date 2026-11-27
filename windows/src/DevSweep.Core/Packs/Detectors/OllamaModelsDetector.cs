@@ -9,8 +9,8 @@ namespace DevSweep.Core.Packs.Detectors;
 
 /// <summary>
 /// <c>kind: ollamaModels</c>. Each model Ollama has pulled, from its manifests. Models share
-/// layers, so a model's size is the layers only it uses: what <c>ollama rm</c> frees. Listed, never
-/// removed by DevSweep (the rule shows Ollama's own command).
+/// layers, so a model's item is its manifest plus the layers only it uses: what <c>ollama rm</c> frees.
+/// Layers another model also uses are never part of an item (Mac <c>ollamaModels</c>).
 /// <list type="bullet"><item><c>paths</c>: Ollama's models folders (<c>{ollamaModels}</c>).</item></list>
 /// </summary>
 public sealed class OllamaModelsDetector : Detector<OllamaModelsDetector.Options>
@@ -97,7 +97,7 @@ public sealed class OllamaModelsDetector : Detector<OllamaModelsDetector.Options
         {
             foreach (ProbeEntry models in run.Expand(template).Matches.Where(m => m.CanEnter))
             {
-                var manifests = new List<(string Name, IReadOnlyList<string> Blobs)>();
+                var manifests = new List<(string Name, string Manifest, IReadOnlyList<string> Blobs)>();
                 var pending = new Stack<(string Folder, List<string> Parts)>();
                 pending.Push((Path.Join(models.Path, "manifests"), []));
                 while (pending.Count > 0)
@@ -118,7 +118,7 @@ public sealed class OllamaModelsDetector : Detector<OllamaModelsDetector.Options
                                 return [];
                             }
 
-                            manifests.Add((ModelName(next), blobs));
+                            manifests.Add((ModelName(next), entry.Path, blobs));
                         }
                     }
                 }
@@ -127,16 +127,22 @@ public sealed class OllamaModelsDetector : Detector<OllamaModelsDetector.Options
                     .GroupBy(x => x.Blob, StringComparer.OrdinalIgnoreCase)
                     .ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().Count(), StringComparer.OrdinalIgnoreCase);
                 string blobsFolder = Path.Join(models.Path, "blobs");
-                foreach ((string name, IReadOnlyList<string> blobs) in manifests.OrderBy(m => m.Name, StringComparer.Ordinal))
+                foreach ((string name, string manifest, IReadOnlyList<string> blobs) in manifests.OrderBy(m => m.Name, StringComparer.Ordinal))
                 {
                     long own = 0;
                     long shared = 0;
+                    var paths = new List<string> { manifest };
                     foreach (string blob in blobs.Distinct(StringComparer.OrdinalIgnoreCase))
                     {
-                        long bytes = FileProbe.Stat(Path.Join(blobsFolder, blob))?.Length ?? 0;
+                        string blobPath = Path.Join(blobsFolder, blob);
+                        long bytes = FileProbe.Stat(blobPath)?.Length ?? 0;
                         if (users[blob] == 1)
                         {
                             own += bytes;
+                            if (FileProbe.Stat(blobPath) is not null)
+                            {
+                                paths.Add(blobPath);
+                            }
                         }
                         else
                         {
@@ -147,6 +153,7 @@ public sealed class OllamaModelsDetector : Detector<OllamaModelsDetector.Options
                     candidates.Add(new Candidate
                     {
                         Key = $"{models.Path}|{name}",
+                        Paths = paths,
                         Size = own,
                         Title = $"Ollama model {name}",
                         Subtitle = shared > 0 ? $"plus {SizeText.Format(shared)} shared with other models" : models.Path,

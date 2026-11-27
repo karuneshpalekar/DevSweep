@@ -1,0 +1,129 @@
+# AI code editors built on VS Code, and the Claude desktop app (module:packs), as on the Mac
+# (62-ai-editors.yml). Each is looked at only while the app is installed; once it's gone, the
+# leftovers check covers its folders. Runs after 61-ide.yml.
+rules:
+  - id: vscode-insiders-caches
+    title: VS Code Insiders caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["Code - Insiders"]
+    detector:
+      kind: paths
+      requireApps: ["Microsoft Visual Studio Code - Insiders", "Visual Studio Code - Insiders"]
+      requireAppExes: ["Code - Insiders.exe"]
+      requireAppPackageIds: ["Microsoft.VisualStudioCode.Insiders", "vscode-insiders"]
+      paths: ['{RoamingAppData}\Code - Insiders\Cache', '{RoamingAppData}\Code - Insiders\CachedData', '{RoamingAppData}\Code - Insiders\CachedExtensionVSIXs', '{RoamingAppData}\Code - Insiders\Code Cache', '{RoamingAppData}\Code - Insiders\GPUCache']
+    actions:
+      - kind: delete
+    explain:
+      what: "VS Code Insiders's web cache, compiled code and downloaded extension installers."
+      why: "{{size}} across {{count}} caches."
+      ifDeleted: "VS Code Insiders starts a little slower once and rebuilds them."
+      wontLose: "Settings, extensions, chats, workspaces or unsaved files."
+      before: "Quit VS Code Insiders."
+
+  - id: antigravity-caches
+    title: Antigravity caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["Antigravity"]
+    detector:
+      kind: paths
+      requireApps: ["Antigravity", "Google Antigravity"]
+      requireAppExes: ["Antigravity.exe"]
+      requireAppPackageIds: ["Google.Antigravity", "antigravity"]
+      paths: ['{RoamingAppData}\Antigravity\Cache', '{RoamingAppData}\Antigravity\CachedData', '{RoamingAppData}\Antigravity\CachedExtensionVSIXs', '{RoamingAppData}\Antigravity\Code Cache', '{RoamingAppData}\Antigravity\GPUCache']
+    actions:
+      - kind: delete
+    explain:
+      what: "Antigravity's web cache, compiled code and downloaded extension installers."
+      why: "{{size}} across {{count}} caches."
+      ifDeleted: "Antigravity starts a little slower once and rebuilds them."
+      wontLose: "Settings, extensions, chats, workspaces or unsaved files."
+      before: "Quit Antigravity."
+
+  - id: kiro-caches
+    title: Kiro caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["Kiro"]
+    detector:
+      kind: paths
+      requireApps: ["Kiro"]
+      requireAppExes: ["Kiro.exe"]
+      requireAppPackageIds: ["Amazon.Kiro", "kiro"]
+      paths: ['{RoamingAppData}\Kiro\Cache', '{RoamingAppData}\Kiro\CachedData', '{RoamingAppData}\Kiro\CachedExtensionVSIXs', '{RoamingAppData}\Kiro\Code Cache', '{RoamingAppData}\Kiro\GPUCache']
+    actions:
+      - kind: delete
+    explain:
+      what: "Kiro's web cache, compiled code and downloaded extension installers."
+      why: "{{size}} across {{count}} caches."
+      ifDeleted: "Kiro starts a little slower once and rebuilds them."
+      wontLose: "Settings, extensions, chats, workspaces or unsaved files."
+      before: "Quit Kiro."
+
+  - id: trae-caches
+    title: Trae caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["Trae"]
+    detector:
+      kind: paths
+      requireApps: ["Trae"]
+      requireAppExes: ["Trae.exe"]
+      requireAppPackageIds: ["ByteDance.Trae", "trae"]
+      paths: ['{RoamingAppData}\Trae\Cache', '{RoamingAppData}\Trae\CachedData', '{RoamingAppData}\Trae\CachedExtensionVSIXs', '{RoamingAppData}\Trae\Code Cache', '{RoamingAppData}\Trae\GPUCache']
+    actions:
+      - kind: delete
+    explain:
+      what: "Trae's web cache, compiled code and downloaded extension installers."
+      why: "{{size}} across {{count}} caches."
+      ifDeleted: "Trae starts a little slower once and rebuilds them."
+      wontLose: "Settings, extensions, chats, workspaces or unsaved files."
+      before: "Quit Trae."
+
+  - id: void-caches
+    title: Void caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["Void"]
+    detector:
+      kind: paths
+      requireApps: ["Void"]
+      requireAppExes: ["Void.exe"]
+      requireAppPackageIds: ["VoidEditor.Void", "void"]
+      paths: ['{RoamingAppData}\Void\Cache', '{RoamingAppData}\Void\CachedData', '{RoamingAppData}\Void\CachedExtensionVSIXs', '{RoamingAppData}\Void\Code Cache', '{RoamingAppData}\Void\GPUCache']
+    actions:
+      - kind: delete
+    explain:
+      what: "Void's web cache, compiled code and downloaded extension installers."
+      why: "{{size}} across {{count}} caches."
+      ifDeleted: "Void starts a little slower once and rebuilds them."
+      wontLose: "Settings, extensions, chats, workspaces or unsaved files."
+      before: "Quit Void."
+
+  - id: claude-desktop-caches
+    title: Claude app caches
+    category: ideVersions
+    risk: rebuilds
+    minSizeMB: 50
+    blockers: ["claude"]
+    detector:
+      kind: paths
+      requireApps: ["Claude"]
+      requireAppExes: ["claude.exe"]
+      requireAppPackageIds: ["Anthropic.Claude", "claude"]
+      paths: ['{RoamingAppData}\Claude\Cache', '{RoamingAppData}\Claude\Code Cache', '{RoamingAppData}\Claude\GPUCache', '{RoamingAppData}\Claude\DawnGraphiteCache', '{RoamingAppData}\Claude\GraphiteDawnCache', '{RoamingAppData}\Claude\DawnWebGPUCache', '{LocalAppData}\Packages\*Claude*\LocalCache\Roaming\Claude\Cache', '{LocalAppData}\Packages\*Claude*\LocalCache\Roaming\Claude\Code Cache', '{LocalAppData}\Packages\*Claude*\LocalCache\Roaming\Claude\GPUCache', '{LocalAppData}\Packages\*Claude*\LocalCache\Roaming\Claude\DawnGraphiteCache', '{LocalAppData}\Packages\*Claude*\LocalCache\Roaming\Claude\GraphiteDawnCache', '{LocalAppData}\Packages\*Claude*\LocalCache\Roaming\Claude\DawnWebGPUCache']
+    actions:
+      - kind: delete
+    explain:
+      what: "The Claude desktop app's web cache and compiled code, the same kind of cache a browser keeps."
+      why: "{{size}} of caches."
+      ifDeleted: "Claude opens a little slower once and rebuilds them."
+      wontLose: "Conversations, projects, settings or connectors. Those are on your Anthropic account or in other folders. The virtual machine Claude uses to run code (vm_bundles) is never touched."
+      before: "Quit Claude."

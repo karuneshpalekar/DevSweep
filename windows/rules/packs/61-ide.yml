@@ -23,10 +23,13 @@ rules:
     title: VS Code caches
     category: ideVersions
     risk: rebuilds
-    minSizeMB: 200
+    minSizeMB: 50
     blockers: ["Code"]
     detector:
       kind: paths
+      requireApps: ["Microsoft Visual Studio Code", "Visual Studio Code"]
+      requireAppExes: ["Code.exe"]
+      requireAppPackageIds: ["Microsoft.VisualStudioCode", "vscode"]
       paths: ['{RoamingAppData}\Code\Cache', '{RoamingAppData}\Code\CachedData', '{RoamingAppData}\Code\CachedExtensionVSIXs', '{RoamingAppData}\Code\Code Cache', '{RoamingAppData}\Code\GPUCache']
     actions:
       - kind: delete
@@ -41,10 +44,13 @@ rules:
     title: Cursor caches
     category: ideVersions
     risk: rebuilds
-    minSizeMB: 200
+    minSizeMB: 50
     blockers: ["Cursor"]
     detector:
       kind: paths
+      requireApps: ["Cursor"]
+      requireAppExes: ["Cursor.exe"]
+      requireAppPackageIds: ["Anysphere.Cursor", "cursor"]
       paths: ['{RoamingAppData}\Cursor\Cache', '{RoamingAppData}\Cursor\CachedData', '{RoamingAppData}\Cursor\CachedExtensionVSIXs', '{RoamingAppData}\Cursor\Code Cache', '{RoamingAppData}\Cursor\GPUCache']
     actions:
       - kind: delete
@@ -59,10 +65,13 @@ rules:
     title: Windsurf caches
     category: ideVersions
     risk: rebuilds
-    minSizeMB: 200
+    minSizeMB: 50
     blockers: ["Windsurf"]
     detector:
       kind: paths
+      requireApps: ["Windsurf"]
+      requireAppExes: ["Windsurf.exe"]
+      requireAppPackageIds: ["Codeium.Windsurf", "windsurf"]
       paths: ['{RoamingAppData}\Windsurf\Cache', '{RoamingAppData}\Windsurf\CachedData', '{RoamingAppData}\Windsurf\CachedExtensionVSIXs', '{RoamingAppData}\Windsurf\Code Cache', '{RoamingAppData}\Windsurf\GPUCache']
     actions:
       - kind: delete
