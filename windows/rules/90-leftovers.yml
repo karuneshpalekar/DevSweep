@@ -74,6 +74,48 @@ rules:
           folders: ["Microsoft VS Code"]
           paths: ['{RoamingAppData}\Code', '{Profile}\.vscode']
           note: "Settings and extensions you never synced are here."
+        - name: Visual Studio Code - Insiders
+          names: ["Microsoft Visual Studio Code - Insiders", "Visual Studio Code - Insiders"]
+          packageIds: ["Microsoft.VisualStudioCode.Insiders", "vscode-insiders"]
+          exes: ["Code - Insiders.exe"]
+          folders: ["Microsoft VS Code Insiders"]
+          paths: ['{RoamingAppData}\Code - Insiders', '{Profile}\.vscode-insiders']
+          note: "Settings and extensions you never synced are here."
+        - name: Windsurf
+          names: ["Windsurf"]
+          packageIds: ["Codeium.Windsurf", "windsurf"]
+          exes: ["Windsurf.exe"]
+          folders: ["Windsurf"]
+          paths: ['{RoamingAppData}\Windsurf', '{Profile}\.windsurf']
+          note: "Windsurf's chats and settings are here."
+        - name: Antigravity
+          names: ["Antigravity", "Google Antigravity"]
+          packageIds: ["Google.Antigravity", "antigravity"]
+          exes: ["Antigravity.exe"]
+          folders: ["Antigravity"]
+          paths: ['{RoamingAppData}\Antigravity', '{Profile}\.antigravity']
+          note: "Antigravity's chats and settings are here."
+        - name: Kiro
+          names: ["Kiro"]
+          packageIds: ["Amazon.Kiro", "kiro"]
+          exes: ["Kiro.exe"]
+          folders: ["Kiro"]
+          paths: ['{RoamingAppData}\Kiro', '{Profile}\.kiro']
+          note: "Kiro's chats, specs and settings are here."
+        - name: Trae
+          names: ["Trae"]
+          packageIds: ["ByteDance.Trae", "trae"]
+          exes: ["Trae.exe"]
+          folders: ["Trae"]
+          paths: ['{RoamingAppData}\Trae', '{Profile}\.trae']
+          note: "Trae's chats and settings are here."
+        - name: Void
+          names: ["Void"]
+          packageIds: ["VoidEditor.Void", "void"]
+          exes: ["Void.exe"]
+          folders: ["Void"]
+          paths: ['{RoamingAppData}\Void', '{Profile}\.void-editor']
+          note: "Void's chats and settings are here."
         - name: Docker Desktop
           names: ["Docker Desktop"]
           packageIds: ["Docker.DockerDesktop", "docker-desktop"]

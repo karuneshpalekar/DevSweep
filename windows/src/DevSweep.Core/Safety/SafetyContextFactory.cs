@@ -38,8 +38,35 @@ public static class SafetyContextFactory
         paths.AddRange(ProtectedDotFolders.Select(name => new ProtectedPath(Path.Combine(profile, name), $"the {name} folder")));
         paths.AddRange(OneDriveRoots(profile).Select(root => new ProtectedPath(root, "a OneDrive folder")));
         paths.Add(new ProtectedPath(ScoopRoot(profile), "the Scoop folder"));
+        paths.AddRange(ClaudeVmBundles(KnownFolders.TryGetRoot("RoamingAppData") ?? Path.Combine(profile, "AppData", "Roaming"), localAppData)
+            .Select(path => new ProtectedPath(path, "the virtual machine the Claude app runs code in")));
 
         return SafetyContext.Create(profile, paths, devRoots, quarantineRoots, Canonicalise);
+    }
+
+    /// <summary>
+    /// The Claude desktop app's <c>vm_bundles</c> folders (the virtual machine it runs code in): never offered,
+    /// whatever a rule says (Mac 62-ai-editors). The installer's folder under Roaming, and each Store build's
+    /// virtualised Roaming under <c>Packages</c>.
+    /// </summary>
+    public static IReadOnlyList<string> ClaudeVmBundles(string roamingAppData, string localAppData)
+    {
+        ArgumentNullException.ThrowIfNull(roamingAppData);
+        ArgumentNullException.ThrowIfNull(localAppData);
+        var paths = new List<string> { Path.Combine(roamingAppData, "Claude", "vm_bundles") };
+        string packages = Path.Combine(localAppData, "Packages");
+        string[] found;
+        try
+        {
+            found = Directory.Exists(packages) ? Directory.GetDirectories(packages, "*Claude*") : [];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            found = [];
+        }
+
+        paths.AddRange(found.Select(package => Path.Combine(package, "LocalCache", "Roaming", "Claude", "vm_bundles")));
+        return paths;
     }
 
     /// <summary>Resolves short names in a canonical path; the path itself stays canonical.</summary>

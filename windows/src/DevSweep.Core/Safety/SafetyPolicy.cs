@@ -12,6 +12,12 @@ public static class SafetyPolicy
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(canonicalPath);
 
+        if (IsInClaudeVm(canonicalPath))
+        {
+            return new SafetyVerdict(canonicalPath, SafetyRefusal.Protected,
+                $"{canonicalPath} is part of the virtual machine the Claude app runs code in, so DevSweep never removes it.");
+        }
+
         foreach (ProtectedPath item in context.Protected)
         {
             if (SafePath.AreSame(canonicalPath, item.Path))
@@ -51,5 +57,25 @@ public static class SafetyPolicy
 
         return new SafetyVerdict(canonicalPath, SafetyRefusal.OutsideAllowedRoots,
             $"{canonicalPath} is outside your profile and your development folders, so DevSweep won't touch it; it can show you the command instead.");
+    }
+
+    /// <summary>
+    /// The Claude app's <c>vm_bundles</c> folder or anything in it (a <c>Claude\vm_bundles</c> pair of path segments),
+    /// wherever it is: never offered, whatever a rule says (Mac 62-ai-editors). Folders that contain it are protected
+    /// through <see cref="SafetyContextFactory.ClaudeVmBundles"/>.
+    /// </summary>
+    public static bool IsInClaudeVm(string canonicalPath)
+    {
+        ArgumentNullException.ThrowIfNull(canonicalPath);
+        string[] parts = canonicalPath.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 1; i < parts.Length; i++)
+        {
+            if (parts[i].Equals("vm_bundles", StringComparison.OrdinalIgnoreCase) && parts[i - 1].Equals("Claude", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -189,6 +189,7 @@ public sealed class RulePackParserTests
             "old-jdks-user", "old-jdks-machine", "nvm-old-node", "fnm-old-node", "volta-old-node", "pyenv-old-python", "rustup-toolchains", "windows-sdks",
             "jetbrains-old",
             "editor-extensions", "vscode-caches", "cursor-caches", "windsurf-caches", "jetbrains-caches",
+            "vscode-insiders-caches", "antigravity-caches", "kiro-caches", "trae-caches", "void-caches", "claude-desktop-caches",
             "old-installers", "old-disk-images", "large-old-files",
             "stale-project-artifacts",
             "orphaned-app-data",

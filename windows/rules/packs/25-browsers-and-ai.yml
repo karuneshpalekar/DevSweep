@@ -191,25 +191,26 @@ rules:
     category: aiModels
     risk: holdsData
     minSizeMB: 100
+    blockers: ["ollama", "ollama app"]
     detector:
       kind: ollamaModels
       paths: ['{ollamaModels}']
     actions:
-      - kind: manual
-        label: Show Ollama's command
-        command: ["ollama", "rm", "{{model}}"]
-        detail: "Run ollama rm {{model}} in a terminal. Ollama removes only the layers no other model uses."
+      - kind: trash
     explain:
-      what: "The model {{model}}, pulled with Ollama."
+      what: "The model {{model}}, pulled with Ollama: its manifest and the layers no other model uses."
       why: "{{size}} that only this model uses; {{shared}} more is shared with other models and stays."
-      ifDeleted: "To use it again, ollama pull {{model}} downloads it again. A model you created yourself (ollama create) has to be created again."
-      before: "Check it isn't a model you made or customised yourself."
+      ifDeleted: "Ollama no longer lists it. ollama pull {{model}} downloads it again. A model you created yourself (ollama create) has to be created again."
+      wontLose: "Other models. Layers another model also uses are kept."
+      before: "Quit Ollama, so it isn't using the model. Check it isn't a model you made or customised yourself."
+      better: "ollama rm {{model}} in a terminal does the same, without a way back."
+      undo: "Restore it from the Recycle Bin (History)."
 
   - id: lm-studio-models
-    title: "LM Studio model {{name}}"
+    title: "LM Studio · {{name}}"
     category: aiModels
     risk: holdsData
-    minSizeMB: 200
+    minSizeMB: 100
     blockers: ["LM Studio"]
     detector:
       kind: paths
@@ -221,4 +222,6 @@ rules:
       what: "A model downloaded in LM Studio."
       why: "{{size}}."
       ifDeleted: "LM Studio can't load it until you download it again from its Discover tab."
+      wontLose: "Other models, chats or settings."
+      before: "Quit LM Studio, or at least unload the model."
       undo: "Restore it from the Recycle Bin (History)."
