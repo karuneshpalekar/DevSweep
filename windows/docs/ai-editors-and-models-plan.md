@@ -1,7 +1,7 @@
 # Plan: AI editor caches, Claude app caches, Ollama and LM Studio models (Windows)
 
 Source: Mac commit `2cd3cdd` ("Clean caches of AI code editors and the Claude app; list local Ollama and
-LM Studio models"). Status: **decisions D1-D3 taken as recommended (2026-11-27); built on branch `windows-ai-editors`**.
+LM Studio models"). Status: **decisions D1-D3 taken as recommended (2026-11-27); built on `windows-p6-ai-editors`, CI green on all 4 jobs (run 45974391958) and merged into `windows`**.
 
 ## 1. What the Mac commit does, and where Windows stands
 
