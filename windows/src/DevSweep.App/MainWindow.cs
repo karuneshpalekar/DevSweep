@@ -694,10 +694,12 @@ internal sealed partial class MainWindow : Window
             return true;
         }
 
-        // Only the list's own height counts: the pane footer does not hand its space to the list (seen in CI).
-        double available = viewer.ActualHeight;
+        // Let the pane footer's cards give up their room first, lay out for real, then measure the list (no guessing).
+        _expandedRows = rows;
+        FitPaneFooter();
+        _root.UpdateLayout();
         double needed = (_nav.MenuItems.Count * PlaceHeight) + (rows * SubRowHeight);
-        return needed <= available;
+        return needed <= viewer.ActualHeight;
     }
 
     private void FitPaneFooter()

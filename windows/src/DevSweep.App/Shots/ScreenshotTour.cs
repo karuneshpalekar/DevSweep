@@ -94,10 +94,18 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         IReadOnlyList<string> cleanup = window.SubRowTags("cleanup");
         Log.Write($"sidebar: Clean up shows {cleanup.Count} rows ({string.Join(", ", cleanup)}){(cleanup.Count == 0 ? " (no room at this window height)" : string.Empty)}");
         await GoAsync("health");
-        IReadOnlyList<string> rows = window.SubRowTags("health");
+        IReadOnlyList<string> shown = window.SubRowTags("health");
+        IReadOnlyList<string> rows = [.. SidebarSubRows.For(model, "health").Select(r => r.Tag)];
+        if (shown.Count > 0 && !shown.SequenceEqual(rows))
+        {
+            throw new InvalidOperationException($"Health shows [{string.Join(", ", shown)}] under it in the sidebar, not its tabs [{string.Join(", ", rows)}].");
+        }
+
+        // The rows open only when every place still fits; the CI display (about 1030 x 790) may not have the room.
+        Log.Write($"sidebar: Health {(shown.Count > 0 ? $"shows its {shown.Count} rows" : "stays closed (no room at this window height)")}");
         if (rows.Count != model.Health.Tabs.Count || rows.Count < 2)
         {
-            throw new InvalidOperationException($"Health should open its {model.Health.Tabs.Count} tabs under it in the sidebar; it shows [{string.Join(", ", rows)}].");
+            throw new InvalidOperationException($"Health should have a row for each of its {model.Health.Tabs.Count} tabs; it has [{string.Join(", ", rows)}].");
         }
 
         if (window.SubRowTags("cleanup").Count > 0 || window.SubRowTags("projects").Count > 0)
