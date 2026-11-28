@@ -539,7 +539,7 @@ internal sealed partial class MainWindow : Window
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
         };
         _nav.PaneFooter = _paneFooter;
-        _nav.SizeChanged += (_, _) => FitPaneFooter();
+        _nav.SizeChanged += (_, _) => UpdateExpansion(_nav.IsPaneOpen);
         _nav.PaneClosing += (_, _) =>
         {
             SetPaneParts(false);
@@ -665,8 +665,40 @@ internal sealed partial class MainWindow : Window
     /// <summary>Rows open under the current section; the pane footer gives them room (its cards scroll instead).</summary>
     private int _expandedRows;
 
-    /// <summary>Height of one row under a section, for <see cref="FitPaneFooter"/>.</summary>
-    private const double SubRowHeight = 40;
+    /// <summary>Height of one row under a section, for <see cref="FitPaneFooter"/> and <see cref="RoomForRows"/>.</summary>
+    private const double SubRowHeight = 36;
+
+    /// <summary>Height of a place in the navigation, closed.</summary>
+    private const double PlaceHeight = 40;
+
+    /// <summary>
+    /// Whether the places and <paramref name="rows"/> rows under one of them fit the navigation's list without pushing a place
+    /// out of sight (the pane footer's cards give up all but their last 96 px first). On a small window a section stays closed;
+    /// every place staying on screen matters more (0.1.1).
+    /// </summary>
+    private bool RoomForRows(int rows)
+    {
+        if (NavItem("home") is not { } home)
+        {
+            return true;
+        }
+
+        ScrollViewer? viewer = null;
+        for (DependencyObject? parent = VisualTreeHelper.GetParent(home); parent is not null && viewer is null; parent = VisualTreeHelper.GetParent(parent))
+        {
+            viewer = parent as ScrollViewer;
+        }
+
+        if (viewer is not { ActualHeight: > 0 })
+        {
+            return true;
+        }
+
+        double spare = _paneFooter is { ActualHeight: > 96 } footer ? footer.ActualHeight - 96 : 0;
+        double available = viewer.ActualHeight + spare;
+        double needed = (_nav.MenuItems.Count * PlaceHeight) + (rows * SubRowHeight);
+        return needed <= available;
+    }
 
     private void FitPaneFooter()
     {
@@ -682,7 +714,7 @@ internal sealed partial class MainWindow : Window
         int expanded = 0;
         foreach (KeyValuePair<string, (NavigationViewItem Parent, Dictionary<string, Action<SubRow>> Rows)> entry in _subRows)
         {
-            bool open = paneOpen && entry.Key == _model.Current && entry.Value.Rows.Count > 0;
+            bool open = paneOpen && entry.Key == _model.Current && entry.Value.Rows.Count > 0 && RoomForRows(entry.Value.Rows.Count);
             expanded += open ? entry.Value.Rows.Count : 0;
             if (entry.Value.Parent.IsExpanded != open)
             {

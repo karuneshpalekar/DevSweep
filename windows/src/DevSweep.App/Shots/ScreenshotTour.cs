@@ -85,31 +85,38 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
     }
 
     /// <summary>Opens a place by selecting its navigation item (what a click does) and checks every place's item is on screen.</summary>
-    /// <summary>The rows under the open section (the Mac's sidebar): Clean up's kinds open under it, picking one filters the list, other sections stay closed.</summary>
+    /// <summary>
+    /// The rows under the open section (the Mac's sidebar): Health opens its tabs under it, picking one opens that tab,
+    /// other sections stay closed. Clean up's kinds open too when the window is tall enough for them and every place.
+    /// </summary>
     private async Task SidebarSubRowsAsync(string suffix)
     {
-        IReadOnlyList<string> rows = window.SubRowTags("cleanup");
-        if (rows.Count < 2 || rows[0] != "cleanup:all")
+        IReadOnlyList<string> cleanup = window.SubRowTags("cleanup");
+        Log.Write($"sidebar: Clean up shows {cleanup.Count} rows ({string.Join(", ", cleanup)}){(cleanup.Count == 0 ? " (no room at this window height)" : string.Empty)}");
+        await GoAsync("health");
+        IReadOnlyList<string> rows = window.SubRowTags("health");
+        if (rows.Count != model.Health.Tabs.Count || rows.Count < 2)
         {
-            throw new InvalidOperationException($"Clean up should open its kinds under it in the sidebar; it shows [{string.Join(", ", rows)}].");
+            throw new InvalidOperationException($"Health should open its {model.Health.Tabs.Count} tabs under it in the sidebar; it shows [{string.Join(", ", rows)}].");
         }
 
-        if (window.SubRowTags("health").Count > 0 || window.SubRowTags("projects").Count > 0)
+        if (window.SubRowTags("cleanup").Count > 0 || window.SubRowTags("projects").Count > 0)
         {
             throw new InvalidOperationException("Only the open section shows its rows in the sidebar.");
         }
 
-        string place = SidebarSubRows.Open(model, rows[1]);
+        HealthTab before = model.Health.Tab;
+        string place = SidebarSubRows.Open(model, rows[^1]);
         await window.WaitForRenderAsync();
-        if (place != "cleanup" || model.CleanUp.SelectedKind is null)
+        if (place != "health" || model.Health.Tab != Enum.Parse<HealthTab>(rows[^1]["health:".Length..]))
         {
-            throw new InvalidOperationException($"Picking {rows[1]} in the sidebar did not filter Clean up.");
+            throw new InvalidOperationException($"Picking {rows[^1]} in the sidebar did not open that tab.");
         }
 
         await ShotAsync("sidebar-subrows", suffix);
-        Log.Write($"sidebar: Clean up shows {rows.Count} rows ({string.Join(", ", rows)}); {rows[1]} filters the list");
-        _ = SidebarSubRows.Open(model, "cleanup:all");
-        await window.WaitForRenderAsync();
+        Log.Write($"sidebar: Health shows {rows.Count} rows ({string.Join(", ", rows)}); {rows[^1]} opens its tab");
+        model.Health.Tab = before;
+        await GoAsync("cleanup");
     }
 
     private async Task GoAsync(string id)
