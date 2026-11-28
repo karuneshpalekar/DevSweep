@@ -658,7 +658,7 @@ internal sealed partial class MainWindow : Window
     public string DescribeRoom()
     {
         ScrollViewer? viewer = MenuViewer();
-        return $"list {viewer?.ActualHeight ?? 0:0} px (room {(viewer is null ? 0 : ListRoom(viewer)):0} px), footer {_paneFooter?.ActualHeight ?? 0:0} px, footer folded: {_footerFolded}, pinned: {_footerPinned}";
+        return $"list {viewer?.ActualHeight ?? 0:0} px, {_lastRoom}, footer {_paneFooter?.ActualHeight ?? 0:0} px, folded: {_footerFolded}, pinned: {_footerPinned}";
     }
 
     private ScrollViewer? MenuViewer()
@@ -713,11 +713,8 @@ internal sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>Rows open under the current section; the pane footer gives them room (its cards scroll instead).</summary>
-    private int _expandedRows;
-
-    /// <summary>Height of one row under a section, for <see cref="FitPaneFooter"/> and <see cref="RoomForRows"/>.</summary>
-    private const double SubRowHeight = 36;
+    /// <summary>Height of one row under a section, for <see cref="RoomForRows"/>.</summary>
+    private const double SubRowHeight = 40;
 
     /// <summary>Height of a place in the navigation, closed.</summary>
     private const double PlaceHeight = 40;
@@ -727,43 +724,48 @@ internal sealed partial class MainWindow : Window
     /// out of sight. On a small window a section stays closed;
     /// every place staying on screen matters more (0.1.1).
     /// </summary>
-    private bool RoomForRows(int rows)
+    private bool RoomForRows(int rows, bool folded)
     {
-        if (MenuViewer() is not { ActualHeight: > 0 } viewer)
+        // The sidebar sizes its list itself, a layout pass later, so the list's height can't be measured here. What doesn't move:
+        // the top of Home and the top of History (the bottom group). Between them go the places, their rows, a 29 px gap the
+        // navigation keeps, and the pane footer (the cards, or the one folded line and the status line).
+        if (NavItem("home") is not { ActualHeight: > 0 } home || NavItem("history") is not { ActualHeight: > 0 } history || _paneFooter is null)
         {
-            return true;
+            return false;
         }
 
-        _root.UpdateLayout();
+        double homeTop = home.TransformToVisual(_root).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+        double historyTop = history.TransformToVisual(_root).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+        double footer = folded ? FoldedFooterHeight : _unfoldedFooterHeight;
+        double room = historyTop - homeTop - 29 - 8 - footer;
         double needed = (_nav.MenuItems.Count * PlaceHeight) + (rows * SubRowHeight);
-        return needed <= ListRoom(viewer);
+        _lastRoom = $"room {room:0} px for {needed:0} px ({rows} rows, footer {(folded ? "folded" : "full")} {footer:0} px)";
+        return needed <= room;
     }
 
-    /// <summary>The height the places' list can grow to: from its top to the pane footer's top (or its own bottom when there is no footer).</summary>
-    private double ListRoom(ScrollViewer viewer)
-    {
-        double top = viewer.TransformToVisual(_root).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
-        if (_paneFooter is { Visibility: Visibility.Visible, ActualHeight: > 0 } footer)
-        {
-            double footerTop = footer.TransformToVisual(_root).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
-            return Math.Max(viewer.ActualHeight, footerTop - top);
-        }
+    /// <summary>The folded footer: the summary line and the status line.</summary>
+    private const double FoldedFooterHeight = 72;
 
-        return viewer.ActualHeight;
-    }
+    private double _unfoldedFooterHeight = 300;
+
+    private string _lastRoom = "not measured";
 
     private void FitPaneFooter()
     {
         if (_paneFooter is not null)
         {
-            _paneFooter.MaxHeight = Math.Max(96, _nav.ActualHeight - PaneReserved - (_expandedRows * SubRowHeight));
+            _paneFooter.MaxHeight = Math.Max(96, _nav.ActualHeight - PaneReserved);
         }
     }
 
     /// <summary>Opens the rows under the current section and closes the others (the navigation animates both); none while the pane is compact.</summary>
     private void UpdateExpansion(bool paneOpen)
     {
-        int expanded = 0;
+        if (!_footerFolded && _paneFooter is { ActualHeight: > 0 } shown)
+        {
+            _unfoldedFooterHeight = shown.ActualHeight;
+        }
+
         bool fold = false;
         foreach (KeyValuePair<string, (NavigationViewItem Parent, Dictionary<string, Action<SubRow>> Rows)> entry in _subRows)
         {
@@ -772,17 +774,14 @@ internal sealed partial class MainWindow : Window
             if (paneOpen && entry.Key == _model.Current && count > 0)
             {
                 // Rows win on a short window: try with the cards in full, then folded into one line, unless the person asked for the cards.
-                FoldFooter(false);
-                open = RoomForRows(count);
+                open = RoomForRows(count, folded: false);
                 if (!open && !_footerPinned)
                 {
-                    FoldFooter(true);
-                    open = RoomForRows(count);
+                    open = RoomForRows(count, folded: true);
                     fold = open;
                 }
             }
 
-            expanded += open ? count : 0;
             if (entry.Value.Parent.IsExpanded != open)
             {
                 entry.Value.Parent.IsExpanded = open;
@@ -790,7 +789,6 @@ internal sealed partial class MainWindow : Window
         }
 
         FoldFooter(fold);
-        _expandedRows = expanded;
         FitPaneFooter();
     }
 
