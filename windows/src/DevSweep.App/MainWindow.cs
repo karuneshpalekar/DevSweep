@@ -539,17 +539,13 @@ internal sealed partial class MainWindow : Window
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
         };
         _nav.PaneFooter = _paneFooter;
-        _nav.SizeChanged += (_, _) => UpdateExpansion(_nav.IsPaneOpen);
-        _nav.PaneClosing += (_, _) =>
+        _nav.SizeChanged += (_, _) =>
         {
-            SetPaneParts(false);
-            UpdateExpansion(paneOpen: false);
+            _paneFooter.MaxHeight = Math.Max(96, _nav.ActualHeight - PaneReserved);
+            UpdateFold();
         };
-        _nav.PaneOpening += (_, _) =>
-        {
-            SetPaneParts(true);
-            UpdateExpansion(paneOpen: true);
-        };
+        _nav.PaneClosing += (_, _) => SetPaneParts(false);
+        _nav.PaneOpening += (_, _) => SetPaneParts(true);
         AutomationProperties.SetName(_nav, "DevSweep places");
         foreach (Place place in _model.Places)
         {
@@ -563,7 +559,7 @@ internal sealed partial class MainWindow : Window
             AutomationProperties.SetName(item, place.Title);
             if (SidebarSubRows.Has(place.Id))
             {
-                _subRows[place.Id] = (item, new Dictionary<string, Action<SubRow>>(StringComparer.Ordinal));
+                _sections.Add(place.Id);
             }
 
             if (place.Id == "settings")
@@ -581,7 +577,7 @@ internal sealed partial class MainWindow : Window
             }
         }
 
-        foreach (string placeId in _subRows.Keys.ToList())
+        foreach (string placeId in _sections)
         {
             System.ComponentModel.INotifyPropertyChanged source = placeId switch
             {
@@ -589,21 +585,12 @@ internal sealed partial class MainWindow : Window
                 "projects" => _model.Projects,
                 _ => _model.Health,
             };
-            _windowSubs.On(source, null, () => RenderSubRows(placeId));
-            if (placeId == "cleanup")
-            {
-                _windowSubs.OnCollection(_model.CleanUp.Filters, () => RenderSubRows(placeId));
-                _windowSubs.On(_model.Scan, nameof(ScanViewModel.HasScanned), () => RenderSubRows(placeId));
-            }
+            _windowSubs.On(source, null, RenderSectionRows);
         }
 
-        _nav.ItemInvoked += (_, e) =>
-        {
-            if (e.InvokedItemContainer is NavigationViewItem { Tag: string tag } && tag.Contains(':', StringComparison.Ordinal))
-            {
-                _model.Go(SidebarSubRows.Open(_model, tag));
-            }
-        };
+        _windowSubs.OnCollection(_model.CleanUp.Filters, RenderSectionRows);
+        _windowSubs.On(_model.Scan, nameof(ScanViewModel.HasScanned), RenderSectionRows);
+
         _nav.SelectionChanged += (_, e) =>
         {
             if (TraceNavigation)
@@ -627,25 +614,107 @@ internal sealed partial class MainWindow : Window
         };
     }
 
-    private readonly Dictionary<string, (NavigationViewItem Parent, Dictionary<string, Action<SubRow>> Rows)> _subRows = new(StringComparer.Ordinal);
+    /// <summary>Places that have rows (Clean up, Projects, Health), when they are turned on.</summary>
+    private readonly HashSet<string> _sections = new(StringComparer.Ordinal);
+
+    /// <summary>The open section's rows, at the top of the pane footer, just under the places (the user's choice: WinUI keeps its list
+    /// of places at a fixed height, so rows nested under a place would push other places out of sight on a short window).</summary>
+    private readonly StackPanel _sectionRows = new() { Spacing = 2 };
+
+    private readonly TextBlock _sectionTitle = new();
+
+    private readonly Dictionary<string, Action<SubRow>> _rowUpdates = new(StringComparer.Ordinal);
+
+    private UIElement? _sectionPanel;
+
+    private UIElement? _footerCards;
+
+    private string? _shownSection;
 
     /// <summary>Folds the update card and alerts into one line (rows win on a short window, as the user chose).</summary>
     private Action<bool> _foldFooter = _ => { };
 
-    /// <summary>The person clicked the folded line: show the cards in full on this section, even if its rows then don't fit.</summary>
+    /// <summary>The person clicked the folded line: show the cards in full on this section.</summary>
     private bool _footerPinned;
 
     private bool _footerFolded;
 
+    private double _cardsHeight;
+
     private UIElement FooterContent()
     {
-        (UIElement root, Action<bool> fold) = SidebarView.FoldableFooter(_model, _windowSubs, UpdateCard.Build(_model.Background.Updates, _windowSubs), () =>
+        (UIElement cards, Action<bool> fold) = SidebarView.FoldableFooter(_model, _windowSubs, UpdateCard.Build(_model.Background.Updates, _windowSubs), () =>
         {
             _footerPinned = true;
-            UpdateExpansion(_nav.IsPaneOpen);
+            UpdateFold();
         });
         _foldFooter = fold;
-        return root;
+        _footerCards = cards;
+        _sectionTitle.Margin = new Thickness(Tokens.Space3, Tokens.Space1, Tokens.Space3, 0);
+        _sectionTitle.Style = Ui.Style("DsCaption");
+        _sectionRows.Margin = new Thickness(Tokens.Space1, 0, Tokens.Space1, 0);
+        _sectionPanel = Ui.V(Tokens.Space1, _sectionTitle, _sectionRows);
+        _sectionPanel.Visibility = Visibility.Collapsed;
+        return Ui.V(Tokens.Space2, _sectionPanel, cards);
+    }
+
+    /// <summary>Builds or updates the open section's rows (rebuilt only when the section or its rows change, so nothing flickers).</summary>
+    private void RenderSectionRows()
+    {
+        if (_sectionPanel is null)
+        {
+            return;
+        }
+
+        string? section = _sections.Contains(_model.Current) ? _model.Current : null;
+        IReadOnlyList<SubRow> list = section is null ? [] : SidebarSubRows.For(_model, section);
+        if (section != _shownSection || !list.Select(r => r.Tag).SequenceEqual(_rowUpdates.Keys))
+        {
+            bool newSection = section != _shownSection;
+            _shownSection = section;
+            _sectionRows.Children.Clear();
+            _rowUpdates.Clear();
+            foreach (SubRow row in list)
+            {
+                (UIElement content, Action<SubRow> update) = SidebarSubRows.Content(row);
+                string tag = row.Tag;
+                var item = new ListRow(content, () => _model.Go(SidebarSubRows.Open(_model, tag)), row.Title);
+                _sectionRows.Children.Add(item.Root);
+                _rowUpdates[tag] = update;
+            }
+
+            _sectionTitle.Text = section is null ? string.Empty : _model.Places.First(p => p.Id == section).Title.ToUpperInvariant();
+            Motion.Reveal(_sectionPanel, list.Count > 0);
+            if (newSection && list.Count > 0)
+            {
+                Motion.FadeIn(_sectionRows);
+            }
+
+            UpdateFold();
+        }
+
+        foreach (SubRow row in list)
+        {
+            _rowUpdates[row.Tag](row);
+        }
+    }
+
+    /// <summary>Rows win on a short window: the cards fold into one line when rows and cards together don't fit the footer.</summary>
+    private void UpdateFold()
+    {
+        if (_shownSection is null || _rowUpdates.Count == 0 || _paneFooter is null)
+        {
+            FoldFooter(false);
+            return;
+        }
+
+        if (!_footerFolded && _footerCards is FrameworkElement { ActualHeight: > 0 } cards)
+        {
+            _cardsHeight = cards.ActualHeight;
+        }
+
+        double rowsHeight = 28 + (_rowUpdates.Count * 40);
+        FoldFooter(!_footerPinned && rowsHeight + _cardsHeight > _paneFooter.MaxHeight);
     }
 
     private void FoldFooter(bool folded)
@@ -654,147 +723,13 @@ internal sealed partial class MainWindow : Window
         _foldFooter(folded);
     }
 
-    /// <summary>How the sidebar's room was shared out, for the tour log.</summary>
+    /// <summary>How the footer's room was shared out, for the tour log.</summary>
     public string DescribeRoom()
-    {
-        ScrollViewer? viewer = MenuViewer();
-        return $"list {viewer?.ActualHeight ?? 0:0} px, {_lastRoom}, footer {_paneFooter?.ActualHeight ?? 0:0} px, folded: {_footerFolded}, pinned: {_footerPinned}";
-    }
+        => $"footer {_paneFooter?.ActualHeight ?? 0:0} of at most {_paneFooter?.MaxHeight ?? 0:0} px, cards {_cardsHeight:0} px, {_rowUpdates.Count} rows, folded: {_footerFolded}, pinned: {_footerPinned}";
 
-    private ScrollViewer? MenuViewer()
-    {
-        if (NavItem("home") is not { } home)
-        {
-            return null;
-        }
-
-        for (DependencyObject? parent = VisualTreeHelper.GetParent(home); parent is not null; parent = VisualTreeHelper.GetParent(parent))
-        {
-            if (parent is ScrollViewer viewer)
-            {
-                return viewer;
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>Builds or updates the rows under a section (rebuilt only when the set of rows changes, so nothing flickers).</summary>
-    private void RenderSubRows(string placeId)
-    {
-        (NavigationViewItem parent, Dictionary<string, Action<SubRow>> rows) = _subRows[placeId];
-        // Only the open section has rows (others have no children, so no chevron), as on the Mac.
-        IReadOnlyList<SubRow> list = placeId == _model.Current ? SidebarSubRows.For(_model, placeId) : [];
-        if (!list.Select(r => r.Tag).SequenceEqual(rows.Keys))
-        {
-            parent.MenuItems.Clear();
-            rows.Clear();
-            foreach (SubRow row in list)
-            {
-                (UIElement content, Action<SubRow> update) = SidebarSubRows.Content(row);
-                var child = new NavigationViewItem
-                {
-                    Content = content,
-                    Tag = row.Tag,
-                    SelectsOnInvoked = false,
-                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                };
-                AutomationProperties.SetName(child, row.Title);
-                parent.MenuItems.Add(child);
-                rows[row.Tag] = update;
-            }
-
-            UpdateExpansion(_nav.IsPaneOpen);
-        }
-
-        foreach (SubRow row in list)
-        {
-            rows[row.Tag](row);
-        }
-    }
-
-    /// <summary>Height of one row under a section, for <see cref="RoomForRows"/>.</summary>
-    private const double SubRowHeight = 40;
-
-    /// <summary>Height of a place in the navigation, closed.</summary>
-    private const double PlaceHeight = 40;
-
-    /// <summary>
-    /// Whether the places and <paramref name="rows"/> rows under one of them fit the navigation's list without pushing a place
-    /// out of sight. On a small window a section stays closed;
-    /// every place staying on screen matters more (0.1.1).
-    /// </summary>
-    private bool RoomForRows(int rows, bool folded)
-    {
-        // The sidebar sizes its list itself, a layout pass later, so the list's height can't be measured here. What doesn't move:
-        // the top of Home and the top of History (the bottom group). Between them go the places, their rows, a 29 px gap the
-        // navigation keeps, and the pane footer (the cards, or the one folded line and the status line).
-        if (NavItem("home") is not { ActualHeight: > 0 } home || NavItem("history") is not { ActualHeight: > 0 } history || _paneFooter is null)
-        {
-            return false;
-        }
-
-        double homeTop = home.TransformToVisual(_root).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
-        double historyTop = history.TransformToVisual(_root).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
-        double footer = folded ? FoldedFooterHeight : _unfoldedFooterHeight;
-        double room = historyTop - homeTop - 29 - 8 - footer;
-        double needed = (_nav.MenuItems.Count * PlaceHeight) + (rows * SubRowHeight);
-        _lastRoom = $"room {room:0} px for {needed:0} px ({rows} rows, footer {(folded ? "folded" : "full")} {footer:0} px)";
-        return needed <= room;
-    }
-
-    /// <summary>The folded footer: the summary line and the status line.</summary>
-    private const double FoldedFooterHeight = 72;
-
-    private double _unfoldedFooterHeight = 300;
-
-    private string _lastRoom = "not measured";
-
-    private void FitPaneFooter()
-    {
-        if (_paneFooter is not null)
-        {
-            _paneFooter.MaxHeight = Math.Max(96, _nav.ActualHeight - PaneReserved);
-        }
-    }
-
-    /// <summary>Opens the rows under the current section and closes the others (the navigation animates both); none while the pane is compact.</summary>
-    private void UpdateExpansion(bool paneOpen)
-    {
-        if (!_footerFolded && _paneFooter is { ActualHeight: > 0 } shown)
-        {
-            _unfoldedFooterHeight = shown.ActualHeight;
-        }
-
-        bool fold = false;
-        foreach (KeyValuePair<string, (NavigationViewItem Parent, Dictionary<string, Action<SubRow>> Rows)> entry in _subRows)
-        {
-            bool open = false;
-            int count = entry.Value.Rows.Count;
-            if (paneOpen && entry.Key == _model.Current && count > 0)
-            {
-                // Rows win on a short window: try with the cards in full, then folded into one line, unless the person asked for the cards.
-                open = RoomForRows(count, folded: false);
-                if (!open && !_footerPinned)
-                {
-                    open = RoomForRows(count, folded: true);
-                    fold = open;
-                }
-            }
-
-            if (entry.Value.Parent.IsExpanded != open)
-            {
-                entry.Value.Parent.IsExpanded = open;
-            }
-        }
-
-        FoldFooter(fold);
-        FitPaneFooter();
-    }
-
-    /// <summary>The rows shown under a section right now (tests and the screenshot tour).</summary>
+    /// <summary>The rows shown for a section right now (tests and the screenshot tour).</summary>
     public IReadOnlyList<string> SubRowTags(string placeId)
-        => _subRows.TryGetValue(placeId, out (NavigationViewItem Parent, Dictionary<string, Action<SubRow>> Rows) entry) && entry.Parent.IsExpanded ? [.. entry.Rows.Keys] : [];
+        => _shownSection == placeId && _sectionPanel is { Visibility: Visibility.Visible } ? [.. _rowUpdates.Keys] : [];
 
     /// <summary>Room the header, the hamburger, the four places and History and Settings need; the pane footer gets what is left.</summary>
     private const double PaneReserved = 400;
@@ -986,12 +921,7 @@ internal sealed partial class MainWindow : Window
 
         SyncSelection();
         _footerPinned = false;
-        foreach (string section in _subRows.Keys.ToList())
-        {
-            RenderSubRows(section);
-        }
-
-        UpdateExpansion(_nav.IsPaneOpen);
+        RenderSectionRows();
 
         bool changed = _shownPage is not null && _shownPage != id;
         _shownPage = id;

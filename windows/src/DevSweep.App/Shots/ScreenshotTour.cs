@@ -86,23 +86,22 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
 
     /// <summary>Opens a place by selecting its navigation item (what a click does) and checks every place's item is on screen.</summary>
     /// <summary>
-    /// The rows under the open section (the Mac's sidebar): Health opens its tabs under it, picking one opens that tab,
-    /// other sections stay closed. Clean up's kinds open too when the window is tall enough for them and every place.
+    /// The open section's rows in the sidebar (the Mac's sidebar; on Windows a small group just under the places): Health shows
+    /// its tabs, picking one opens that tab, other sections show none.
     /// </summary>
     private async Task SidebarSubRowsAsync(string suffix)
     {
         IReadOnlyList<string> cleanup = window.SubRowTags("cleanup");
-        Log.Write($"sidebar: Clean up shows {cleanup.Count} rows ({string.Join(", ", cleanup)}){(cleanup.Count == 0 ? " (no room at this window height)" : string.Empty)}");
+        Log.Write($"sidebar: Clean up shows {cleanup.Count} rows ({string.Join(", ", cleanup)}); {window.DescribeRoom()}");
         await GoAsync("health");
         IReadOnlyList<string> shown = window.SubRowTags("health");
         IReadOnlyList<string> rows = [.. SidebarSubRows.For(model, "health").Select(r => r.Tag)];
-        if (shown.Count > 0 && !shown.SequenceEqual(rows))
+        Log.Write($"sidebar: Health shows [{string.Join(", ", shown)}]; {window.DescribeRoom()}");
+        if (!shown.SequenceEqual(rows))
         {
-            throw new InvalidOperationException($"Health shows [{string.Join(", ", shown)}] under it in the sidebar, not its tabs [{string.Join(", ", rows)}].");
+            throw new InvalidOperationException($"Health shows [{string.Join(", ", shown)}] in the sidebar, not its tabs [{string.Join(", ", rows)}].");
         }
 
-        // The rows open only when every place still fits; the CI display (about 1030 x 790) may not have the room.
-        Log.Write($"sidebar: Health {(shown.Count > 0 ? $"shows its {shown.Count} rows" : "stays closed (no room at this window height)")}; {window.DescribeRoom()}");
         if (rows.Count != model.Health.Tabs.Count || rows.Count < 2)
         {
             throw new InvalidOperationException($"Health should have a row for each of its {model.Health.Tabs.Count} tabs; it has [{string.Join(", ", rows)}].");
