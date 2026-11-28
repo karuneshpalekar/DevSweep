@@ -34,8 +34,16 @@ internal static class ReviewSheet
         frame.Buttons.Children.Add(history);
         frame.Buttons.Children.Add(done);
 
+        ReviewStage? shownStage = null;
         void Render()
         {
+            if (shownStage is { } before && before != vm.Stage)
+            {
+                // Review, cleaning and results cross-fade, as on the Mac.
+                Motion.FadeIn(body);
+            }
+
+            shownStage = vm.Stage;
             frame.Heading.Text = vm.Heading;
             frame.Subheading.Text = vm.Subheading;
             body.Children.Clear();

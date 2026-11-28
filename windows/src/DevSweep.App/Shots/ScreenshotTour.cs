@@ -85,6 +85,33 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
     }
 
     /// <summary>Opens a place by selecting its navigation item (what a click does) and checks every place's item is on screen.</summary>
+    /// <summary>The rows under the open section (the Mac's sidebar): Clean up's kinds open under it, picking one filters the list, other sections stay closed.</summary>
+    private async Task SidebarSubRowsAsync(string suffix)
+    {
+        IReadOnlyList<string> rows = window.SubRowTags("cleanup");
+        if (rows.Count < 2 || rows[0] != "cleanup:all")
+        {
+            throw new InvalidOperationException($"Clean up should open its kinds under it in the sidebar; it shows [{string.Join(", ", rows)}].");
+        }
+
+        if (window.SubRowTags("health").Count > 0 || window.SubRowTags("projects").Count > 0)
+        {
+            throw new InvalidOperationException("Only the open section shows its rows in the sidebar.");
+        }
+
+        string place = SidebarSubRows.Open(model, rows[1]);
+        await window.WaitForRenderAsync();
+        if (place != "cleanup" || model.CleanUp.SelectedKind is null)
+        {
+            throw new InvalidOperationException($"Picking {rows[1]} in the sidebar did not filter Clean up.");
+        }
+
+        await ShotAsync("sidebar-subrows", suffix);
+        Log.Write($"sidebar: Clean up shows {rows.Count} rows ({string.Join(", ", rows)}); {rows[1]} filters the list");
+        _ = SidebarSubRows.Open(model, "cleanup:all");
+        await window.WaitForRenderAsync();
+    }
+
     private async Task GoAsync(string id)
     {
         await window.SelectPlaceAsync(id);
@@ -279,6 +306,10 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         await GoAsync("cleanup");
         model.CleanUp.Inspected = null;
         await ShotAsync("cleanup", suffix);
+        if (full)
+        {
+            await SidebarSubRowsAsync(suffix);
+        }
         model.CleanUp.Inspect(model.CleanUp.All.First(f => f.Id == "pnpm-store"));
         await ShotAsync("inspector", suffix);
         RequireOnScreen("Select pnpm store for cleaning", "the pinned footer of the inspector");

@@ -180,6 +180,7 @@ internal static class HealthPanels
                 showAll = !showAll;
                 more.Content = showAll ? "Show less" : $"Show the full script ({step.Commands.Count} lines)";
                 Fill();
+                Motion.FadeIn(commands);
             };
         }
 

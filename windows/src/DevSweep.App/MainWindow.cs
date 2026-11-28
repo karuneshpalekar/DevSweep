@@ -37,6 +37,7 @@ internal sealed partial class MainWindow : Window
     private string? _sheetKind;
     private string? _shownPage;
     private MotionHandle? _pageMotion;
+    private MotionHandle? _sheetMotion;
     private bool _allowClose;
     private Button _themeButton = new();
     private FontIcon _themeIcon = new();
@@ -538,9 +539,17 @@ internal sealed partial class MainWindow : Window
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
         };
         _nav.PaneFooter = _paneFooter;
-        _nav.SizeChanged += (_, e) => _paneFooter.MaxHeight = Math.Max(96, e.NewSize.Height - PaneReserved);
-        _nav.PaneClosing += (_, _) => SetPaneParts(false);
-        _nav.PaneOpening += (_, _) => SetPaneParts(true);
+        _nav.SizeChanged += (_, _) => FitPaneFooter();
+        _nav.PaneClosing += (_, _) =>
+        {
+            SetPaneParts(false);
+            UpdateExpansion(paneOpen: false);
+        };
+        _nav.PaneOpening += (_, _) =>
+        {
+            SetPaneParts(true);
+            UpdateExpansion(paneOpen: true);
+        };
         AutomationProperties.SetName(_nav, "DevSweep places");
         foreach (Place place in _model.Places)
         {
@@ -552,6 +561,11 @@ internal sealed partial class MainWindow : Window
                 Icon = new FontIcon { Glyph = Icons.ForPlace(place.Id, place.Glyph) },
             };
             AutomationProperties.SetName(item, place.Title);
+            if (SidebarSubRows.Has(place.Id))
+            {
+                _subRows[place.Id] = (item, new Dictionary<string, Action<SubRow>>(StringComparer.Ordinal));
+            }
+
             if (place.Id == "settings")
             {
                 continue; // the built-in Settings item
@@ -567,6 +581,29 @@ internal sealed partial class MainWindow : Window
             }
         }
 
+        foreach (string placeId in _subRows.Keys.ToList())
+        {
+            System.ComponentModel.INotifyPropertyChanged source = placeId switch
+            {
+                "cleanup" => _model.CleanUp,
+                "projects" => _model.Projects,
+                _ => _model.Health,
+            };
+            _windowSubs.On(source, null, () => RenderSubRows(placeId));
+            if (placeId == "cleanup")
+            {
+                _windowSubs.OnCollection(_model.CleanUp.Filters, () => RenderSubRows(placeId));
+                _windowSubs.On(_model.Scan, nameof(ScanViewModel.HasScanned), () => RenderSubRows(placeId));
+            }
+        }
+
+        _nav.ItemInvoked += (_, e) =>
+        {
+            if (e.InvokedItemContainer is NavigationViewItem { Tag: string tag } && tag.Contains(':', StringComparison.Ordinal))
+            {
+                _model.Go(SidebarSubRows.Open(_model, tag));
+            }
+        };
         _nav.SelectionChanged += (_, e) =>
         {
             if (TraceNavigation)
@@ -589,6 +626,77 @@ internal sealed partial class MainWindow : Window
             SyncSelection();
         };
     }
+
+    private readonly Dictionary<string, (NavigationViewItem Parent, Dictionary<string, Action<SubRow>> Rows)> _subRows = new(StringComparer.Ordinal);
+
+    /// <summary>Builds or updates the rows under a section (rebuilt only when the set of rows changes, so nothing flickers).</summary>
+    private void RenderSubRows(string placeId)
+    {
+        (NavigationViewItem parent, Dictionary<string, Action<SubRow>> rows) = _subRows[placeId];
+        IReadOnlyList<SubRow> list = SidebarSubRows.For(_model, placeId);
+        if (!list.Select(r => r.Tag).SequenceEqual(rows.Keys))
+        {
+            parent.MenuItems.Clear();
+            rows.Clear();
+            foreach (SubRow row in list)
+            {
+                (UIElement content, Action<SubRow> update) = SidebarSubRows.Content(row);
+                var child = new NavigationViewItem
+                {
+                    Content = content,
+                    Tag = row.Tag,
+                    SelectsOnInvoked = false,
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                };
+                AutomationProperties.SetName(child, row.Title);
+                parent.MenuItems.Add(child);
+                rows[row.Tag] = update;
+            }
+
+            UpdateExpansion(_nav.IsPaneOpen);
+        }
+
+        foreach (SubRow row in list)
+        {
+            rows[row.Tag](row);
+        }
+    }
+
+    /// <summary>Rows open under the current section; the pane footer gives them room (its cards scroll instead).</summary>
+    private int _expandedRows;
+
+    /// <summary>Height of one row under a section, for <see cref="FitPaneFooter"/>.</summary>
+    private const double SubRowHeight = 40;
+
+    private void FitPaneFooter()
+    {
+        if (_paneFooter is not null)
+        {
+            _paneFooter.MaxHeight = Math.Max(96, _nav.ActualHeight - PaneReserved - (_expandedRows * SubRowHeight));
+        }
+    }
+
+    /// <summary>Opens the rows under the current section and closes the others (the navigation animates both); none while the pane is compact.</summary>
+    private void UpdateExpansion(bool paneOpen)
+    {
+        int expanded = 0;
+        foreach (KeyValuePair<string, (NavigationViewItem Parent, Dictionary<string, Action<SubRow>> Rows)> entry in _subRows)
+        {
+            bool open = paneOpen && entry.Key == _model.Current && entry.Value.Rows.Count > 0;
+            expanded += open ? entry.Value.Rows.Count : 0;
+            if (entry.Value.Parent.IsExpanded != open)
+            {
+                entry.Value.Parent.IsExpanded = open;
+            }
+        }
+
+        _expandedRows = expanded;
+        FitPaneFooter();
+    }
+
+    /// <summary>The rows shown under a section right now (tests and the screenshot tour).</summary>
+    public IReadOnlyList<string> SubRowTags(string placeId)
+        => _subRows.TryGetValue(placeId, out (NavigationViewItem Parent, Dictionary<string, Action<SubRow>> Rows) entry) && entry.Parent.IsExpanded ? [.. entry.Rows.Keys] : [];
 
     /// <summary>Room the header, the hamburger, the four places and History and Settings need; the pane footer gets what is left.</summary>
     private const double PaneReserved = 400;
@@ -779,6 +887,7 @@ internal sealed partial class MainWindow : Window
         }
 
         SyncSelection();
+        UpdateExpansion(_nav.IsPaneOpen);
 
         bool changed = _shownPage is not null && _shownPage != id;
         _shownPage = id;
@@ -816,6 +925,31 @@ internal sealed partial class MainWindow : Window
         _sheetKind = kind;
         _sheetSubs.Dispose();
         _sheetSubs = new Subscriptions();
+        _sheetMotion?.Cancel();
+        if (kind is null)
+        {
+            // Closing: the sheet fades out with its last content, then goes (as the Mac's sheets do).
+            _nav.IsEnabled = true;
+            if (_sheetLayer.Visibility == Visibility.Visible && Motion.Enabled)
+            {
+                _sheetLayer.IsHitTestVisible = false;
+                double from = _sheetLayer.Opacity;
+                _sheetMotion = Motion.Run(Motion.SwapMs, Ease.InOut, t => _sheetLayer.Opacity = Motion.Lerp(from, 0, t), () =>
+                {
+                    _sheet.Child = null;
+                    Ui.Show(_sheetLayer, false);
+                    _sheetLayer.Opacity = 1;
+                    _sheetLayer.IsHitTestVisible = true;
+                });
+                return;
+            }
+
+            _sheet.Child = null;
+            Ui.Show(_sheetLayer, false);
+            return;
+        }
+
+        _sheetLayer.IsHitTestVisible = true;
         _sheet.Child = kind switch
         {
             "welcome" => WelcomeSheet.Build(_model, _sheetSubs),
@@ -828,7 +962,7 @@ internal sealed partial class MainWindow : Window
         _nav.IsEnabled = !open;
         if (open)
         {
-            Motion.Run(Motion.SwapMs, Ease.InOut, t => _sheetLayer.Opacity = t);
+            _sheetMotion = Motion.Run(Motion.SwapMs, Ease.InOut, t => _sheetLayer.Opacity = t);
         }
         if (open && _sheet.Child is FrameworkElement content)
         {

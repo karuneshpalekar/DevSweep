@@ -28,6 +28,7 @@ internal sealed class ListRow
         _activate = activate;
         _surface = new Border { Style = Ui.Style("DsRow"), Child = content };
         _bar = new Border { Style = Ui.Style("DsAccentBar"), Visibility = Visibility.Collapsed, IsHitTestVisible = false };
+        Motion.SmoothFill(_surface);
         var layers = new Grid();
         layers.Children.Add(_surface);
         layers.Children.Add(_bar);
