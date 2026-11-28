@@ -673,7 +673,7 @@ internal sealed partial class MainWindow : Window
 
     /// <summary>
     /// Whether the places and <paramref name="rows"/> rows under one of them fit the navigation's list without pushing a place
-    /// out of sight (the pane footer's cards give up all but their last 96 px first). On a small window a section stays closed;
+    /// out of sight. On a small window a section stays closed;
     /// every place staying on screen matters more (0.1.1).
     /// </summary>
     private bool RoomForRows(int rows)
@@ -694,8 +694,8 @@ internal sealed partial class MainWindow : Window
             return true;
         }
 
-        double spare = _paneFooter is { ActualHeight: > 96 } footer ? footer.ActualHeight - 96 : 0;
-        double available = viewer.ActualHeight + spare;
+        // Only the list's own height counts: the pane footer does not hand its space to the list (seen in CI).
+        double available = viewer.ActualHeight;
         double needed = (_nav.MenuItems.Count * PlaceHeight) + (rows * SubRowHeight);
         return needed <= available;
     }
