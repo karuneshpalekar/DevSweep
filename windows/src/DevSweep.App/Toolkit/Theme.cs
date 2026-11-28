@@ -169,6 +169,16 @@ internal static class Theme
             <Setter Property="CornerRadius" Value="6" />
             <Setter Property="Padding" Value="12,8" />
           </Style>
+          <Style x:Key="DsSubRow" TargetType="Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8,4" />
+          </Style>
+          <Style x:Key="DsSubRowSelected" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8,4" />
+          </Style>
           <Style x:Key="DsRowHover" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
             <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />

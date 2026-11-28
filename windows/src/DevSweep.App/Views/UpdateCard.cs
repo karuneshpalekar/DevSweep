@@ -1,3 +1,4 @@
+using DevSweep.App.Design;
 using DevSweep.App.Toolkit;
 using DevSweep.App.ViewModels.Updates;
 using Microsoft.UI.Xaml;
@@ -17,9 +18,12 @@ internal static class UpdateCard
         Button later = Ui.Button("Later", updates.Later, "Not now: do not offer this version again");
         var card = Ui.Card(Ui.V(8, Ui.H(8, Ui.Icon("", 16), title), detail, Ui.H(8, open, later)));
         card.Margin = new Thickness(12);
+        bool first = true;
         subs.On(updates, null, () =>
         {
-            Ui.Show(card, updates.ShowCard);
+            // "Later" fades the card away, as on the Mac; the first state is shown as it is.
+            Motion.Reveal(card, updates.ShowCard, animate: !first);
+            first = false;
             if (updates.Available is { } info)
             {
                 detail.Text = $"DevSweep {info.Version} is out. It is downloaded from GitHub, never installed behind your back.";

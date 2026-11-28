@@ -85,6 +85,47 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
     }
 
     /// <summary>Opens a place by selecting its navigation item (what a click does) and checks every place's item is on screen.</summary>
+    /// <summary>
+    /// The open section's rows in the sidebar (the Mac's sidebar; on Windows a small group just under the places): Health shows
+    /// its tabs, picking one opens that tab, other sections show none.
+    /// </summary>
+    private async Task SidebarSubRowsAsync(string suffix)
+    {
+        IReadOnlyList<string> cleanup = window.SubRowTags("cleanup");
+        Log.Write($"sidebar: Clean up shows {cleanup.Count} rows ({string.Join(", ", cleanup)}); {window.DescribeRoom()}");
+        await GoAsync("health");
+        IReadOnlyList<string> shown = window.SubRowTags("health");
+        IReadOnlyList<string> rows = [.. SidebarSubRows.For(model, "health").Select(r => r.Tag)];
+        Log.Write($"sidebar: Health shows [{string.Join(", ", shown)}]; {window.DescribeRoom()}");
+        if (!shown.SequenceEqual(rows))
+        {
+            throw new InvalidOperationException($"Health shows [{string.Join(", ", shown)}] in the sidebar, not its tabs [{string.Join(", ", rows)}].");
+        }
+
+        if (rows.Count != model.Health.Tabs.Count || rows.Count < 2)
+        {
+            throw new InvalidOperationException($"Health should have a row for each of its {model.Health.Tabs.Count} tabs; it has [{string.Join(", ", rows)}].");
+        }
+
+        if (window.SubRowTags("cleanup").Count > 0 || window.SubRowTags("projects").Count > 0)
+        {
+            throw new InvalidOperationException("Only the open section shows its rows in the sidebar.");
+        }
+
+        HealthTab before = model.Health.Tab;
+        string place = SidebarSubRows.Open(model, rows[^1]);
+        await window.WaitForRenderAsync();
+        if (place != "health" || model.Health.Tab != Enum.Parse<HealthTab>(rows[^1]["health:".Length..]))
+        {
+            throw new InvalidOperationException($"Picking {rows[^1]} in the sidebar did not open that tab.");
+        }
+
+        await ShotAsync("sidebar-subrows", suffix);
+        Log.Write($"sidebar: picking {rows[^1]} opens its tab");
+        model.Health.Tab = before;
+        await GoAsync("cleanup");
+    }
+
     private async Task GoAsync(string id)
     {
         await window.SelectPlaceAsync(id);
@@ -279,6 +320,10 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         await GoAsync("cleanup");
         model.CleanUp.Inspected = null;
         await ShotAsync("cleanup", suffix);
+        if (full)
+        {
+            await SidebarSubRowsAsync(suffix);
+        }
         model.CleanUp.Inspect(model.CleanUp.All.First(f => f.Id == "pnpm-store"));
         await ShotAsync("inspector", suffix);
         RequireOnScreen("Select pnpm store for cleaning", "the pinned footer of the inspector");

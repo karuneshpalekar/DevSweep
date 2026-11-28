@@ -37,6 +37,7 @@ internal sealed partial class MainWindow : Window
     private string? _sheetKind;
     private string? _shownPage;
     private MotionHandle? _pageMotion;
+    private MotionHandle? _sheetMotion;
     private bool _allowClose;
     private Button _themeButton = new();
     private FontIcon _themeIcon = new();
@@ -532,13 +533,17 @@ internal sealed partial class MainWindow : Window
         // whose height is what is left once the header and the places (and History and Settings) have their room.
         _paneFooter = new ScrollViewer
         {
-            Content = SidebarView.Footer(_model, _windowSubs, UpdateCard.Build(_model.Background.Updates, _windowSubs)),
+            Content = FooterContent(),
             MaxHeight = 190,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
         };
         _nav.PaneFooter = _paneFooter;
-        _nav.SizeChanged += (_, e) => _paneFooter.MaxHeight = Math.Max(96, e.NewSize.Height - PaneReserved);
+        _nav.SizeChanged += (_, _) =>
+        {
+            _paneFooter.MaxHeight = Math.Max(96, _nav.ActualHeight - PaneReserved);
+            UpdateFold();
+        };
         _nav.PaneClosing += (_, _) => SetPaneParts(false);
         _nav.PaneOpening += (_, _) => SetPaneParts(true);
         AutomationProperties.SetName(_nav, "DevSweep places");
@@ -552,6 +557,11 @@ internal sealed partial class MainWindow : Window
                 Icon = new FontIcon { Glyph = Icons.ForPlace(place.Id, place.Glyph) },
             };
             AutomationProperties.SetName(item, place.Title);
+            if (SidebarSubRows.Has(place.Id))
+            {
+                _sections.Add(place.Id);
+            }
+
             if (place.Id == "settings")
             {
                 continue; // the built-in Settings item
@@ -566,6 +576,20 @@ internal sealed partial class MainWindow : Window
                 _nav.MenuItems.Add(item);
             }
         }
+
+        foreach (string placeId in _sections)
+        {
+            System.ComponentModel.INotifyPropertyChanged source = placeId switch
+            {
+                "cleanup" => _model.CleanUp,
+                "projects" => _model.Projects,
+                _ => _model.Health,
+            };
+            _windowSubs.On(source, null, RenderSectionRows);
+        }
+
+        _windowSubs.OnCollection(_model.CleanUp.Filters, RenderSectionRows);
+        _windowSubs.On(_model.Scan, nameof(ScanViewModel.HasScanned), RenderSectionRows);
 
         _nav.SelectionChanged += (_, e) =>
         {
@@ -589,6 +613,141 @@ internal sealed partial class MainWindow : Window
             SyncSelection();
         };
     }
+
+    /// <summary>Places that have rows (Clean up, Projects, Health), when they are turned on.</summary>
+    private readonly HashSet<string> _sections = new(StringComparer.Ordinal);
+
+    /// <summary>The open section's rows, at the top of the pane footer, just under the places (the user's choice: WinUI keeps its list
+    /// of places at a fixed height, so rows nested under a place would push other places out of sight on a short window).</summary>
+    private readonly StackPanel _sectionRows = new() { Spacing = 2 };
+
+    private readonly TextBlock _sectionTitle = new();
+
+    private readonly Dictionary<string, Action<SubRow>> _rowUpdates = new(StringComparer.Ordinal);
+
+    private UIElement? _sectionPanel;
+
+    private UIElement? _footerCards;
+
+    private string? _shownSection;
+
+    /// <summary>Folds the update card and alerts into one line (rows win on a short window, as the user chose).</summary>
+    private Action<bool> _foldFooter = _ => { };
+
+    /// <summary>The person clicked the folded line: show the cards in full on this section.</summary>
+    private bool _footerPinned;
+
+    private bool _footerFolded;
+
+    private double _cardsHeight;
+
+    private UIElement FooterContent()
+    {
+        (UIElement cards, Action<bool> fold) = SidebarView.FoldableFooter(_model, _windowSubs, UpdateCard.Build(_model.Background.Updates, _windowSubs), () =>
+        {
+            _footerPinned = true;
+            UpdateFold();
+        });
+        _foldFooter = fold;
+        _footerCards = cards;
+        _sectionTitle.Margin = new Thickness(Tokens.Space3, Tokens.Space1, Tokens.Space3, 0);
+        _sectionTitle.Style = Ui.Style("DsCaption");
+        _sectionRows.Margin = new Thickness(Tokens.Space1, 0, Tokens.Space1, 0);
+        _sectionPanel = Ui.V(Tokens.Space1, _sectionTitle, _sectionRows);
+        _sectionPanel.Visibility = Visibility.Collapsed;
+        return Ui.V(Tokens.Space2, _sectionPanel, cards);
+    }
+
+    /// <summary>Builds or updates the open section's rows (rebuilt only when the section or its rows change, so nothing flickers).</summary>
+    private void RenderSectionRows()
+    {
+        if (_sectionPanel is null)
+        {
+            return;
+        }
+
+        string? section = _sections.Contains(_model.Current) ? _model.Current : null;
+        IReadOnlyList<SubRow> list = section is null ? [] : SidebarSubRows.For(_model, section);
+        if (section != _shownSection || !list.Select(r => r.Tag).SequenceEqual(_rowUpdates.Keys))
+        {
+            bool newSection = section != _shownSection;
+            _shownSection = section;
+            _sectionRows.Children.Clear();
+            _rowUpdates.Clear();
+            foreach (SubRow row in list)
+            {
+                (UIElement content, Action<SubRow> update) = SidebarSubRows.Content(row);
+                string tag = row.Tag;
+                // A plain button: compact, with the system's own eased hover and pressed fills and keyboard focus.
+                var item = new Button
+                {
+                    Content = content,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                    Padding = new Thickness(0),
+                    BorderThickness = new Thickness(0),
+                    Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                };
+                item.Click += (_, _) => _model.Go(SidebarSubRows.Open(_model, tag));
+                AutomationProperties.SetName(item, row.Title);
+                _sectionRows.Children.Add(item);
+                _rowUpdates[tag] = update;
+            }
+
+            _sectionTitle.Text = section is null ? string.Empty : _model.Places.First(p => p.Id == section).Title.ToUpperInvariant();
+            Motion.Reveal(_sectionPanel, list.Count > 0);
+            if (newSection && list.Count > 0)
+            {
+                Motion.FadeIn(_sectionRows);
+            }
+
+            UpdateFold();
+        }
+
+        foreach (SubRow row in list)
+        {
+            _rowUpdates[row.Tag](row);
+        }
+    }
+
+    /// <summary>Rows win on a short window: the cards fold into one line when rows and cards together don't fit the footer.</summary>
+    private void UpdateFold()
+    {
+        if (_paneFooter is null)
+        {
+            return;
+        }
+
+        // With rows the footer keeps its full height, so a short folded footer doesn't leave a gap above the places.
+        _paneFooter.MinHeight = _shownSection is not null && _rowUpdates.Count > 0 ? _paneFooter.MaxHeight : 0;
+        if (_shownSection is null || _rowUpdates.Count == 0)
+        {
+            FoldFooter(false);
+            return;
+        }
+
+        if (!_footerFolded && _footerCards is FrameworkElement { ActualHeight: > 0 } cards)
+        {
+            _cardsHeight = cards.ActualHeight;
+        }
+
+        double rowsHeight = 28 + (_rowUpdates.Count * 34);
+        FoldFooter(!_footerPinned && rowsHeight + _cardsHeight > _paneFooter.MaxHeight);
+    }
+
+    private void FoldFooter(bool folded)
+    {
+        _footerFolded = folded;
+        _foldFooter(folded);
+    }
+
+    /// <summary>How the footer's room was shared out, for the tour log.</summary>
+    public string DescribeRoom()
+        => $"footer {_paneFooter?.ActualHeight ?? 0:0} of at most {_paneFooter?.MaxHeight ?? 0:0} px, cards {_cardsHeight:0} px, {_rowUpdates.Count} rows, folded: {_footerFolded}, pinned: {_footerPinned}";
+
+    /// <summary>The rows shown for a section right now (tests and the screenshot tour).</summary>
+    public IReadOnlyList<string> SubRowTags(string placeId)
+        => _shownSection == placeId && _sectionPanel is { Visibility: Visibility.Visible } ? [.. _rowUpdates.Keys] : [];
 
     /// <summary>Room the header, the hamburger, the four places and History and Settings need; the pane footer gets what is left.</summary>
     private const double PaneReserved = 400;
@@ -779,6 +938,8 @@ internal sealed partial class MainWindow : Window
         }
 
         SyncSelection();
+        _footerPinned = false;
+        RenderSectionRows();
 
         bool changed = _shownPage is not null && _shownPage != id;
         _shownPage = id;
@@ -816,6 +977,31 @@ internal sealed partial class MainWindow : Window
         _sheetKind = kind;
         _sheetSubs.Dispose();
         _sheetSubs = new Subscriptions();
+        _sheetMotion?.Cancel();
+        if (kind is null)
+        {
+            // Closing: the sheet fades out with its last content, then goes (as the Mac's sheets do).
+            _nav.IsEnabled = true;
+            if (_sheetLayer.Visibility == Visibility.Visible && Motion.Enabled)
+            {
+                _sheetLayer.IsHitTestVisible = false;
+                double from = _sheetLayer.Opacity;
+                _sheetMotion = Motion.Run(Motion.SwapMs, Ease.InOut, t => _sheetLayer.Opacity = Motion.Lerp(from, 0, t), () =>
+                {
+                    _sheet.Child = null;
+                    Ui.Show(_sheetLayer, false);
+                    _sheetLayer.Opacity = 1;
+                    _sheetLayer.IsHitTestVisible = true;
+                });
+                return;
+            }
+
+            _sheet.Child = null;
+            Ui.Show(_sheetLayer, false);
+            return;
+        }
+
+        _sheetLayer.IsHitTestVisible = true;
         _sheet.Child = kind switch
         {
             "welcome" => WelcomeSheet.Build(_model, _sheetSubs),
@@ -828,7 +1014,7 @@ internal sealed partial class MainWindow : Window
         _nav.IsEnabled = !open;
         if (open)
         {
-            Motion.Run(Motion.SwapMs, Ease.InOut, t => _sheetLayer.Opacity = t);
+            _sheetMotion = Motion.Run(Motion.SwapMs, Ease.InOut, t => _sheetLayer.Opacity = t);
         }
         if (open && _sheet.Child is FrameworkElement content)
         {
