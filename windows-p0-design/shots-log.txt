@@ -1,0 +1,90 @@
+19:18:33.206 tray menu: 81 GB free on Windows (C:) (not clickable)
+19:18:33.206 tray menu: ----
+19:18:33.206 tray menu: Needs attention (2) (not clickable)
+19:18:33.206 tray menu: 2 tools you use are past end of life
+19:18:33.206 tray menu: 3 new files look like secrets
+19:18:33.206 tray menu: ----
+19:18:33.206 tray menu: Recent projects (not clickable)
+19:18:33.206 tray menu: web-shop
+19:18:33.207 tray menu: inventory-api
+19:18:33.207 tray menu: payments
+19:18:33.207 tray menu: ml-notebooks
+19:18:33.207 tray menu: lfs-assets
+19:18:33.207 tray menu: ----
+19:18:33.207 tray menu: Open DevSweep
+19:18:33.207 tray menu: Scan now
+19:18:33.207 tray menu: ----
+19:18:33.207 tray menu: Quit DevSweep
+19:18:35.593 saved nav-minimum.png 984x671 brightness title bar 242 content 243
+19:18:35.594 nav: all 6 places on screen at the minimum window 1000 x 680 with the update card showing (home y=92..132; cleanup y=132..172; projects y=172..212; health y=212..252; history y=587..627; settings y=627..667)
+19:18:36.440 sidepanel: focus on the info button: True, focused element: Button 'Explain pnpm store: what happens if I clean this?'
+19:18:36.626 sidepanel: opens on the item and settles at 380 px with motion off (overlay=True)
+19:18:36.831 sidepanel: Esc closes it, the last item stays until it is gone, focus returned to the info button
+19:18:36.831 motion: off path ok (enabled=False, running=0)
+19:18:37.971 motion: on path ok, the panel slid open, cross-faded to the next item and slid shut
+19:18:37.971 sidepanel: ok
+19:18:37.988 theme: setting=Light, requested=Light, actual=Light, caption buttons=#1B1B1B, button "Light" / Theme: Light, click to change
+19:18:38.514 saved welcome-light.png 1028x779 brightness title bar 169 content 211
+19:18:39.234 saved home-light.png 1028x779 brightness title bar 242 content 241
+19:18:39.748 saved home-scanning-light.png 1028x779 brightness title bar 242 content 241
+19:18:40.565 saved cleanup-light.png 1028x779 brightness title bar 242 content 243
+19:18:41.056 saved inspector-light.png 1028x779 brightness title bar 242 content 237
+19:18:41.534 saved inspector-admin-light.png 1028x779 brightness title bar 242 content 237
+19:18:42.036 saved selection-light.png 1028x779 brightness title bar 242 content 242
+19:18:42.582 saved review-light.png 1028x779 brightness title bar 175 content 216
+19:18:43.218 saved review-done-light.png 1028x779 brightness title bar 169 content 214
+19:18:44.072 saved scanning-light.png 1028x779 brightness title bar 242 content 243
+19:18:44.781 saved projects-projects-light.png 1028x779 brightness title bar 242 content 243
+19:18:45.241 saved projects-cleanup-light.png 1028x779 brightness title bar 242 content 244
+19:18:45.712 saved projects-accounts-light.png 1028x779 brightness title bar 242 content 245
+19:18:46.157 saved projects-activity-light.png 1028x779 brightness title bar 242 content 245
+19:18:46.848 saved health-tools-light.png 1028x779 brightness title bar 242 content 243
+19:18:47.301 saved health-security-light.png 1028x779 brightness title bar 242 content 244
+19:18:47.752 saved health-ports-light.png 1028x779 brightness title bar 242 content 245
+19:18:48.414 saved history-light.png 1028x779 brightness title bar 242 content 244
+19:18:49.087 saved settings-general-light.png 1028x779 brightness title bar 242 content 245
+19:18:49.565 saved settings-modules-light.png 1028x779 brightness title bar 242 content 245
+19:18:50.041 saved settings-background-light.png 1028x779 brightness title bar 242 content 244
+19:18:50.534 saved settings-alerts-light.png 1028x779 brightness title bar 242 content 244
+19:18:51.026 saved settings-updates-light.png 1028x779 brightness title bar 242 content 243
+19:18:51.053 theme: setting=Dark, requested=Dark, actual=Dark, caption buttons=#FFFFFF, button "Dark" / Theme: Dark, click to change
+19:18:51.610 saved welcome-dark.png 1028x779 brightness title bar 23 content 38
+19:18:52.289 saved home-dark.png 1028x779 brightness title bar 34 content 52
+19:18:52.777 saved home-scanning-dark.png 1028x779 brightness title bar 34 content 51
+19:18:53.594 saved cleanup-dark.png 1028x779 brightness title bar 34 content 49
+19:18:54.075 saved inspector-dark.png 1028x779 brightness title bar 34 content 46
+19:18:54.549 saved inspector-admin-dark.png 1028x779 brightness title bar 34 content 45
+19:18:55.037 saved selection-dark.png 1028x779 brightness title bar 34 content 50
+19:18:55.587 saved review-dark.png 1028x779 brightness title bar 26 content 40
+19:18:56.202 saved review-done-dark.png 1028x779 brightness title bar 23 content 40
+19:18:57.058 saved scanning-dark.png 1028x779 brightness title bar 34 content 48
+19:18:57.778 saved projects-projects-dark.png 1028x779 brightness title bar 34 content 50
+19:18:58.247 saved projects-cleanup-dark.png 1028x779 brightness title bar 34 content 49
+19:18:58.714 saved projects-accounts-dark.png 1028x779 brightness title bar 34 content 43
+19:18:59.194 saved projects-activity-dark.png 1028x779 brightness title bar 34 content 43
+19:18:59.879 saved health-tools-dark.png 1028x779 brightness title bar 34 content 52
+19:19:00.352 saved health-security-dark.png 1028x779 brightness title bar 34 content 49
+19:19:00.819 saved health-ports-dark.png 1028x779 brightness title bar 34 content 46
+19:19:01.497 saved history-dark.png 1028x779 brightness title bar 34 content 48
+19:19:02.168 saved settings-general-dark.png 1028x779 brightness title bar 34 content 47
+19:19:02.646 saved settings-modules-dark.png 1028x779 brightness title bar 34 content 46
+19:19:03.123 saved settings-background-dark.png 1028x779 brightness title bar 34 content 47
+19:19:03.614 saved settings-alerts-dark.png 1028x779 brightness title bar 34 content 48
+19:19:04.097 saved settings-updates-dark.png 1028x779 brightness title bar 34 content 48
+19:19:04.103 theme check: welcome: brightness light content 211 / title bar 169, dark content 38 / title bar 23
+19:19:04.103 theme check: home: brightness light content 241 / title bar 242, dark content 52 / title bar 34
+19:19:04.103 theme check: home-scanning: brightness light content 241 / title bar 242, dark content 51 / title bar 34
+19:19:04.103 theme check: ok, 23 screens are clearly lighter in Light than in Dark (content and title bar)
+19:19:04.328 theme: setting=System, requested=Default, actual=Light, caption buttons=#1B1B1B, button "System" / Theme: System, click to change
+19:19:04.832 saved theme-button-system.png 1028x779 brightness title bar 242 content 241
+19:19:04.844 theme: setting=Light, requested=Light, actual=Light, caption buttons=#1B1B1B, button "Light" / Theme: Light, click to change
+19:19:05.310 saved theme-button-light.png 1028x779 brightness title bar 242 content 241
+19:19:05.330 theme: setting=Dark, requested=Dark, actual=Dark, caption buttons=#FFFFFF, button "Dark" / Theme: Dark, click to change
+19:19:05.815 saved theme-button-dark.png 1028x779 brightness title bar 34 content 52
+19:19:05.839 theme: setting=System, requested=Default, actual=Light, caption buttons=#1B1B1B, button "System" / Theme: System, click to change
+19:19:08.340 theme: setting=System, requested=Default, actual=Light, caption buttons=#1B1B1B, button "System" / Theme: System, click to change
+19:19:08.341 high contrast: on=True
+19:19:09.016 saved home-highcontrast.png 1028x779 brightness title bar 35 content 44
+19:19:09.809 saved cleanup-highcontrast.png 1028x779 brightness title bar 35 content 47
+19:19:10.350 saved review-highcontrast.png 1028x779 brightness title bar 42 content 41
+19:19:10.358 shots: 53 screenshots saved in D:\a\DevSweep\DevSweep\windows\artifacts\screenshots

@@ -1,0 +1,151 @@
+07:21:03.845 tray menu: 81 GB free on Windows (C:) (not clickable)
+07:21:03.846 tray menu: ----
+07:21:03.846 tray menu: Needs attention (2) (not clickable)
+07:21:03.846 tray menu: 2 tools you use are past end of life
+07:21:03.846 tray menu: 5 new files look like secrets
+07:21:03.846 tray menu: ----
+07:21:03.846 tray menu: Recent projects (not clickable)
+07:21:03.846 tray menu: web-shop
+07:21:03.846 tray menu: inventory-api
+07:21:03.846 tray menu: payments
+07:21:03.846 tray menu: ml-notebooks
+07:21:03.846 tray menu: lfs-assets
+07:21:03.847 tray menu: ----
+07:21:03.847 tray menu: Open DevSweep
+07:21:03.847 tray menu: Scan now
+07:21:03.847 tray menu: ----
+07:21:03.847 tray menu: Quit DevSweep
+07:21:06.239 saved nav-minimum.png 984x671 brightness title bar 242 content 243
+07:21:06.240 nav: all 6 places on screen at the minimum window 1000 x 680 with the update card showing (home y=92..132; cleanup y=132..172; projects y=172..212; health y=212..252; history y=587..627; settings y=627..667)
+07:21:07.101 sidepanel: focus on the info button: True, focused element: Button 'Explain pnpm store: what happens if I clean this?'
+07:21:07.286 sidepanel: opens on the item and settles at 380 px with motion off (overlay=True)
+07:21:07.461 sidepanel: Esc closes it, the last item stays until it is gone, focus returned to the info button
+07:21:07.461 motion: off path ok (enabled=False, running=0)
+07:21:08.600 motion: on path ok, the panel slid open, cross-faded to the next item and slid shut
+07:21:08.600 sidepanel: ok
+07:21:08.618 theme: setting=Light, requested=Light, actual=Light, caption buttons=#1B1B1B, button "Light" / Theme: Light, click to change
+07:21:09.172 saved welcome-light.png 1028x779 brightness title bar 169 content 211
+07:21:09.924 saved home-light.png 1028x779 brightness title bar 242 content 241
+07:21:10.452 saved home-scanning-light.png 1028x779 brightness title bar 242 content 241
+07:21:11.289 saved cleanup-light.png 1028x779 brightness title bar 242 content 243
+07:21:11.783 saved inspector-light.png 1028x779 brightness title bar 242 content 237
+07:21:12.260 saved inspector-admin-light.png 1028x779 brightness title bar 242 content 237
+07:21:12.770 saved selection-light.png 1028x779 brightness title bar 242 content 242
+07:21:13.328 saved review-light.png 1028x779 brightness title bar 175 content 216
+07:21:13.957 saved review-done-light.png 1028x779 brightness title bar 169 content 214
+07:21:14.846 saved scanning-light.png 1028x779 brightness title bar 242 content 243
+07:21:15.579 saved projects-projects-light.png 1028x779 brightness title bar 242 content 243
+07:21:16.050 saved projects-cleanup-light.png 1028x779 brightness title bar 242 content 244
+07:21:16.520 saved projects-accounts-light.png 1028x779 brightness title bar 242 content 245
+07:21:16.966 saved projects-activity-light.png 1028x779 brightness title bar 242 content 245
+07:21:17.687 saved health-tools-light.png 1028x779 brightness title bar 242 content 243
+07:21:18.362 saved health-tools-node-eol-light.png 1028x779 brightness title bar 242 content 236
+07:21:19.066 saved health-tools-python-light.png 1028x779 brightness title bar 242 content 236
+07:21:19.560 saved health-tools-python-notes-light.png 1028x779 brightness title bar 242 content 239
+07:21:20.234 saved health-tools-postgres-light.png 1028x779 brightness title bar 242 content 237
+07:21:20.901 saved health-tools-ok-light.png 1028x779 brightness title bar 242 content 239
+07:21:21.614 saved health-tools-packages-light.png 1028x779 brightness title bar 242 content 237
+07:21:22.117 saved health-tools-packages-scoop-light.png 1028x779 brightness title bar 242 content 237
+07:21:22.592 saved health-tools-packages-more-light.png 1028x779 brightness title bar 242 content 237
+07:21:23.263 saved health-tools-projects-light.png 1028x779 brightness title bar 242 content 239
+07:21:23.759 saved health-tools-filtered-light.png 1028x779 brightness title bar 242 content 243
+07:21:24.262 saved health-security-light.png 1028x779 brightness title bar 242 content 244
+07:21:24.900 saved health-security-aws-light.png 1028x779 brightness title bar 242 content 238
+07:21:25.552 saved health-security-env-light.png 1028x779 brightness title bar 242 content 236
+07:21:26.012 saved health-security-env-actions-light.png 1028x779 brightness title bar 242 content 237
+07:21:26.660 saved health-security-cloud-light.png 1028x779 brightness title bar 242 content 238
+07:21:27.134 saved health-security-cloud-actions-light.png 1028x779 brightness title bar 242 content 238
+07:21:27.137 health: a OneDrive finding is blocked from the Recycle Bin with a plain reason
+07:21:27.784 saved health-security-fine-light.png 1028x779 brightness title bar 242 content 238
+07:21:28.251 saved health-ports-light.png 1028x779 brightness title bar 242 content 245
+07:21:28.723 saved health-ports-selected-light.png 1028x779 brightness title bar 242 content 238
+07:21:29.383 saved health-ports-stop-confirm-light.png 1028x779 brightness title bar 242 content 237
+07:21:30.033 saved health-ports-still-running-light.png 1028x779 brightness title bar 242 content 238
+07:21:30.507 saved health-ports-refused-light.png 1028x779 brightness title bar 242 content 239
+07:21:30.960 saved health-loading-light.png 1028x779 brightness title bar 242 content 244
+07:21:31.438 saved health-notchecked-light.png 1028x779 brightness title bar 242 content 245
+07:21:31.895 saved health-failed-light.png 1028x779 brightness title bar 242 content 245
+07:21:32.356 saved health-off-light.png 1028x779 brightness title bar 242 content 245
+07:21:32.833 saved health-tools-empty-light.png 1028x779 brightness title bar 242 content 245
+07:21:33.291 saved health-security-empty-light.png 1028x779 brightness title bar 242 content 245
+07:21:33.733 saved health-ports-empty-light.png 1028x779 brightness title bar 242 content 245
+07:21:33.757 health: 13 panel actions found through UI Automation names
+07:21:34.435 saved history-light.png 1028x779 brightness title bar 242 content 244
+07:21:35.108 saved settings-general-light.png 1028x779 brightness title bar 242 content 245
+07:21:35.587 saved settings-modules-light.png 1028x779 brightness title bar 242 content 245
+07:21:36.063 saved settings-background-light.png 1028x779 brightness title bar 242 content 244
+07:21:36.570 saved settings-alerts-light.png 1028x779 brightness title bar 242 content 244
+07:21:37.064 saved settings-updates-light.png 1028x779 brightness title bar 242 content 243
+07:21:37.093 theme: setting=Dark, requested=Dark, actual=Dark, caption buttons=#FFFFFF, button "Dark" / Theme: Dark, click to change
+07:21:37.634 saved welcome-dark.png 1028x779 brightness title bar 23 content 38
+07:21:38.348 saved home-dark.png 1028x779 brightness title bar 34 content 52
+07:21:38.834 saved home-scanning-dark.png 1028x779 brightness title bar 34 content 51
+07:21:39.670 saved cleanup-dark.png 1028x779 brightness title bar 34 content 49
+07:21:40.158 saved inspector-dark.png 1028x779 brightness title bar 34 content 46
+07:21:40.653 saved inspector-admin-dark.png 1028x779 brightness title bar 34 content 45
+07:21:41.154 saved selection-dark.png 1028x779 brightness title bar 34 content 50
+07:21:41.703 saved review-dark.png 1028x779 brightness title bar 26 content 40
+07:21:42.316 saved review-done-dark.png 1028x779 brightness title bar 23 content 40
+07:21:43.182 saved scanning-dark.png 1028x779 brightness title bar 34 content 48
+07:21:43.881 saved projects-projects-dark.png 1028x779 brightness title bar 34 content 50
+07:21:44.346 saved projects-cleanup-dark.png 1028x779 brightness title bar 34 content 49
+07:21:44.812 saved projects-accounts-dark.png 1028x779 brightness title bar 34 content 43
+07:21:45.273 saved projects-activity-dark.png 1028x779 brightness title bar 34 content 43
+07:21:46.009 saved health-tools-dark.png 1028x779 brightness title bar 34 content 48
+07:21:46.688 saved health-tools-node-eol-dark.png 1028x779 brightness title bar 34 content 48
+07:21:47.390 saved health-tools-python-dark.png 1028x779 brightness title bar 34 content 49
+07:21:47.881 saved health-tools-python-notes-dark.png 1028x779 brightness title bar 34 content 49
+07:21:48.578 saved health-tools-postgres-dark.png 1028x779 brightness title bar 34 content 48
+07:21:49.254 saved health-tools-ok-dark.png 1028x779 brightness title bar 34 content 44
+07:21:49.970 saved health-tools-packages-dark.png 1028x779 brightness title bar 34 content 46
+07:21:50.458 saved health-tools-packages-scoop-dark.png 1028x779 brightness title bar 34 content 49
+07:21:50.931 saved health-tools-packages-more-dark.png 1028x779 brightness title bar 34 content 48
+07:21:51.597 saved health-tools-projects-dark.png 1028x779 brightness title bar 34 content 48
+07:21:52.095 saved health-tools-filtered-dark.png 1028x779 brightness title bar 34 content 46
+07:21:52.586 saved health-security-dark.png 1028x779 brightness title bar 34 content 47
+07:21:53.226 saved health-security-aws-dark.png 1028x779 brightness title bar 34 content 43
+07:21:53.897 saved health-security-env-dark.png 1028x779 brightness title bar 34 content 47
+07:21:54.365 saved health-security-env-actions-dark.png 1028x779 brightness title bar 34 content 47
+07:21:55.013 saved health-security-cloud-dark.png 1028x779 brightness title bar 34 content 44
+07:21:55.475 saved health-security-cloud-actions-dark.png 1028x779 brightness title bar 34 content 44
+07:21:55.478 health: a OneDrive finding is blocked from the Recycle Bin with a plain reason
+07:21:56.121 saved health-security-fine-dark.png 1028x779 brightness title bar 34 content 44
+07:21:56.591 saved health-ports-dark.png 1028x779 brightness title bar 34 content 47
+07:21:57.070 saved health-ports-selected-dark.png 1028x779 brightness title bar 34 content 46
+07:21:57.722 saved health-ports-stop-confirm-dark.png 1028x779 brightness title bar 34 content 46
+07:21:58.370 saved health-ports-still-running-dark.png 1028x779 brightness title bar 34 content 47
+07:21:58.846 saved health-ports-refused-dark.png 1028x779 brightness title bar 34 content 42
+07:21:59.298 saved health-loading-dark.png 1028x779 brightness title bar 34 content 45
+07:21:59.776 saved health-notchecked-dark.png 1028x779 brightness title bar 34 content 44
+07:22:00.231 saved health-failed-dark.png 1028x779 brightness title bar 34 content 41
+07:22:00.692 saved health-off-dark.png 1028x779 brightness title bar 34 content 44
+07:22:01.185 saved health-tools-empty-dark.png 1028x779 brightness title bar 34 content 42
+07:22:01.626 saved health-security-empty-dark.png 1028x779 brightness title bar 34 content 43
+07:22:02.067 saved health-ports-empty-dark.png 1028x779 brightness title bar 34 content 43
+07:22:02.090 health: 26 panel actions found through UI Automation names
+07:22:02.787 saved history-dark.png 1028x779 brightness title bar 34 content 48
+07:22:03.460 saved settings-general-dark.png 1028x779 brightness title bar 34 content 47
+07:22:03.937 saved settings-modules-dark.png 1028x779 brightness title bar 34 content 46
+07:22:04.428 saved settings-background-dark.png 1028x779 brightness title bar 34 content 47
+07:22:04.936 saved settings-alerts-dark.png 1028x779 brightness title bar 34 content 48
+07:22:05.399 saved settings-updates-dark.png 1028x779 brightness title bar 34 content 48
+07:22:05.405 theme check: welcome: brightness light content 211 / title bar 169, dark content 38 / title bar 23
+07:22:05.405 theme check: home: brightness light content 241 / title bar 242, dark content 52 / title bar 34
+07:22:05.405 theme check: home-scanning: brightness light content 241 / title bar 242, dark content 51 / title bar 34
+07:22:05.405 theme check: ok, 50 screens are clearly lighter in Light than in Dark (content and title bar)
+07:22:05.633 theme: setting=System, requested=Default, actual=Light, caption buttons=#1B1B1B, button "System" / Theme: System, click to change
+07:22:06.103 saved theme-button-system.png 1028x779 brightness title bar 242 content 241
+07:22:06.116 theme: setting=Light, requested=Light, actual=Light, caption buttons=#1B1B1B, button "Light" / Theme: Light, click to change
+07:22:06.581 saved theme-button-light.png 1028x779 brightness title bar 242 content 241
+07:22:06.600 theme: setting=Dark, requested=Dark, actual=Dark, caption buttons=#FFFFFF, button "Dark" / Theme: Dark, click to change
+07:22:07.058 saved theme-button-dark.png 1028x779 brightness title bar 34 content 52
+07:22:07.077 theme: setting=System, requested=Default, actual=Light, caption buttons=#1B1B1B, button "System" / Theme: System, click to change
+07:22:09.587 theme: setting=System, requested=Default, actual=Light, caption buttons=#1B1B1B, button "System" / Theme: System, click to change
+07:22:09.588 high contrast: on=True
+07:22:10.221 saved home-highcontrast.png 1028x779 brightness title bar 35 content 44
+07:22:11.012 saved cleanup-highcontrast.png 1028x779 brightness title bar 35 content 47
+07:22:11.557 saved review-highcontrast.png 1028x779 brightness title bar 42 content 41
+07:22:12.368 saved health-tools-highcontrast.png 1028x779 brightness title bar 35 content 49
+07:22:12.861 saved health-security-highcontrast.png 1028x779 brightness title bar 35 content 44
+07:22:13.347 saved health-ports-highcontrast.png 1028x779 brightness title bar 35 content 46
+07:22:13.361 shots: 110 screenshots saved in D:\a\DevSweep\DevSweep\windows\artifacts\screenshots
