@@ -678,8 +678,19 @@ internal sealed partial class MainWindow : Window
             {
                 (UIElement content, Action<SubRow> update) = SidebarSubRows.Content(row);
                 string tag = row.Tag;
-                var item = new ListRow(content, () => _model.Go(SidebarSubRows.Open(_model, tag)), row.Title);
-                _sectionRows.Children.Add(item.Root);
+                // A plain button: compact, with the system's own eased hover and pressed fills and keyboard focus.
+                var item = new Button
+                {
+                    Content = content,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                    Padding = new Thickness(0),
+                    BorderThickness = new Thickness(0),
+                    Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                };
+                item.Click += (_, _) => _model.Go(SidebarSubRows.Open(_model, tag));
+                AutomationProperties.SetName(item, row.Title);
+                _sectionRows.Children.Add(item);
                 _rowUpdates[tag] = update;
             }
 
@@ -702,7 +713,14 @@ internal sealed partial class MainWindow : Window
     /// <summary>Rows win on a short window: the cards fold into one line when rows and cards together don't fit the footer.</summary>
     private void UpdateFold()
     {
-        if (_shownSection is null || _rowUpdates.Count == 0 || _paneFooter is null)
+        if (_paneFooter is null)
+        {
+            return;
+        }
+
+        // With rows the footer keeps its full height, so a short folded footer doesn't leave a gap above the places.
+        _paneFooter.MinHeight = _shownSection is not null && _rowUpdates.Count > 0 ? _paneFooter.MaxHeight : 0;
+        if (_shownSection is null || _rowUpdates.Count == 0)
         {
             FoldFooter(false);
             return;
@@ -713,7 +731,7 @@ internal sealed partial class MainWindow : Window
             _cardsHeight = cards.ActualHeight;
         }
 
-        double rowsHeight = 28 + (_rowUpdates.Count * 40);
+        double rowsHeight = 28 + (_rowUpdates.Count * 34);
         FoldFooter(!_footerPinned && rowsHeight + _cardsHeight > _paneFooter.MaxHeight);
     }
 
