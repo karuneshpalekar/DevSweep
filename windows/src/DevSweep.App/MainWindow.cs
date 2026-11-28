@@ -533,7 +533,7 @@ internal sealed partial class MainWindow : Window
         // whose height is what is left once the header and the places (and History and Settings) have their room.
         _paneFooter = new ScrollViewer
         {
-            Content = SidebarView.Footer(_model, _windowSubs, UpdateCard.Build(_model.Background.Updates, _windowSubs)),
+            Content = FooterContent(),
             MaxHeight = 190,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
@@ -629,11 +629,62 @@ internal sealed partial class MainWindow : Window
 
     private readonly Dictionary<string, (NavigationViewItem Parent, Dictionary<string, Action<SubRow>> Rows)> _subRows = new(StringComparer.Ordinal);
 
+    /// <summary>Folds the update card and alerts into one line (rows win on a short window, as the user chose).</summary>
+    private Action<bool> _foldFooter = _ => { };
+
+    /// <summary>The person clicked the folded line: show the cards in full on this section, even if its rows then don't fit.</summary>
+    private bool _footerPinned;
+
+    private bool _footerFolded;
+
+    private UIElement FooterContent()
+    {
+        (UIElement root, Action<bool> fold) = SidebarView.FoldableFooter(_model, _windowSubs, UpdateCard.Build(_model.Background.Updates, _windowSubs), () =>
+        {
+            _footerPinned = true;
+            UpdateExpansion(_nav.IsPaneOpen);
+        });
+        _foldFooter = fold;
+        return root;
+    }
+
+    private void FoldFooter(bool folded)
+    {
+        _footerFolded = folded;
+        _foldFooter(folded);
+    }
+
+    /// <summary>How the sidebar's room was shared out, for the tour log.</summary>
+    public string DescribeRoom()
+    {
+        ScrollViewer? viewer = MenuViewer();
+        return $"list {viewer?.ActualHeight ?? 0:0} px (room {(viewer is null ? 0 : ListRoom(viewer)):0} px), footer {_paneFooter?.ActualHeight ?? 0:0} px, footer folded: {_footerFolded}, pinned: {_footerPinned}";
+    }
+
+    private ScrollViewer? MenuViewer()
+    {
+        if (NavItem("home") is not { } home)
+        {
+            return null;
+        }
+
+        for (DependencyObject? parent = VisualTreeHelper.GetParent(home); parent is not null; parent = VisualTreeHelper.GetParent(parent))
+        {
+            if (parent is ScrollViewer viewer)
+            {
+                return viewer;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Builds or updates the rows under a section (rebuilt only when the set of rows changes, so nothing flickers).</summary>
     private void RenderSubRows(string placeId)
     {
         (NavigationViewItem parent, Dictionary<string, Action<SubRow>> rows) = _subRows[placeId];
-        IReadOnlyList<SubRow> list = SidebarSubRows.For(_model, placeId);
+        // Only the open section has rows (others have no children, so no chevron), as on the Mac.
+        IReadOnlyList<SubRow> list = placeId == _model.Current ? SidebarSubRows.For(_model, placeId) : [];
         if (!list.Select(r => r.Tag).SequenceEqual(rows.Keys))
         {
             parent.MenuItems.Clear();
@@ -678,28 +729,27 @@ internal sealed partial class MainWindow : Window
     /// </summary>
     private bool RoomForRows(int rows)
     {
-        if (NavItem("home") is not { } home)
+        if (MenuViewer() is not { ActualHeight: > 0 } viewer)
         {
             return true;
         }
 
-        ScrollViewer? viewer = null;
-        for (DependencyObject? parent = VisualTreeHelper.GetParent(home); parent is not null && viewer is null; parent = VisualTreeHelper.GetParent(parent))
-        {
-            viewer = parent as ScrollViewer;
-        }
-
-        if (viewer is not { ActualHeight: > 0 })
-        {
-            return true;
-        }
-
-        // Let the pane footer's cards give up their room first, lay out for real, then measure the list (no guessing).
-        _expandedRows = rows;
-        FitPaneFooter();
         _root.UpdateLayout();
         double needed = (_nav.MenuItems.Count * PlaceHeight) + (rows * SubRowHeight);
-        return needed <= viewer.ActualHeight;
+        return needed <= ListRoom(viewer);
+    }
+
+    /// <summary>The height the places' list can grow to: from its top to the pane footer's top (or its own bottom when there is no footer).</summary>
+    private double ListRoom(ScrollViewer viewer)
+    {
+        double top = viewer.TransformToVisual(_root).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+        if (_paneFooter is { Visibility: Visibility.Visible, ActualHeight: > 0 } footer)
+        {
+            double footerTop = footer.TransformToVisual(_root).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+            return Math.Max(viewer.ActualHeight, footerTop - top);
+        }
+
+        return viewer.ActualHeight;
     }
 
     private void FitPaneFooter()
@@ -714,16 +764,32 @@ internal sealed partial class MainWindow : Window
     private void UpdateExpansion(bool paneOpen)
     {
         int expanded = 0;
+        bool fold = false;
         foreach (KeyValuePair<string, (NavigationViewItem Parent, Dictionary<string, Action<SubRow>> Rows)> entry in _subRows)
         {
-            bool open = paneOpen && entry.Key == _model.Current && entry.Value.Rows.Count > 0 && RoomForRows(entry.Value.Rows.Count);
-            expanded += open ? entry.Value.Rows.Count : 0;
+            bool open = false;
+            int count = entry.Value.Rows.Count;
+            if (paneOpen && entry.Key == _model.Current && count > 0)
+            {
+                // Rows win on a short window: try with the cards in full, then folded into one line, unless the person asked for the cards.
+                FoldFooter(false);
+                open = RoomForRows(count);
+                if (!open && !_footerPinned)
+                {
+                    FoldFooter(true);
+                    open = RoomForRows(count);
+                    fold = open;
+                }
+            }
+
+            expanded += open ? count : 0;
             if (entry.Value.Parent.IsExpanded != open)
             {
                 entry.Value.Parent.IsExpanded = open;
             }
         }
 
+        FoldFooter(fold);
         _expandedRows = expanded;
         FitPaneFooter();
     }
@@ -921,6 +987,12 @@ internal sealed partial class MainWindow : Window
         }
 
         SyncSelection();
+        _footerPinned = false;
+        foreach (string section in _subRows.Keys.ToList())
+        {
+            RenderSubRows(section);
+        }
+
         UpdateExpansion(_nav.IsPaneOpen);
 
         bool changed = _shownPage is not null && _shownPage != id;

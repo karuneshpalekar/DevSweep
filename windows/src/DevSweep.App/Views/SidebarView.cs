@@ -73,8 +73,60 @@ internal static class SidebarView
         return grid;
     }
 
+    /// <summary>
+    /// The pane footer: the update card, up to two attention cards under "Needs your attention", and the last scan / next scan line.
+    /// <c>fold(true)</c> folds the update card and the cards into one summary line ("2 alerts · Update available"), so a section's
+    /// rows have room on a short window; clicking the line runs <paramref name="unfold"/>.
+    /// </summary>
+    public static (UIElement Root, Action<bool> Fold) FoldableFooter(MainViewModel model, Subscriptions subs, UIElement updateCard, Action unfold)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        var updateHost = new Border { Child = updateCard };
+        StackPanel full = Footer(model, subs, updateHost, out UIElement alerts, out _);
+        HyperlinkButton summary = Ui.Link(string.Empty, unfold, "Show the update and the alerts");
+        summary.Margin = new Thickness(Tokens.Space2, 0, Tokens.Space2, 0);
+        summary.Visibility = Visibility.Collapsed;
+        bool folded = false;
+        void Refresh()
+        {
+            int alertCount = model.Sidebar.Cards.Count;
+            bool update = model.Background.Updates.ShowCard;
+            var parts = new List<string>();
+            if (alertCount > 0)
+            {
+                parts.Add(alertCount == 1 ? "1 alert" : $"{alertCount} alerts");
+            }
+
+            if (update)
+            {
+                parts.Add("Update available");
+            }
+
+            summary.Content = string.Join(" · ", parts);
+            AutomationProperties.SetName(summary, (string)summary.Content + ": show them");
+            updateHost.Visibility = folded ? Visibility.Collapsed : Visibility.Visible;
+            alerts.Visibility = folded ? Visibility.Collapsed : Visibility.Visible;
+            summary.Visibility = folded && parts.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        subs.On(model.Sidebar, null, Refresh);
+        subs.On(model.Background.Updates, null, Refresh);
+        full.Children.Insert(0, summary);
+        return (full, f =>
+        {
+            if (folded != f)
+            {
+                folded = f;
+                Refresh();
+            }
+        });
+    }
+
     /// <summary>The pane footer: the update card, up to two attention cards under "Needs your attention", and the last scan / next scan line.</summary>
     public static StackPanel Footer(MainViewModel model, Subscriptions subs, UIElement updateCard)
+        => Footer(model, subs, updateCard, out _, out _);
+
+    private static StackPanel Footer(MainViewModel model, Subscriptions subs, UIElement updateCard, out UIElement alerts, out UIElement statusLine)
     {
         SidebarViewModel side = model.Sidebar;
         TextBlock heading = Ui.Caption("NEEDS YOUR ATTENTION");
@@ -95,7 +147,9 @@ internal static class SidebarView
 
             status.Text = side.StatusLine;
         });
-        return Ui.V(0, updateCard, heading, cards, status);
+        alerts = Ui.V(0, heading, cards);
+        statusLine = status;
+        return Ui.V(0, updateCard, alerts, status);
     }
 
     private static UIElement Card(MainViewModel model, AttentionRow row)

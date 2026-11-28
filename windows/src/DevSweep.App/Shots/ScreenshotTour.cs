@@ -102,7 +102,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         }
 
         // The rows open only when every place still fits; the CI display (about 1030 x 790) may not have the room.
-        Log.Write($"sidebar: Health {(shown.Count > 0 ? $"shows its {shown.Count} rows" : "stays closed (no room at this window height)")}");
+        Log.Write($"sidebar: Health {(shown.Count > 0 ? $"shows its {shown.Count} rows" : "stays closed (no room at this window height)")}; {window.DescribeRoom()}");
         if (rows.Count != model.Health.Tabs.Count || rows.Count < 2)
         {
             throw new InvalidOperationException($"Health should have a row for each of its {model.Health.Tabs.Count} tabs; it has [{string.Join(", ", rows)}].");
@@ -122,7 +122,7 @@ internal sealed partial class ScreenshotTour(MainWindow window, MainViewModel mo
         }
 
         await ShotAsync("sidebar-subrows", suffix);
-        Log.Write($"sidebar: Health shows {rows.Count} rows ({string.Join(", ", rows)}); {rows[^1]} opens its tab");
+        Log.Write($"sidebar: picking {rows[^1]} opens its tab");
         model.Health.Tab = before;
         await GoAsync("cleanup");
     }
